@@ -1,0 +1,52 @@
+{
+  "description": "Package root for Reactiflux's jobs bot",
+  "private": true,
+  "scripts": {
+    "start": "node dist/src/index.js",
+    "start:commands": "node dist/scripts/deploy-commands.js",
+    "dev": "npm-run-all --parallel 'dev:bot' 'dev:commands'",
+    "dev:bot": "ts-node-dev -r dotenv/config src/index.ts",
+    "dev:commands": "nodemon --watch scripts --exec 'ts-node -r dotenv/config' ./scripts/deploy-commands.ts",
+    "build": "tsc",
+    "test": "eslint --ext js,ts . && prettier --check .",
+    "prettier": "prettier --write .",
+    "knex": "knex --esm",
+    "cwd": "pwd"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reactiflux/reactibot.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@discordjs/builders": "^0.12.0",
+    "@discordjs/rest": "^0.3.0",
+    "@types/node-cron": "^3.0.1",
+    "date-fns": "^2.27.0",
+    "discord-api-types": "^0.29.0",
+    "discord.js": "^13.5.0",
+    "dotenv": "^10.0.0",
+    "node-cron": "^3.0.0",
+    "node-fetch": "^2.6.7",
+    "query-string": "^6.2.0",
+    "reacord": "^0.3.4",
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.5",
+    "@types/node-fetch": "^2.5.4",
+    "@types/open-graph-scraper": "^4.8.1",
+    "@typescript-eslint/eslint-plugin": "^5.9.0",
+    "@typescript-eslint/parser": "^5.9.0",
+    "eslint": "^8.6.0",
+    "eslint-config-prettier": "^8.3.0",
+    "nodemon": "^2.0.15",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^2.3.2",
+    "ts-node-dev": "^1.0.0-pre.44",
+    "typescript": "^4.5.4"
+  },
+  "prettier": {
+    "trailingComma": "all"
+  }
+}

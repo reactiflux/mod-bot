@@ -1,0 +1,9 @@
+.DS_Store
+node_modules
+.env*
+dist
+.vscode
+package-lock.json
+*.log
+k8s-context
+*.sqlite3
