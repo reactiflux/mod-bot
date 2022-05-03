@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "target": "ES2020",
+    "module": "commonjs",
+    "sourceMap": true,
+    "outDir": "dist",
+    "strict": true,
+    "allowJs": false,
+    "jsx": "react-jsx",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "~/*": ["./app/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "scripts"],
+  "exclude": ["node_modules"]
+}
