@@ -183,6 +183,18 @@ export async function completeOauthLogin(request: Request) {
   return redirect("/", { headers });
 }
 
+export async function refreshSession(request: Request) {
+  const dbSession = await getDbSession(request.headers.get("Cookie"));
+
+  const storedToken = await dbSession.get("discordToken");
+  const token = parseToken(storedToken);
+  const newToken = await token.refresh();
+  dbSession.set("discordToken", JSON.stringify(newToken));
+  return new Response("OK", {
+    headers: { "Set-Cookie": await commitDbSession(dbSession) },
+  });
+}
+
 export async function logout(request: Request) {
   const [cookieSession, dbSession] = await Promise.all([
     getCookieSession(request.headers.get("Cookie")),
