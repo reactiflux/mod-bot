@@ -6,7 +6,7 @@ const defaultConfig = {
   connection: {
     filename: "./jobs-bot.sqlite3",
   },
-  useNullAsDefault: false,
+  useNullAsDefault: true,
 };
 
 export default {
