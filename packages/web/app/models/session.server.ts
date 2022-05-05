@@ -167,6 +167,14 @@ export async function completeOauthLogin(request: Request) {
     getCookieSession(request.headers.get("Cookie")),
     getDbSession(request.headers.get("Cookie")),
   ]);
+
+  // 401 if the state arg doesn't match
+  const url = new URL(request.url);
+  const state = url.searchParams.get("state");
+  if (dbSession.get("state") !== state) {
+    throw redirect("/login", 401);
+  }
+
   cookieSession.set(USER_SESSION_KEY, userId);
   dbSession.unset("state");
   dbSession.set("discordToken", JSON.stringify(token));
