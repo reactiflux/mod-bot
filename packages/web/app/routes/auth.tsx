@@ -1,5 +1,5 @@
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 
 import { getUserId, initOauthLogin } from "~/models/session.server";
 import { Login } from "~/components/login";

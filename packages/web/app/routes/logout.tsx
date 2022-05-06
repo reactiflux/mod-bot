@@ -1,12 +1,11 @@
 import type { ActionFunction } from "@remix-run/node";
+import { Form } from "@remix-run/react";
 
 import { logout } from "~/models/session.server";
 
 export const action: ActionFunction = async ({ request }) => {
   return await logout(request);
 };
-
-import { Form } from "@remix-run/react";
 
 export default function Logout({
   errors,
@@ -26,7 +25,9 @@ export default function Logout({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               {Object.values(errors || {}).map((error) => (
-                <p className="text-red-500">{error}</p>
+                <p key={error} className="text-red-500">
+                  {error}
+                </p>
               ))}
             </div>
           </div>

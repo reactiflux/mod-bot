@@ -146,6 +146,7 @@ export async function completeOauthLogin(request: Request) {
   const token = await fetchToken();
   const discordUser = await fetchUser(token);
 
+  // Retrieve our user from Discord ID
   let userId;
   try {
     const user = await getUserByExternalId(discordUser.id);

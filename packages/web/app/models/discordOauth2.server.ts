@@ -1,8 +1,5 @@
-import {
-  AccessToken,
-  AuthorizationCode,
-  ClientCredentials,
-} from "simple-oauth2";
+import { AuthorizationCode, ClientCredentials } from "simple-oauth2";
+import type { AccessToken } from "simple-oauth2";
 
 const config = {
   client: {

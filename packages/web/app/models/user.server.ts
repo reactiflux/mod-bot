@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
 import knex from "~/db.server";

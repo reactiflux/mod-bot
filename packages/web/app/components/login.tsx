@@ -18,7 +18,9 @@ export function Login({ errors }: { errors?: { [k: string]: string } }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               {Object.values(errors || {}).map((error) => (
-                <p className="text-red-500">{error}</p>
+                <p key={error} className="text-red-500">
+                  {error}
+                </p>
               ))}
             </div>
           </div>
