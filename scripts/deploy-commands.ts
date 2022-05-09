@@ -3,17 +3,12 @@ import {
   SlashCommandBuilder,
 } from "@discordjs/builders";
 import { REST } from "@discordjs/rest";
-import {
-  APIApplicationCommand,
-  ApplicationCommandType,
-  Routes,
-} from "discord-api-types/v9";
-import { applicationId, discordToken, guildId } from "../src/constants";
-import { logger } from "../src/features/log";
-import { difference } from "../src/helpers/sets";
+import type { APIApplicationCommand } from "discord-api-types/v9";
+import { ApplicationCommandType, Routes } from "discord-api-types/v9";
+import { applicationId, discordToken, guildId } from "~/constants";
+import { difference } from "~/helpers/sets";
 
-import * as report from "../src/commands/report";
-import * as onboarding from "../src/commands/onboarding";
+import * as demo from "~/commands/demo";
 
 // TODO: make this a global command in production
 const upsertUrl = () => Routes.applicationGuildCommands(applicationId, guildId);
@@ -25,7 +20,7 @@ interface CommandConfig {
   description: string;
   type: ApplicationCommandType;
 }
-const cmds: CommandConfig[] = [report, onboarding];
+const cmds: CommandConfig[] = [demo];
 
 const commands = [
   ...cmds
@@ -72,14 +67,14 @@ const deploy = async () => {
     .map((x) => remoteCommands.find((y) => y.name === x)?.id)
     .filter((x): x is string => Boolean(x));
 
-  logger.log(
+  console.log(
     "DEPLOY",
     `local/remote:
 [${[...names].join(",")}]
 [${[...remoteNames].join(",")}]`,
   );
 
-  logger.log(
+  console.log(
     "DEPLOY",
     `Removing ${toDelete.length} commands: [${deleteNames.join(",")}]`,
   );
@@ -115,7 +110,7 @@ const deploy = async () => {
       }),
   );
 
-  logger.log(
+  console.log(
     "DEPLOY",
     `Found changes to ${toUpdate.length} commands: [${toUpdate
       .map((x) => x.name)
@@ -123,11 +118,11 @@ const deploy = async () => {
   );
 
   if (toUpdate.length === 0) {
-    logger.log("DEPLOY", `No changes found, not upserting.`);
+    console.log("DEPLOY", `No changes found, not upserting.`);
     return;
   }
 
-  logger.log(
+  console.log(
     "DEPLOY",
     `Found ${toUpdate.length} change: [${toUpdate
       .map((x) => x.name)
@@ -139,5 +134,5 @@ const deploy = async () => {
 try {
   deploy();
 } catch (e) {
-  logger.log("DEPLOY EXCEPTION", e as string);
+  console.log("DEPLOY EXCEPTION", e as string);
 }

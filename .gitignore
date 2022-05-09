@@ -1,5 +1,7 @@
 .DS_Store
 node_modules
+/build
+/public/build
 .env*
 dist
 .vscode
@@ -7,3 +9,5 @@ package-lock.json
 *.log
 k8s-context
 *.sqlite3
+/cypress/screenshots
+/cypress/videos

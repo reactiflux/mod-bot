@@ -1,31 +1,59 @@
-FROM node:16-alpine as build
-WORKDIR /build/jobs-bot
+# base node image
+FROM node:16-bullseye-slim as base
 
-RUN apk update && apk upgrade && \
-    apk add --no-cache bash
+# set for base and all layer that inherit from it
+ENV NODE_ENV production
 
-COPY package.json yarn.lock ./
+# Install openssl for Prisma
+RUN apt-get update && apt-get install -y openssl sqlite3
 
-ENV YARN_CACHE_FOLDER=/cache/yarn
-VOLUME /cache/yarn
-RUN yarn
+# Install all node_modules, including dev dependencies
+FROM base as deps
 
-COPY tsconfig.json .eslint* .prettierignore ./
-COPY scripts ./scripts
+WORKDIR /myapp
 
-RUN yarn test
-RUN yarn build
+ADD package.json package-lock.json ./
+RUN npm install --production=false
 
-FROM node:16-alpine
-WORKDIR /build/jobs-bot
+# Setup production node_modules
+FROM base as production-deps
 
-ENV YARN_CACHE_FOLDER=/cache/yarn
-COPY --from=build /cache/yarn /cache/yarn
+WORKDIR /myapp
 
-COPY --from=build /build/jobs-bot/package.json /build/jobs-bot/yarn.lock ./
-COPY --from=build /build/jobs-bot/dist dist
+COPY --from=deps /myapp/node_modules /myapp/node_modules
+ADD package.json package-lock.json ./
+RUN npm prune --production
 
-ENV NODE_ENV=production
-RUN yarn
+# Build the app
+FROM base as build
 
-CMD ["yarn", "start"]
+WORKDIR /myapp
+
+COPY --from=deps /myapp/node_modules /myapp/node_modules
+
+ADD prisma .
+RUN npx prisma generate
+
+ADD . .
+RUN npm run build
+
+# Finally, build the production image with minimal footprint
+FROM base
+
+ENV DATABASE_URL=file:/data/sqlite.db
+ENV PORT="8080"
+ENV NODE_ENV="production"
+
+# add shortcut for connecting to database CLI
+RUN echo "#!/bin/sh\nset -x\nsqlite3 \$DATABASE_URL" > /usr/local/bin/database-cli && chmod +x /usr/local/bin/database-cli
+
+WORKDIR /myapp
+
+COPY --from=production-deps /myapp/node_modules /myapp/node_modules
+COPY --from=build /myapp/node_modules/.prisma /myapp/node_modules/.prisma
+
+COPY --from=build /myapp/build /myapp/build
+COPY --from=build /myapp/public /myapp/public
+ADD . .
+
+CMD ["npm", "start"]
