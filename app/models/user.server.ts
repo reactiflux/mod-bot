@@ -34,7 +34,9 @@ export async function createUser(
     },
     ["id"],
   );
-  return out.at(0)?.id;
+  const first = out.at(0);
+  if (!first) throw Error("Failed to create user!");
+  return first.id;
 }
 
 export async function deleteUserByEmail(email: User["email"]) {

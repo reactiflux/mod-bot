@@ -1,12 +1,12 @@
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 
-import { getUserId, initOauthLogin } from "~/models/session.server";
+import { getUser, initOauthLogin } from "~/models/session.server";
 import { Login } from "~/components/login";
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const userId = await getUserId(request);
-  if (userId) return redirect("/");
+  const user = await getUser(request);
+  if (user) return redirect("/");
   return redirect("/login");
 };
 

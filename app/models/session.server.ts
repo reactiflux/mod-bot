@@ -7,6 +7,7 @@ import {
 } from "@remix-run/node";
 import invariant from "tiny-invariant";
 import { randomUUID } from "crypto";
+import { AuthorizationCode } from "simple-oauth2";
 
 import knex from "~/db.server";
 import type { User } from "~/models/user.server";
@@ -15,22 +16,28 @@ import {
   getUserByExternalId,
   getUserById,
 } from "~/models/user.server";
-import {
-  fetchUser,
-  authUrl,
-  fetchToken,
-  parseToken,
-} from "~/models/discordOauth2.server";
+import { fetchUser } from "~/models/discord.server";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
-interface Session {
-  id: string;
-  data?: string;
-  expires?: string;
-}
+const config = {
+  client: {
+    id: process.env.DISCORD_APP_ID || "",
+    secret: process.env.DISCORD_SECRET || "",
+  },
+  auth: {
+    tokenHost: "https://discord.com",
+    tokenPath: "/api/oauth2/token",
+    authorizePath: "/api/oauth2/authorize",
+    revokePath: "/api/oauth2/revoke",
+  },
+};
 
-export const {
+const authorization = new AuthorizationCode(config);
+
+const SCOPE = "identify email";
+
+const {
   commitSession: commitCookieSession,
   destroySession: destroyCookieSession,
   getSession: getCookieSession,
@@ -46,7 +53,13 @@ export const {
   },
 });
 
-export const {
+interface Session {
+  id: string;
+  data?: string;
+  expires?: string;
+}
+
+const {
   commitSession: commitDbSession,
   destroySession: destroyDbSession,
   getSession: getDbSession,
@@ -87,7 +100,7 @@ export const {
 
 const USER_SESSION_KEY = "userId";
 
-export async function getUserId(request: Request): Promise<string | undefined> {
+async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getCookieSession(request.headers.get("Cookie"));
   const userId = session.get(USER_SESSION_KEY);
   return userId;
@@ -124,9 +137,10 @@ export async function requireUser(request: Request) {
   throw await logout(request);
 }
 
+const OAUTH_REDIRECT = "http://localhost:3000/discord-oauth";
+
 export async function initOauthLogin({
   request,
-  redirectTo,
 }: {
   request: Request;
   redirectTo: string;
@@ -135,17 +149,34 @@ export async function initOauthLogin({
 
   const state = randomUUID();
   dbSession.set("state", state);
-  return redirect(authUrl({ redirect: redirectTo, state }), {
-    headers: {
-      "Set-Cookie": await commitDbSession(dbSession, {
-        maxAge: 60 * 60 * 1, // 1 hour
-      }),
+  return redirect(
+    authorization.authorizeURL({
+      redirect_uri: OAUTH_REDIRECT,
+      state,
+      scope: SCOPE,
+    }),
+    {
+      headers: {
+        "Set-Cookie": await commitDbSession(dbSession, {
+          maxAge: 60 * 60 * 1, // 1 hour
+        }),
+      },
     },
-  });
+  );
 }
 
 export async function completeOauthLogin(request: Request) {
-  const token = await fetchToken();
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  if (!code) {
+    throw json({ message: `Discord didn't send an auth code` }, 500);
+  }
+
+  const token = await authorization.getToken({
+    scope: SCOPE,
+    code,
+    redirect_uri: OAUTH_REDIRECT,
+  });
   const discordUser = await fetchUser(token);
 
   // Retrieve our user from Discord ID
@@ -172,7 +203,6 @@ export async function completeOauthLogin(request: Request) {
   ]);
 
   // 401 if the state arg doesn't match
-  const url = new URL(request.url);
   const state = url.searchParams.get("state");
   console.log({ state, dbState: dbSession.get("state") });
   if (dbSession.get("state") !== state) {
@@ -199,7 +229,7 @@ export async function refreshSession(request: Request) {
   const dbSession = await getDbSession(request.headers.get("Cookie"));
 
   const storedToken = await dbSession.get("discordToken");
-  const token = parseToken(storedToken);
+  const token = authorization.createToken(JSON.parse(storedToken));
   const newToken = await token.refresh();
   dbSession.set("discordToken", JSON.stringify(newToken));
   return new Response("OK", {
