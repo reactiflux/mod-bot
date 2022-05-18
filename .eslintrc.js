@@ -1,21 +1,19 @@
+/**
+ * @type {import('@types/eslint').Linter.BaseConfig}
+ */
 module.exports = {
-  root: true,
-  parser: "@typescript-eslint/parser",
-  plugins: ["@typescript-eslint"],
   extends: [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/eslint-recommended",
-    "plugin:@typescript-eslint/recommended",
+    "@remix-run/eslint-config",
+    "@remix-run/eslint-config/node",
+    "@remix-run/eslint-config/jest-testing-library",
     "prettier",
   ],
-  env: {
-    node: true,
-    commonjs: true,
-  },
-  rules: {
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-use-before-define": "off",
-    "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/camelcase": "off",
+  // we're using vitest which has a very similar API to jest
+  // (so the linting plugins work nicely), but it we have to explicitly
+  // set the jest version.
+  settings: {
+    jest: {
+      version: 27,
+    },
   },
 };
