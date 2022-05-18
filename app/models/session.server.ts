@@ -69,7 +69,6 @@ const {
     sameSite: "lax",
   },
   async createData(data, expires) {
-    console.log({ data, expires });
     const result = await knex<Session>("sessions").insert(
       {
         id: randomUUID(),
@@ -88,7 +87,6 @@ const {
     return result?.data ? JSON.parse(result.data) : null;
   },
   async updateData(id, data, expires) {
-    console.log("update", { id, data, expires });
     await knex<Session>("sessions")
       .update({ data: JSON.stringify(data), expires: expires?.toString() })
       .where({ id });
@@ -104,6 +102,56 @@ async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getCookieSession(request.headers.get("Cookie"));
   const userId = session.get(USER_SESSION_KEY);
   return userId;
+}
+
+export async function createTestingUserSession({
+  request,
+  userId,
+  remember,
+  redirectTo,
+}: {
+  request: Request;
+  userId: string;
+  remember: boolean;
+  redirectTo: string;
+}) {
+  const state = randomUUID();
+  const url = authorization.authorizeURL({
+    redirect_uri: OAUTH_REDIRECT,
+    state,
+    scope: SCOPE,
+    // @ts-ignore This is valid per Discord, but nonstandard
+    prompt: "none",
+  });
+
+  const res = await fetch(url);
+  console.log({ res, text: await res.text() });
+
+  // const [cookieSession, dbSession] = await Promise.all([
+  //   getCookieSession(request.headers.get("Cookie")),
+  //   getDbSession(request.headers.get("Cookie")),
+  // ]);
+
+  // // 401 if the state arg doesn't match
+  // const state = url.searchParams.get("state");
+  // console.log({ state, dbState: dbSession.get("state") });
+  // if (dbSession.get("state") !== state) {
+  //   throw redirect("/login", 401);
+  // }
+
+  // cookieSession.set(USER_SESSION_KEY, userId);
+  // dbSession.unset("state");
+  // dbSession.set("discordToken", JSON.stringify(token));
+  // const [cookie, dbCookie] = await Promise.all([
+  //   commitCookieSession(cookieSession, {
+  //     maxAge: 60 * 60 * 24 * 7, // 7 days
+  //   }),
+  //   commitDbSession(dbSession),
+  // ]);
+  // const headers = new Headers();
+  // headers.append("Set-Cookie", cookie);
+
+  return res;
 }
 
 export async function getUser(request: Request): Promise<null | User> {
