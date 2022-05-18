@@ -2,6 +2,7 @@
 node_modules
 /build
 /public/build
+/app/styles/tailwind.css
 .env*
 dist
 .vscode
