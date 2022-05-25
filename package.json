@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "run-p dev:*",
-    "start": "remix-serve build",
+    "start": "run-p dev:remix dev:express",
     "test": "vitest",
     "build": "run-s build:*",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
@@ -19,13 +19,24 @@
     "build:migrate": "knex migrate:latest",
     "dev:init": "run-s build:migrate knex:seed",
     "dev:css": "yarn generate:css --watch",
-    "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix dev",
+    "dev:express": "nodemon server/index.js",
+    "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix watch",
     "knex:seed": "yarn knex seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build",
     "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"cypress open\"",
     "test:e2e:run": "exit; echo 'these tests are disabled because theyre broken'; cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"cypress run\"",
     "pretest:e2e:run": "exit; yarn build"
+  },
+  "nodemon": {
+    "verbose": true,
+    "ignore": [
+      "*.test.js"
+    ],
+    "watch": [
+      "build",
+      "server"
+    ]
   },
   "license": "MIT",
   "dependencies": {
