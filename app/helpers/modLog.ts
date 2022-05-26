@@ -1,18 +1,51 @@
-import type { Message } from "discord.js";
-import { ReportReasons, modRoleId } from "../constants";
-import { constructDiscordLink } from "./discord";
-import { simplifyString } from "../helpers/string";
-import { CHANNELS, getChannel } from "../constants/channels";
+import type { GuildMember, Message, Role } from "discord.js";
+
+import { fetchChannel, fetchRole, CHANNELS, ROLES } from "~/discord/guilds";
+import {
+  constructDiscordLink,
+  escapeDisruptiveContent,
+  quoteMessageContent,
+} from "~/helpers/discord";
+import { simplifyString } from "~/helpers/string";
+
+export const enum ReportReasons {
+  anonReport = "anonReport",
+  userWarn = "userWarn",
+  userDelete = "userDelete",
+  mod = "mod",
+  spam = "spam",
+}
+interface Report {
+  reason: ReportReasons;
+  message: Message;
+  extra?: string;
+  staff?: GuildMember[];
+  members?: GuildMember[];
+}
 
 const warningMessages = new Map<
   string,
   { warnings: number; message: Message }
 >();
-export const reportUser = (reportedMessage: Message, logBody: string) => {
-  const simplifiedContent = `${reportedMessage.author.id}${simplifyString(
-    reportedMessage.content,
+export const reportUser = async ({
+  reason,
+  message,
+  extra,
+  staff = [],
+  members = [],
+}: Report) => {
+  const simplifiedContent = `${message.author.id}${simplifyString(
+    message.content,
   )}`;
   const cached = warningMessages.get(simplifiedContent);
+  const logBody = constructLog({
+    reason,
+    message,
+    staffRole: await fetchRole(ROLES.moderator, message.guild!),
+    extra,
+    staff,
+    members,
+  });
 
   if (cached) {
     // If we already logged for ~ this message, edit the log
@@ -29,14 +62,13 @@ export const reportUser = (reportedMessage: Message, logBody: string) => {
     return warnings;
   } else {
     // If this is new, send a new message
-    getChannel(CHANNELS.modLog)
-      .send(logBody)
-      .then((warningMessage) => {
-        warningMessages.set(simplifiedContent, {
-          warnings: 1,
-          message: warningMessage,
-        });
+    const modLog = await fetchChannel(CHANNELS.modLog, message.guild!);
+    modLog.send(logBody).then((warningMessage) => {
+      warningMessages.set(simplifiedContent, {
+        warnings: 1,
+        message: warningMessage,
       });
+    });
     return 1;
   }
 };
@@ -52,52 +84,66 @@ export const truncateMessage = (
   return message;
 };
 
-export const constructLog = (
-  trigger: ReportReasons,
-  members: string[],
-  staff: string[],
-  message: Message,
-): string => {
-  const modAlert = `<@${modRoleId}>`;
+const constructLog = ({
+  reason,
+  message,
+  staffRole,
+  extra: origExtra = "",
+  staff = [],
+  members = [],
+}: Report & { staffRole: Role }): string => {
+  const modAlert = `<@${staffRole.id}>`;
   const preface = `<@${message.author.id}> in <#${message.channel.id}> warned 1 times`;
+  const extra = origExtra ? `${origExtra}\n` : "";
   const postfix = `Link: ${constructDiscordLink(message)}
 
-${members.length ? `Reactors: ${members.join(", ")}` : ""}
-${staff.length ? `Staff: ${staff.join(", ")}` : ""}
+${
+  members.length
+    ? `Reactors: ${members.map(({ user }) => user.username).join(", ")}\n`
+    : ""
+}${
+    staff.length
+      ? `Staff: ${staff.map(({ user }) => user.username).join(", ")}`
+      : ""
+  }
 `;
-  const reportedMessage = truncateMessage(message.content);
+  const reportedMessage = truncateMessage(
+    escapeDisruptiveContent(quoteMessageContent(message.content)),
+  );
 
-  switch (trigger) {
+  switch (reason) {
     case ReportReasons.mod:
       return `${preface}:
-
-\`${reportedMessage}\`
+${extra}
+${reportedMessage}
 
 ${postfix}`;
 
     case ReportReasons.userWarn:
       return `${modAlert} – ${preface}, met the warning threshold for the message:
-
-\`${reportedMessage}\`
+${extra}
+${reportedMessage}
 
 ${postfix}`;
 
     case ReportReasons.userDelete:
       return `${modAlert} – ${preface}, met the deletion threshold for the message:
-
-\`${reportedMessage}\`
+${extra}
+${reportedMessage}
 
 ${postfix}`;
+
     case ReportReasons.spam:
       return `${preface}, reported for spam:
-
-\`${reportedMessage}\`
+${extra}
+${reportedMessage}
 
 ${postfix}`;
+
     case ReportReasons.anonReport:
       return `${preface}, reported anonymously:
-
-\`${reportedMessage}\`
+${extra}
+${reportedMessage}
 
 ${postfix}`;
   }
