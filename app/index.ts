@@ -2,6 +2,7 @@ import express from "express";
 import { createRequestHandler } from "@remix-run/express";
 import path from "path";
 import * as build from "@remix-run/dev/server-build";
+import discordBot from "~/discord/gateway";
 
 const app = express();
 
@@ -29,3 +30,5 @@ app.all(
 );
 
 app.listen(process.env.PORT || "3000");
+
+discordBot();
