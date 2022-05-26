@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+#!/usr/bin/env bash
+# MIT © Sindre Sorhus - sindresorhus.com
+# https://gist.github.com/sindresorhus/7996717
+changed_files="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)"
+
+check_run() {
+	echo "$changed_files" | grep --quiet "$1" && eval "$2"
+}
+
+check_run yarn.lock 'echo "Deps have changed, run `yarn`"'
+check_run migrations/.* 'echo "Migrations have changed, run `yarn knex migrate:latest`"'
+check_run seeds/.* 'echo "Seeds have changed, run `yarn knex seed:run`"'

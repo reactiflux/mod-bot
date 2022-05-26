@@ -12,8 +12,11 @@ export const retry = async <T>(
     try {
       return await func(i, count);
     } catch (e) {
-      lastError === e;
+      if (!(e instanceof Error)) {
+        throw e;
+      }
+      lastError = e;
     }
   }
-  throw lastError;
+  throw lastError as Error;
 };

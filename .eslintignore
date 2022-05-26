@@ -1,1 +1,4 @@
-dist
+build
+# Hack fix to override default behavior for ignore files linted by name
+# https://github.com/eslint/eslint/issues/15010
+!.*
