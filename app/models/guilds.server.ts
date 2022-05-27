@@ -1,33 +1,55 @@
-import type { Guild, Role, TextChannel } from "discord.js";
+import type { Guild as DiscordGuild } from "discord.js";
+import knex, { SqliteError } from "~/db.server";
 
-export enum CHANNELS {
-  modLog = "modLog",
+type jsonString = string;
+export interface Guild {
+  id: string;
+  settingss: jsonString;
 }
 
-// TODO replace this with a dynamic setup per-guild, kept in sqlite
-const guilds: Record<string, Record<string, string>> = {
-  "614601782152265748": {
-    [CHANNELS.modLog]: "925847644318879754",
-  },
+export const SETTINGS = {
+  modLog: "modLog",
+  moderator: "moderator",
+} as const;
+
+export const fetchGuild = async (guild: DiscordGuild) => {
+  return await knex<Guild>("guilds").where({ id: guild.id }).first();
+};
+export const registerGuild = async (guild: DiscordGuild) => {
+  try {
+    await knex("guilds").insert({
+      id: guild.id,
+      settings: {},
+    });
+  } catch (e) {
+    if (e instanceof SqliteError && e.code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
+      // do nothing
+    } else {
+      throw e;
+    }
+  }
 };
 
-export const fetchChannel = async (channel: CHANNELS, guild: Guild) => {
-  const id = await Promise.resolve(guilds[guild.id][channel]);
-  return (await guild.channels.fetch(id)) as TextChannel;
+export const setSettings = async (
+  guild: DiscordGuild,
+  settings: Record<keyof typeof SETTINGS, string>,
+) => {
+  await Promise.all(
+    Object.entries(settings).map(([key, value]) =>
+      knex("guilds")
+        .update({ settings: knex.jsonSet("settings", `$.${key}`, value) })
+        .where({ id: guild.id }),
+    ),
+  );
 };
 
-export enum ROLES {
-  moderator = "moderator",
-}
-
-// TODO replace this with a dynamic setup per-guild, kept in sqlite
-const guildRoles: Record<string, Record<ROLES, string>> = {
-  "614601782152265748": {
-    [ROLES.moderator]: "916797467918471190",
-  },
-};
-
-export const fetchRole = async (role: ROLES, guild: Guild) => {
-  const id = await Promise.resolve(guildRoles[guild.id][role]);
-  return (await guild.roles.fetch(id)) as Role;
+export const fetchSettings = async <T extends keyof typeof SETTINGS>(
+  guild: DiscordGuild,
+  keys: T[],
+): Promise<Pick<typeof SETTINGS, typeof keys[number]>> => {
+  return await knex("guilds")
+    .where({ id: guild.id })
+    // @ts-ignore
+    .select(knex.jsonExtract("settings", ...keys.map((k) => [`$.{k}`, k])))
+    .first();
 };
