@@ -5,7 +5,7 @@ export const sleep = (seconds: number) =>
 
 export const retry = async <T>(
   count: number,
-  func: (count?: number, max?: number) => T,
+  func: (count: number, max: number) => T,
 ) => {
   let lastError;
   for (let i = 0; i < count; i++) {

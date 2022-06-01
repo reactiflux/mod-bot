@@ -1,8 +1,9 @@
-import { isStaff } from "../helpers/discord";
+import type { Client, TextChannel } from "discord.js";
 
-import type { Client } from "discord.js";
+import { SETTINGS, fetchSettings } from "~/models/guilds.server";
+
+import { isStaff } from "~/helpers/discord";
 import { sleep } from "~/helpers/misc";
-import { CHANNELS, fetchChannel } from "./guilds";
 import { reportUser, ReportReasons } from "~/helpers/modLog";
 import { simplifyString } from "~/helpers/string";
 
@@ -98,10 +99,14 @@ export default async (bot: Client) => {
       });
 
       if (warnings >= AUTO_SPAM_THRESHOLD) {
+        const { modLog: modLogId } = await fetchSettings(msg.guild, [
+          SETTINGS.modLog,
+        ]);
         const [member, modLog] = await Promise.all([
           msg.guild.members.fetch(msg.author.id),
-          fetchChannel(CHANNELS.modLog, msg.guild),
+          msg.guild.channels.fetch(modLogId) as unknown as TextChannel,
         ]);
+        if (!modLog) throw new Error("Failed to load mod log when automodding");
         member.kick("Autokicked for spamming");
         modLog.send(`Automatically kicked <@${msg.author.id}> for spam`);
       }
