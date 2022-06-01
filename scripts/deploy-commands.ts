@@ -7,10 +7,14 @@ import { REST } from "@discordjs/rest";
 import type { APIApplicationCommand } from "discord-api-types/v9";
 import { ApplicationCommandType, Routes } from "discord-api-types/v9";
 
-import { applicationId, discordToken, guildId } from "~/constants";
+import { applicationId, discordToken } from "~/helpers/env";
 import { difference } from "~/helpers/sets";
 
 import * as demo from "~/commands/demo";
+
+// TODO: dev/prod split, in dev publish to test guild
+// in prod, publish to global commands
+const guildId = "614601782152265748";
 
 // TODO: make this a global command in production
 const upsertUrl = () => Routes.applicationGuildCommands(applicationId, guildId);
