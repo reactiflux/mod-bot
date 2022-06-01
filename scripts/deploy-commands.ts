@@ -4,8 +4,8 @@ import {
   SlashCommandBuilder,
 } from "@discordjs/builders";
 import { REST } from "@discordjs/rest";
-import type { APIApplicationCommand } from "discord-api-types/v9";
-import { ApplicationCommandType, Routes } from "discord-api-types/v9";
+import { ApplicationCommandType, Routes } from "discord-api-types/v10";
+import type { APIApplicationCommand } from "discord-api-types/v10";
 
 import { applicationId, discordToken } from "~/helpers/env";
 import { difference } from "~/helpers/sets";

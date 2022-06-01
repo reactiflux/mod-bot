@@ -1,4 +1,4 @@
-import { ApplicationCommandType } from "discord-api-types/v9";
+import { ApplicationCommandType } from "discord-api-types/v10";
 import type { MessageContextMenuInteraction } from "discord.js";
 import { Message } from "discord.js";
 
