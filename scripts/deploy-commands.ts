@@ -75,15 +75,9 @@ const deploy = async () => {
 
   console.log(
     "DEPLOY",
-    `local/remote:
-[${[...names].join(",")}]
-[${[...remoteNames].join(",")}]`,
+    `local: [${[...names].join(",")}], remote: [${[...remoteNames].join(",")}]`,
   );
 
-  console.log(
-    "DEPLOY",
-    `Removing ${toDelete.length} commands: [${deleteNames.join(",")}]`,
-  );
   await Promise.allSettled(
     toDelete.map((commandId) => rest.delete(deleteUrl(commandId))),
   );
@@ -118,22 +112,17 @@ const deploy = async () => {
 
   console.log(
     "DEPLOY",
-    `Found changes to ${toUpdate.length} commands: [${toUpdate
+    `Found ${toUpdate.length} changes: [${toUpdate
       .map((x) => x.name)
-      .join(",")}]`,
+      .join(",")}], and ${deleteNames.length} to delete: [${deleteNames.join(
+      ",",
+    )}]`,
   );
 
   if (toUpdate.length === 0) {
     console.log("DEPLOY", `No changes found, not upserting.`);
     return;
   }
-
-  console.log(
-    "DEPLOY",
-    `Found ${toUpdate.length} change: [${toUpdate
-      .map((x) => x.name)
-      .join(",")}], upserting ${commands.length}`,
-  );
 
   await rest.put(upsertUrl(), { body: commands });
 };
