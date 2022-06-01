@@ -1,6 +1,6 @@
-import type { GuildMember, Message, Role } from "discord.js";
+import type { GuildMember, Message, Role, TextChannel } from "discord.js";
 
-import { fetchChannel, fetchRole, CHANNELS, ROLES } from "~/discord/guilds";
+import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {
   constructDiscordLink,
   escapeDisruptiveContent,
@@ -34,14 +34,23 @@ export const reportUser = async ({
   staff = [],
   members = [],
 }: Report) => {
+  const { guild } = message;
+  if (!guild) throw new Error("Tried to report a message without a guild");
   const simplifiedContent = `${message.author.id}${simplifyString(
     message.content,
   )}`;
   const cached = warningMessages.get(simplifiedContent);
+
+  const { moderator: moderatorId } = await fetchSettings(guild, [
+    SETTINGS.moderator,
+  ]);
+
+  const staffRole = (await guild.roles.fetch(moderatorId)) as Role;
+
   const logBody = constructLog({
     reason,
     message,
-    staffRole: await fetchRole(ROLES.moderator, message.guild!),
+    staffRole,
     extra,
     staff,
     members,
@@ -62,7 +71,9 @@ export const reportUser = async ({
     return warnings;
   } else {
     // If this is new, send a new message
-    const modLog = await fetchChannel(CHANNELS.modLog, message.guild!);
+    const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
+
+    const modLog = (await guild.channels.fetch(modLogId)) as TextChannel;
     modLog.send(logBody).then((warningMessage) => {
       warningMessages.set(simplifiedContent, {
         warnings: 1,
