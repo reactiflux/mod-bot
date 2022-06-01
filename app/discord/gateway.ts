@@ -1,5 +1,7 @@
 import discord, { Intents } from "discord.js";
-import automod from "./automod";
+
+import automod from "~/discord/automod";
+import onboardGuild from "~/discord/onboardGuild";
 
 export default function init() {
   const bot = new discord.Client({
@@ -52,6 +54,7 @@ export default function init() {
     });
 
   bot.on("ready", () => {
+    onboardGuild(bot);
     automod(bot);
   });
 
