@@ -1,3 +1,4 @@
+import "dotenv/config";
 import {
   ContextMenuCommandBuilder,
   SlashCommandBuilder,
@@ -5,6 +6,7 @@ import {
 import { REST } from "@discordjs/rest";
 import type { APIApplicationCommand } from "discord-api-types/v9";
 import { ApplicationCommandType, Routes } from "discord-api-types/v9";
+
 import { applicationId, discordToken, guildId } from "~/constants";
 import { difference } from "~/helpers/sets";
 
