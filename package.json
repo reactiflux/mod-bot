@@ -18,7 +18,7 @@
     "build:css": "yarn generate:css --minify",
     "build:remix": "remix build",
     "build:migrate": "knex migrate:latest",
-    "dev:commands": "nodemon --watch scripts --exec 'npm run start:commands'",
+    "dev:commands": "nodemon --watch scripts --watch app/commands --ext ts,tsx,json --exec 'npm run start:commands'",
     "dev:init": "run-s build:migrate knex:seed",
     "dev:css": "yarn generate:css --watch",
     "dev:express": "nodemon build/index.js -w build/index.js",
