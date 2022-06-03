@@ -28,7 +28,7 @@
     "test:e2e:run": "exit; echo 'these tests are disabled because theyre broken'; cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"cypress run\"",
     "pretest:e2e:run": "exit; yarn build"
   },
-  "license": "MIT",
+  "license": "GPL",
   "dependencies": {
     "@discordjs/builders": "^0.12.0",
     "@discordjs/rest": "^0.3.0",
