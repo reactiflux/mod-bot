@@ -1,10 +1,12 @@
-import discord, { Intents } from "discord.js";
+import { Intents, Client } from "discord.js";
+
+import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
 
 export default function init() {
-  const bot = new discord.Client({
+  const bot = new Client({
     intents: [
       Intents.FLAGS.GUILDS,
       Intents.FLAGS.GUILD_MEMBERS,
@@ -56,6 +58,15 @@ export default function init() {
   bot.on("ready", () => {
     onboardGuild(bot);
     automod(bot);
+  });
+
+  bot.on("interactionCreate", (interaction) => {
+    if (interaction.isCommand()) {
+      switch (interaction.commandName) {
+        case onboardCommand.name:
+          return onboardHandler(interaction);
+      }
+    }
   });
 
   bot.on("messageReactionAdd", () => {});
