@@ -1,18 +1,24 @@
 import { ApplicationCommandType } from "discord-api-types/v10";
-import type { MessageContextMenuInteraction } from "discord.js";
-import { Message } from "discord.js";
+import type { CommandInteraction } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ContextMenuCommandBuilder,
+} from "@discordjs/builders";
 
-export const name = "demo";
-export const description = "TODO: replace everything in here";
-export const type = ApplicationCommandType.Message;
-export const handler = async (interaction: MessageContextMenuInteraction) => {
-  const message = interaction.targetMessage;
-  if (!(message instanceof Message)) {
-    return;
-  }
+export default new SlashCommandBuilder()
+  .setName("demo")
+  .setDescription("TODO: replace everything in here");
 
+export const handler = async (interaction: CommandInteraction) => {
   await interaction.reply({
     ephemeral: true,
-    content: "some shit",
+    content: "ok",
   });
 };
+
+export const UserCommand = new ContextMenuCommandBuilder()
+  .setName("demo")
+  .setType(ApplicationCommandType.User);
+export const MessageCommand = new ContextMenuCommandBuilder()
+  .setName("demo")
+  .setType(ApplicationCommandType.Message);
