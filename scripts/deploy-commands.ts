@@ -1,8 +1,4 @@
 import "dotenv/config";
-import {
-  ContextMenuCommandBuilder,
-  SlashCommandBuilder,
-} from "@discordjs/builders";
 import { REST } from "@discordjs/rest";
 import { ApplicationCommandType, Routes } from "discord-api-types/v10";
 import type { APIApplicationCommand } from "discord-api-types/v10";
@@ -10,7 +6,7 @@ import type { APIApplicationCommand } from "discord-api-types/v10";
 import { applicationId, discordToken } from "~/helpers/env";
 import { difference } from "~/helpers/sets";
 
-import * as demo from "~/commands/demo";
+import setup from "~/commands/setup";
 
 // TODO: dev/prod split, in dev publish to test guild
 // in prod, publish to global commands
@@ -21,43 +17,8 @@ const upsertUrl = () => Routes.applicationGuildCommands(applicationId, guildId);
 const deleteUrl = (commandId: string) =>
   Routes.applicationGuildCommand(applicationId, guildId, commandId);
 
-interface CommandConfig {
-  name: string;
-  description: string;
-  type: ApplicationCommandType;
-}
-const cmds: CommandConfig[] = [demo];
+const commands = [setup].map((x) => x.toJSON());
 
-const commands = [
-  ...cmds
-    .filter((x) => x.type === ApplicationCommandType.ChatInput)
-    .map((c) =>
-      new SlashCommandBuilder()
-        .setName(c.name)
-        .setDescription(c.description)
-        .toJSON(),
-    ),
-  ...cmds
-    .filter((x) => x.type === ApplicationCommandType.Message)
-    .map((c) =>
-      new ContextMenuCommandBuilder()
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error Discord.js doesn't export the union we need
-        .setType(ApplicationCommandType.Message)
-        .setName(c.name)
-        .toJSON(),
-    ),
-  ...cmds
-    .filter((x) => x.type === ApplicationCommandType.User)
-    .map((c) =>
-      new ContextMenuCommandBuilder()
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error Discord.js doesn't export the union we need
-        .setType(ApplicationCommandType.User)
-        .setName(c.name)
-        .toJSON(),
-    ),
-];
 const names = new Set(commands.map((c) => c.name));
 
 const rest = new REST({ version: "9" }).setToken(discordToken);
