@@ -104,7 +104,10 @@ const deploy = async () => {
             return (
               name === c.name &&
               type === c.type &&
-              description === c.description
+              description === c.description &&
+              c.options?.every((o) =>
+                x.options?.some((o2) => o.name === o2.name),
+              )
             );
         }
       }),
@@ -119,7 +122,7 @@ const deploy = async () => {
     )}]`,
   );
 
-  if (toUpdate.length === 0) {
+  if (toUpdate.length === 0 && remoteCommands.length === commands.length) {
     console.log("DEPLOY", `No changes found, not upserting.`);
     return;
   }
