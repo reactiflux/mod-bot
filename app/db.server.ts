@@ -1,5 +1,6 @@
 import knex from "knex";
 import knexfile from "~/../knexfile";
+export { SqliteError } from "better-sqlite3";
 
 const environment = process.env.NODE_ENV || ("development" as const);
 // @ts-nocheck
