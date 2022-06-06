@@ -2,11 +2,14 @@ import type { Client, TextChannel } from "discord.js";
 import { retry } from "~/helpers/misc";
 
 import { fetchGuild } from "~/models/guilds.server";
+import { deployCommands } from "./deployCommands.server";
 
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes
   // available after downtime, or when actually added to a new guild
   bot.on("guildCreate", async (guild) => {
+    deployCommands(guild);
+
     const appGuild = await fetchGuild(guild);
     if (!appGuild) {
       const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
@@ -16,6 +19,7 @@ export default async (bot: Client) => {
         (c): c is TextChannel =>
           c.isText() && (c.name.includes("mod") || c.name.includes("intro")),
       );
+
       await retry(5, async (n) => {
         switch (n) {
           case 0:

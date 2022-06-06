@@ -1,66 +1,18 @@
-import { Intents, Client } from "discord.js";
-
 import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
+import { client, login } from "./client";
 
 export default function init() {
-  const bot = new Client({
-    intents: [
-      Intents.FLAGS.GUILDS,
-      Intents.FLAGS.GUILD_MEMBERS,
-      Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
-      Intents.FLAGS.GUILD_MESSAGES,
-      Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-      Intents.FLAGS.DIRECT_MESSAGES,
-      Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
-    ],
-    partials: ["MESSAGE", "CHANNEL", "REACTION"],
+  login();
+
+  client.on("ready", () => {
+    onboardGuild(client);
+    automod(client);
   });
 
-  console.log("INI", "Bootstrap starting…");
-  bot
-    .login(process.env.DISCORD_HASH || "")
-    .then(async () => {
-      console.log("INI", "Bootstrap complete");
-
-      bot.user?.setActivity("server activity…", { type: "WATCHING" });
-
-      try {
-        const guilds = await bot.guilds.fetch();
-        guilds.each((guild) =>
-          console.log("INI", `Bot connected to Discord server: ${guild.name}`),
-        );
-      } catch (error) {
-        console.log("Something went wrong when fetching the guilds: ", error);
-      }
-
-      if (bot.application) {
-        const { id } = bot.application;
-        console.log("Bot started. If necessary, add it to your test server:");
-        console.log(
-          `https://discord.com/api/oauth2/authorize?client_id=${id}&permissions=8&scope=applications.commands%20bot`,
-        );
-      }
-    })
-    .catch((e) => {
-      console.log({ e });
-      console.log(
-        `Failed to log into discord bot. Make sure \`.env.local\` has a discord token. Tried to use '${process.env.DISCORD_HASH}'`,
-      );
-      console.log(
-        'You can get a new discord token at https://discord.com/developers/applications, selecting your bot (or making a new one), navigating to "Bot", and clicking "Copy" under "Click to reveal token"',
-      );
-      process.exit(1);
-    });
-
-  bot.on("ready", () => {
-    onboardGuild(bot);
-    automod(bot);
-  });
-
-  bot.on("interactionCreate", (interaction) => {
+  client.on("interactionCreate", (interaction) => {
     if (interaction.isCommand()) {
       switch (interaction.commandName) {
         case onboardCommand.name:
@@ -69,14 +21,14 @@ export default function init() {
     }
   });
 
-  bot.on("messageReactionAdd", () => {});
+  client.on("messageReactionAdd", () => {});
 
-  bot.on("threadCreate", (thread) => {
+  client.on("threadCreate", (thread) => {
     thread.join();
   });
 
-  bot.on("messageCreate", async (msg) => {
-    if (msg.author?.id === bot.user?.id) return;
+  client.on("messageCreate", async (msg) => {
+    if (msg.author?.id === client.user?.id) return;
 
     //
   });
@@ -89,7 +41,7 @@ export default function init() {
     }
   };
 
-  bot.on("error", errorHandler);
+  client.on("error", errorHandler);
   process.on("uncaughtException", errorHandler);
   process.on("unhandledRejection", errorHandler);
 }
