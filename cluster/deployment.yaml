@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: reactibot-deployment
+  name: mod-bot-deployment
 spec:
   selector:
     matchLabels:
-      app: reactibot
+      app: mod-bot
   replicas: 1
   template:
     metadata:
       labels:
-        app: reactibot
+        app: mod-bot
     spec:
       containers:
-        - name: reactibot
+        - name: mod-bot
           image: $(IMAGE)
           env:
             - name: ENVIRONMENT
@@ -21,15 +21,37 @@ spec:
             - name: DISCORD_HASH
               valueFrom:
                 secretKeyRef:
-                  name: reactibot-env
+                  name: modbot-env
                   key: DISCORD_HASH
-            - name: GITHUB_TOKEN
+
+            - name: ENVIRONMENT
+              value: production
+            - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: reactibot-env
-                  key: GITHUB_TOKEN
-            - name: AMPLITUDE_KEY
+                  name: modbot-env
+                  key: SESSION_SECRET
+
+            - name: ENVIRONMENT
+              value: production
+            - name: DISCORD_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
-                  name: reactibot-env
-                  key: AMPLITUDE_KEY
+                  name: modbot-env
+                  key: DISCORD_PUBLIC_KEY
+
+            - name: ENVIRONMENT
+              value: production
+            - name: DISCORD_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: DISCORD_APP_ID
+
+            - name: ENVIRONMENT
+              value: production
+            - name: DISCORD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: DISCORD_SECRET
