@@ -18,6 +18,7 @@
     "build:css": "yarn generate:css --minify",
     "build:remix": "remix build",
     "build:migrate": "knex migrate:latest",
+    "build:commands": "./node_modules/.bin/rollup --config scripts.rollup.ts",
     "dev:commands": "nodemon --watch scripts --watch app/commands --ext ts,tsx,json --exec 'npm run start:commands'",
     "dev:init": "run-s build:migrate knex:seed",
     "dev:css": "yarn generate:css --watch",
