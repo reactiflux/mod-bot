@@ -7,7 +7,6 @@ RUN npm install --production=false
 COPY remix.config.js tailwind.config.js knexfile.ts tsconfig.json .eslint* .prettierignore ./
 COPY app ./app
 COPY migrations ./migrations
-COPY scripts ./scripts
 
 RUN npm run build
 

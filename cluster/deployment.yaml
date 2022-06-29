@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: mod-bot-deployment
+  name: mod-bot-set
 spec:
   selector:
     matchLabels:
       app: mod-bot
+  serviceName: "mod-bot"
   replicas: 1
   template:
     metadata:
@@ -15,6 +16,9 @@ spec:
       containers:
         - name: mod-bot
           image: $(IMAGE)
+          volumeMounts:
+            - mountPath: "/data"
+              name: mod-bot-pvc
           env:
             - name: ENVIRONMENT
               value: production
@@ -48,3 +52,14 @@ spec:
                 secretKeyRef:
                   name: modbot-env
                   key: DISCORD_SECRET
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mod-bot-pvc
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: do-block-storage

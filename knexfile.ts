@@ -4,7 +4,7 @@
 const defaultConfig = {
   client: "better-sqlite3",
   connection: {
-    filename: "./jobs-bot.sqlite3",
+    filename: "./mod-bot.sqlite3",
   },
   useNullAsDefault: true,
 };
@@ -18,5 +18,10 @@ export default {
     // },
   },
   test: defaultConfig,
-  production: defaultConfig,
+  production: {
+    ...defaultConfig,
+    connection: {
+      filename: "/data/mod-bot.sqlite3",
+    },
+  },
 };
