@@ -18,38 +18,31 @@ spec:
           env:
             - name: ENVIRONMENT
               value: production
+
             - name: DISCORD_HASH
               valueFrom:
                 secretKeyRef:
                   name: modbot-env
                   key: DISCORD_HASH
 
-            - name: ENVIRONMENT
-              value: production
             - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: modbot-env
                   key: SESSION_SECRET
 
-            - name: ENVIRONMENT
-              value: production
             - name: DISCORD_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
                   name: modbot-env
                   key: DISCORD_PUBLIC_KEY
 
-            - name: ENVIRONMENT
-              value: production
             - name: DISCORD_APP_ID
               valueFrom:
                 secretKeyRef:
                   name: modbot-env
                   key: DISCORD_APP_ID
 
-            - name: ENVIRONMENT
-              value: production
             - name: DISCORD_SECRET
               valueFrom:
                 secretKeyRef:
