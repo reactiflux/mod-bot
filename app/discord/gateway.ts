@@ -2,14 +2,18 @@ import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
-import { client, login } from "./client";
+import { client, login } from "~/discord/client";
+import { deployCommands } from "~/discord/deployCommands.server";
 
 export default function init() {
   login();
 
-  client.on("ready", () => {
-    onboardGuild(client);
-    automod(client);
+  client.on("ready", async () => {
+    await Promise.all([
+      onboardGuild(client),
+      automod(client),
+      deployCommands(client),
+    ]);
   });
 
   client.on("interactionCreate", (interaction) => {
