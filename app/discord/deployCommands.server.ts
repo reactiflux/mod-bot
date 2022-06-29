@@ -1,4 +1,4 @@
-import type { Guild } from "discord.js";
+import type { Client, Guild } from "discord.js";
 import { REST } from "@discordjs/rest";
 import { ApplicationCommandType, Routes } from "discord-api-types/v10";
 import type { APIApplicationCommand } from "discord-api-types/v10";
@@ -7,6 +7,13 @@ import { applicationId, discordToken } from "~/helpers/env";
 import { difference } from "~/helpers/sets";
 
 import setup from "~/commands/setup";
+
+export const deployCommands = async (client: Client) => {
+  const guilds = await client.guilds.fetch();
+  await Promise.all(
+    guilds.map(async (guild) => deployCommandsToGuild(await guild.fetch())),
+  );
+};
 
 const commands = [setup].map((x) => x.toJSON());
 const names = new Set(commands.map((c) => c.name));
@@ -18,7 +25,7 @@ const deleteUrl = (guildId: string, commandId: string) =>
   Routes.applicationGuildCommand(applicationId, guildId, commandId);
 
 // TODO: make this a global command in production
-export const deployCommands = async (guild: Guild) => {
+export const deployCommandsToGuild = async (guild: Guild) => {
   const remoteCommands = (await rest.get(
     upsertUrl(guild.id),
   )) as APIApplicationCommand[];
