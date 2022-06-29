@@ -9,6 +9,7 @@ client.on("ready", async () => {
     await Promise.all(
       guilds.map(async (guild) => deployCommands(await guild.fetch())),
     );
+    process.exit();
   } catch (e) {
     console.log("DEPLOY EXCEPTION", e as string);
   }
