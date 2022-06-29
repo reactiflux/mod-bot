@@ -15,18 +15,18 @@
     "start:migrate": "knex migrate:latest",
     "prepare": "husky install",
     "typecheck": "tsc -b && tsc -b cypress",
-    "build:css": "yarn generate:css --minify",
+    "build:css": "npm run generate:css --minify",
     "build:remix": "remix build",
     "dev:init": "run-s start:migrate knex:seed",
-    "dev:css": "yarn generate:css --watch",
+    "dev:css": "npm run generate:css --watch",
     "dev:express": "nodemon build/index.js -w build/index.js",
     "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix watch",
-    "knex:seed": "yarn knex seed:run",
+    "knex:seed": "npm run knex seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build",
     "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"cypress open\"",
     "test:e2e:run": "exit; echo 'these tests are disabled because theyre broken'; cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"cypress run\"",
-    "pretest:e2e:run": "exit; yarn build"
+    "pretest:e2e:run": "exit; npm run build"
   },
   "license": "GPL",
   "dependencies": {
