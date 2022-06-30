@@ -4,9 +4,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install --production=false
 
-COPY remix.config.js tailwind.config.js knexfile.ts tsconfig.json .eslint* .prettierignore ./
+COPY remix.config.js tailwind.config.js knexfile.js tsconfig.json .eslint* .prettierignore ./
 COPY app ./app
-COPY migrations ./migrations
 
 RUN npm run build
 
@@ -22,5 +21,8 @@ RUN npm prune --production
 
 COPY --from=build /app/build ./build
 COPY --from=build /app/public ./public
+
+COPY knexfile.js ./
+COPY migrations ./migrations
 
 CMD ["npm", "run", "start"]
