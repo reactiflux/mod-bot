@@ -9,7 +9,7 @@ const defaultConfig = {
   useNullAsDefault: true,
 };
 
-export default {
+module.exports = {
   ...defaultConfig,
   development: {
     ...defaultConfig,
