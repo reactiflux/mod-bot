@@ -1,6 +1,7 @@
-import type { Knex } from "knex";
-
-function up(knex: Knex) {
+/**
+ * @type {(knex: import("knex").Knex) => Promise<any>}
+ */
+function up(knex) {
   return knex.schema
     .createTable("users", (table) => {
       table.uuid("id").primary().index().notNullable();
@@ -14,8 +15,10 @@ function up(knex: Knex) {
       table.datetime("expires");
     });
 }
-
-function down(knex: Knex) {
+/**
+ * @type {(knex: import("knex").Knex) => Promise<any>}
+ */
+function down(knex) {
   return knex.schema.dropTable("users").dropTable("sessions");
 }
 
