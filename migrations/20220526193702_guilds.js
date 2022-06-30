@@ -1,13 +1,17 @@
-import type { Knex } from "knex";
-
-function up(knex: Knex) {
+/**
+ * @type {(knex: import("knex").Knex) => Promise<any>}
+ */
+function up(knex) {
   return knex.schema.createTable("guilds", (table) => {
     table.uuid("id").primary();
     table.json("settings");
   });
 }
 
-function down(knex: Knex) {
+/**
+ * @type {(knex: import("knex").Knex) => Promise<any>}
+ */
+function down(knex) {
   return knex.schema.dropTable("guilds");
 }
 

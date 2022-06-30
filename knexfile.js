@@ -9,8 +9,10 @@ const defaultConfig = {
   useNullAsDefault: true,
 };
 
-export default {
-  ...defaultConfig,
+/**
+ * @type { import("./knexfile.d").Knexfile> }
+ */
+module.exports = {
   development: {
     ...defaultConfig,
     // seeds: {
