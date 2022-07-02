@@ -5,23 +5,12 @@ import { SETTINGS, fetchSettings } from "~/models/guilds.server";
 import { isStaff } from "~/helpers/discord";
 import { sleep } from "~/helpers/misc";
 import { reportUser, ReportReasons } from "~/helpers/modLog";
-import { simplifyString } from "~/helpers/string";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
-const spamKeywords = ["nitro", "steam", "free", "gift", "airdrop"];
+const spamKeywords = ["nitro", "steam", "free", "airdrop"];
 const spamPings = ["@everyone", "@here"];
 const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
-
-const safeDomains = [
-  "https://discord.com",
-  "https://www.reactiflux.com",
-  "https://github.com",
-  "https://developer.mozilla.org",
-  "https://reactjs.org",
-  "https://beta.reactjs.org",
-  "https://nextjs.org",
-];
 
 const checkWords = (message: string, wordList: string[]) =>
   message.split(/\b/).some((word) => wordList.includes(word.toLowerCase()));
@@ -33,7 +22,7 @@ const getPingCount = (content: string) => {
   );
 };
 
-const getSpamScore = (content: string) => {
+export const isSpam = (content: string, threshold = 3) => {
   const pingCount = getPingCount(content);
 
   const words = content.split(" ");
@@ -43,17 +32,16 @@ const getSpamScore = (content: string) => {
 
   const hasSafeKeywords = checkWords(content, safeKeywords);
 
-  const hasLink =
-    content.includes("http") &&
-    !safeDomains.some((domain) => content.includes(domain));
+  const hasLink = content.includes("http");
 
   return (
+    threshold <=
     Number(hasLink) +
-    includedSpamKeywords.length +
-    // Pinging everyone is always treated as spam
-    Number(pingCount) * 5 -
-    // If it's a job post, then it's probably  not spam
-    Number(hasSafeKeywords) * 10
+      includedSpamKeywords.length +
+      // Pinging everyone is always treated as spam
+      Number(pingCount) * 5 -
+      // If it's a job post, then it's probably  not spam
+      Number(hasSafeKeywords) * 10
   );
 };
 
@@ -69,9 +57,7 @@ export default async (bot: Client) => {
       return;
     }
 
-    const content = simplifyString(msg.content);
-
-    if (getPingCount(content) > 0) {
+    if (getPingCount(msg.content) > 0) {
       msg
         .reply({
           embeds: [
@@ -87,9 +73,8 @@ export default async (bot: Client) => {
           tsk.delete();
         });
     }
-    const spamScore = getSpamScore(content);
 
-    if (spamScore >= 3) {
+    if (isSpam(msg.content)) {
       // Skip if the post is from someone from the staff or reactor is not staff
 
       msg.delete();
