@@ -55,12 +55,16 @@ export const quoteMessageContent = (content: string) => {
   return `> ${content.replace("`", "\\`").replace(/[\n]/g, "\n> ")}`;
 };
 
+/*
+ * Escape content that Discord would otherwise do undesireable things with.
+ * Sepecifically, suppresses @-mentions and link previews.
+ */
 export const escapeDisruptiveContent = (content: string) => {
   return (
     content
       // Silence pings
-      .replace(/@(.*?)\s/g, "@ $1 ")
+      .replace(/@(\S*)(\s)?/g, "@ $1$2")
       // Wrap links in <> so they don't make a preview
-      .replace(/(https?:\/\/.*?)\s/g, "<$1> ")
+      .replace(/(https?:\/\/.*)\s?/g, "<$1>")
   );
 };
