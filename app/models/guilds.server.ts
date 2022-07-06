@@ -49,7 +49,6 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
 ): Promise<Pick<typeof SETTINGS, typeof keys[number]>> => {
   return await knex("guilds")
     .where({ id: guild.id })
-    // @ts-ignore
-    .select(knex.jsonExtract("settings", ...keys.map((k) => [`$.{k}`, k])))
+    .select(knex.jsonExtract(keys.map((k) => ["settings", `$.${k}`, k])))
     .first();
 };
