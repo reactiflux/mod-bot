@@ -1,4 +1,5 @@
 import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
+import reportCommand, { handler as reportHandler } from "~/commands/report";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
@@ -21,6 +22,11 @@ export default function init() {
       switch (interaction.commandName) {
         case onboardCommand.name:
           return onboardHandler(interaction);
+      }
+    } else if (interaction.isMessageContextMenu()) {
+      switch (interaction.commandName) {
+        case reportCommand.name:
+          return reportHandler(interaction);
       }
     }
   });
