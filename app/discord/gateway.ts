@@ -52,6 +52,4 @@ export default function init() {
   };
 
   client.on("error", errorHandler);
-  process.on("uncaughtException", errorHandler);
-  process.on("unhandledRejection", errorHandler);
 }
