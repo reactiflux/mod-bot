@@ -37,6 +37,8 @@
     "@remix-run/react": "^1.4.1",
     "@remix-run/serve": "^1.4.1",
     "@remix-run/server-runtime": "^1.4.1",
+    "@sentry/node": "^7.5.1",
+    "@sentry/tracing": "^7.5.1",
     "better-sqlite3": "^7.5.1",
     "date-fns": "^2.27.0",
     "discord-api-types": "^0.33.2",
