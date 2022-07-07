@@ -8,9 +8,11 @@ const app = express();
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.get("/butts", (req, res) => {
-  res.send("butts");
-});
+/**
+Route handlers and static hosting
+*/
+
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 // needs to handle all verbs (GET, POST, etc.)
 app.all(
@@ -32,3 +34,15 @@ app.all(
 app.listen(process.env.PORT || "3000");
 
 discordBot();
+
+const errorHandler = (error: unknown) => {
+  Sentry.captureException(error);
+  if (error instanceof Error) {
+    console.log("ERROR", error.message);
+  } else if (typeof error === "string") {
+    console.log("ERROR", error);
+  }
+};
+
+process.on("uncaughtException", errorHandler);
+process.on("unhandledRejection", errorHandler);
