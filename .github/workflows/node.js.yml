@@ -165,3 +165,10 @@ jobs:
             --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
             --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }}
           kubectl apply -k .
+
+      - name: Set Sentry release
+        run: |
+          curl ${{secrets.SENTRY_RELEASES}} \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"version": "${{github.sha}}"}'
