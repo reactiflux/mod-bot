@@ -1,3 +1,5 @@
+import Sentry from "~/helpers/sentry.server";
+
 import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
 import reportCommand, { handler as reportHandler } from "~/commands/report";
 
@@ -44,6 +46,7 @@ export default function init() {
   });
 
   const errorHandler = (error: unknown) => {
+    Sentry.captureException(error);
     if (error instanceof Error) {
       console.log("ERROR", error.message);
     } else if (typeof error === "string") {

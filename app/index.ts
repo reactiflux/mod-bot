@@ -2,11 +2,17 @@ import express from "express";
 import { createRequestHandler } from "@remix-run/express";
 import path from "path";
 import * as build from "@remix-run/dev/server-build";
+
+import Sentry from "~/helpers/sentry.server";
 import discordBot from "~/discord/gateway";
 
 const app = express();
 
-app.use(express.static(path.join(__dirname, "..", "public")));
+// RequestHandler creates a separate execution context using domains, so that
+// every transaction/span/breadcrumb is attached to its own Hub instance
+app.use(Sentry.Handlers.requestHandler());
+// TracingHandler creates a trace for every incoming request
+// app.use(Sentry.Handlers.tracingHandler());
 
 /**
 Route handlers and static hosting
@@ -31,6 +37,12 @@ app.all(
   }),
 );
 
+/** ERROR TRACKING
+  Must go after route handlers
+*/
+app.use(Sentry.Handlers.errorHandler());
+
+/** Init app */
 app.listen(process.env.PORT || "3000");
 
 discordBot();
