@@ -129,7 +129,7 @@ jobs:
           curl ${{secrets.SENTRY_RELEASES}} \
             -X POST \
             -H 'Content-Type: application/json' \
-            -d '{"version": "${{github.sha}}}"'
+            -d '{"version": "${{github.sha}}"}'
 
   deployment:
     needs: build
