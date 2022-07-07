@@ -14,6 +14,7 @@ export const enum ReportReasons {
   userDelete = "userDelete",
   mod = "mod",
   spam = "spam",
+  ping = "ping",
 }
 interface Report {
   reason: ReportReasons;
@@ -146,6 +147,13 @@ ${postfix}`;
 
     case ReportReasons.spam:
       return `${preface}, reported for spam:
+${extra}
+${reportedMessage}
+
+${postfix}`;
+
+    case ReportReasons.ping:
+      return `${preface}, pinged everyone:
 ${extra}
 ${reportedMessage}
 

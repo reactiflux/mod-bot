@@ -53,31 +53,14 @@ export default async (bot: Client) => {
     const [author] = await Promise.all([
       msg.guild.members.fetch(msg.author.id),
     ]);
+    // Skip if the post is from someone from the staff or reactor is not staff
     if (isStaff(author)) {
       return;
     }
 
-    if (getPingCount(msg.content) > 0) {
-      msg
-        .reply({
-          embeds: [
-            {
-              title: "Tsk tsk.",
-              description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${msg.guild.memberCount} members in ${msg.guild.name}.`,
-              color: "#BA0C2F",
-            },
-          ],
-        })
-        .then(async (tsk) => {
-          await sleep(15);
-          tsk.delete();
-        });
-    }
-
     if (isSpam(msg.content)) {
-      // Skip if the post is from someone from the staff or reactor is not staff
-
       msg.delete();
+
       const warnings = await reportUser({
         reason: ReportReasons.spam,
         message: msg,
@@ -95,6 +78,22 @@ export default async (bot: Client) => {
         member.kick("Autokicked for spamming");
         modLog.send(`Automatically kicked <@${msg.author.id}> for spam`);
       }
+    } else if (getPingCount(msg.content) > 0) {
+      await reportUser({
+        reason: ReportReasons.ping,
+        message: msg,
+      });
+      const tsk = await msg.reply({
+        embeds: [
+          {
+            title: "Tsk tsk.",
+            description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${msg.guild.memberCount} members in ${msg.guild.name}.`,
+            color: "#BA0C2F",
+          },
+        ],
+      });
+      await Promise.all([msg.delete(), sleep(15)]);
+      await tsk.delete();
     }
   });
 };
