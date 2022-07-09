@@ -1,4 +1,5 @@
 import { Intents, Client } from "discord.js";
+import { ReacordDiscordJs } from "reacord";
 
 export const client = new Client({
   intents: [
@@ -12,6 +13,8 @@ export const client = new Client({
   ],
   partials: ["MESSAGE", "CHANNEL", "REACTION"],
 });
+
+export const reacord = new ReacordDiscordJs(client);
 
 export const login = () => {
   console.log("INI", "Bootstrap starting…");
