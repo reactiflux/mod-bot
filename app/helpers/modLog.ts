@@ -1,4 +1,5 @@
 import type { GuildMember, Message, Role, TextChannel } from "discord.js";
+import type { APIInteractionGuildMember } from "discord-api-types/v10";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {
@@ -7,21 +8,24 @@ import {
   quoteMessageContent,
 } from "~/helpers/discord";
 import { simplifyString } from "~/helpers/string";
+import { format, formatDistanceToNowStrict } from "date-fns";
 
 export const enum ReportReasons {
   anonReport = "anonReport",
+  track = "track",
   userWarn = "userWarn",
   userDelete = "userDelete",
   mod = "mod",
   spam = "spam",
   ping = "ping",
 }
+type Member = GuildMember | APIInteractionGuildMember;
 interface Report {
   reason: ReportReasons;
   message: Message;
   extra?: string;
-  staff?: GuildMember[];
-  members?: GuildMember[];
+  staff?: Member[];
+  members?: Member[];
 }
 
 const warningMessages = new Map<
@@ -130,6 +134,18 @@ ${extra}
 ${reportedMessage}
 
 ${postfix}`;
+
+    case ReportReasons.track:
+      return `<@${message.author.id}> (${message.author.username}) in <#${
+        message.channel.id
+      }>
+sent ${formatDistanceToNowStrict(message.createdAt)} ago on ${format(
+        message.createdAt,
+        "Pp 'GMT'x",
+      )}
+tracked by ${staff.map(({ user }) => user.username).join(", ")}:
+${extra}
+${reportedMessage}`;
 
     case ReportReasons.userWarn:
       return `${modAlert} – ${preface}, met the warning threshold for the message:

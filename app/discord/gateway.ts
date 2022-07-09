@@ -2,6 +2,7 @@ import Sentry from "~/helpers/sentry.server";
 
 import onboardCommand, { handler as onboardHandler } from "~/commands/setup";
 import reportCommand, { handler as reportHandler } from "~/commands/report";
+import trackCommand, { handler as trackHandler } from "~/commands/track";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
@@ -29,21 +30,23 @@ export default function init() {
       switch (interaction.commandName) {
         case reportCommand.name:
           return reportHandler(interaction);
+        case trackCommand.name:
+          return trackHandler(interaction);
       }
     }
   });
 
-  client.on("messageReactionAdd", () => {});
+  // client.on("messageReactionAdd", () => {});
 
   client.on("threadCreate", (thread) => {
     thread.join();
   });
 
-  client.on("messageCreate", async (msg) => {
-    if (msg.author?.id === client.user?.id) return;
+  // client.on("messageCreate", async (msg) => {
+  //   if (msg.author?.id === client.user?.id) return;
 
-    //
-  });
+  //   //
+  // });
 
   const errorHandler = (error: unknown) => {
     Sentry.captureException(error);

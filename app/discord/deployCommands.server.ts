@@ -8,6 +8,7 @@ import { difference } from "~/helpers/sets";
 
 import setup from "~/commands/setup";
 import report from "~/commands/report";
+import track from "~/commands/track";
 
 export const deployCommands = async (client: Client) => {
   const guilds = await client.guilds.fetch();
@@ -16,7 +17,7 @@ export const deployCommands = async (client: Client) => {
   );
 };
 
-const commands = [setup, report].map((x) => x.toJSON());
+const commands = [setup, report, track].map((x) => x.toJSON());
 const names = new Set(commands.map((c) => c.name));
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
