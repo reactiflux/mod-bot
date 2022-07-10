@@ -4,7 +4,7 @@ import type { MessageContextMenuInteraction } from "discord.js";
 import { Message } from "discord.js";
 import { ReportReasons, reportUser } from "../helpers/modLog";
 
-export default new ContextMenuCommandBuilder()
+export const command = new ContextMenuCommandBuilder()
   .setName("Report")
   .setType(ApplicationCommandType.Message);
 
