@@ -3,7 +3,7 @@ import type { CommandInteraction } from "discord.js";
 
 import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
 
-export default new SlashCommandBuilder()
+export const command = new SlashCommandBuilder()
   .setName("setup")
   .setDescription("Set up necessities for using the bot")
   // TODO: update permissions so non-mods can never use it
@@ -20,7 +20,7 @@ export default new SlashCommandBuilder()
       .setName("mod-log-channel")
       .setDescription("The channel where moderation reports will be sent")
       .setRequired(true),
-  );
+  ) as SlashCommandBuilder;
 
 export const handler = async (interaction: CommandInteraction) => {
   try {

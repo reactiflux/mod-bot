@@ -5,7 +5,7 @@ import { ApplicationCommandType } from "discord-api-types/v10";
 
 import { ReportReasons, reportUser } from "~/helpers/modLog";
 
-export default new ContextMenuCommandBuilder()
+export const command = new ContextMenuCommandBuilder()
   .setName("Track")
   .setType(ApplicationCommandType.Message);
 
