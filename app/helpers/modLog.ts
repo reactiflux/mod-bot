@@ -2,11 +2,7 @@ import type { GuildMember, Message, Role, TextChannel } from "discord.js";
 import type { APIInteractionGuildMember } from "discord-api-types/v10";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
-import {
-  constructDiscordLink,
-  escapeDisruptiveContent,
-  quoteMessageContent,
-} from "~/helpers/discord";
+import { constructDiscordLink, quoteAndEscape } from "~/helpers/discord";
 import { simplifyString } from "~/helpers/string";
 import { format, formatDistanceToNowStrict } from "date-fns";
 
@@ -89,17 +85,6 @@ export const reportUser = async ({
   }
 };
 
-// Discord's limit for message length
-const maxMessageLength = 2000;
-export const truncateMessage = (
-  message: string,
-  maxLength = maxMessageLength - 500,
-) => {
-  if (message.length > maxLength) return `${message.slice(0, maxLength)}…`;
-
-  return message;
-};
-
 const constructLog = ({
   reason,
   message,
@@ -123,9 +108,7 @@ ${
       : ""
   }
 `;
-  const reportedMessage = truncateMessage(
-    escapeDisruptiveContent(quoteMessageContent(message.content)),
-  );
+  const reportedMessage = quoteAndEscape(message.content);
 
   switch (reason) {
     case ReportReasons.mod:
