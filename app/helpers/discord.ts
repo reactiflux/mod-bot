@@ -6,6 +6,7 @@ import type {
   MessageReaction,
   PartialMessageReaction,
 } from "discord.js";
+import { truncateMessage } from "./string";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -67,4 +68,8 @@ export const escapeDisruptiveContent = (content: string) => {
       // Wrap links in <> so they don't make a preview
       .replace(/(https?:\/\/.*)\s?/g, "<$1>")
   );
+};
+
+export const quoteAndEscape = (content: string) => {
+  return truncateMessage(escapeDisruptiveContent(quoteMessageContent(content)));
 };
