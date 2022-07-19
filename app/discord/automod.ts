@@ -26,23 +26,25 @@ export const isSpam = (content: string, threshold = 3) => {
   const pingCount = getPingCount(content);
 
   const words = content.split(" ");
-  const includedSpamKeywords = words
-    .map((word) => spamKeywords.includes(word))
-    .filter(Boolean);
+  const numberOfSpamKeywords = spamKeywords.reduce(
+    (accum, spamTrigger) => (words.includes(spamTrigger) ? accum + 1 : accum),
+    0,
+  );
 
   const hasSafeKeywords = checkWords(content, safeKeywords);
-
+  const hasBareInvite = content.includes("discord.gg") && content.length < 50;
   const hasLink = content.includes("http");
 
-  return (
-    threshold <=
+  const score =
     Number(hasLink) +
-      includedSpamKeywords.length +
-      // Pinging everyone is always treated as spam
-      Number(pingCount) * 5 -
-      // If it's a job post, then it's probably  not spam
-      Number(hasSafeKeywords) * 10
-  );
+    numberOfSpamKeywords +
+    // Pinging everyone is always treated as spam
+    pingCount * 5 +
+    Number(hasBareInvite) * 5 -
+    // If it's a job post, then it's probably not spam
+    Number(hasSafeKeywords) * 10;
+
+  return threshold <= score;
 };
 
 export default async (bot: Client) => {
