@@ -1,5 +1,12 @@
-import type { GuildMember, Message, Role, TextChannel } from "discord.js";
+import type {
+  GuildMember,
+  Message,
+  MessageOptions,
+  Role,
+  TextChannel,
+} from "discord.js";
 import type { APIInteractionGuildMember } from "discord-api-types/v10";
+import prettyBytes from "pretty-bytes";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import { constructDiscordLink, quoteAndEscape } from "~/helpers/discord";
@@ -62,10 +69,9 @@ export const reportUser = async ({
     const { message, warnings: oldWarnings } = cached;
     const warnings = oldWarnings + 1;
 
-    const finalLog = logBody.replace(
-      /warned \d times/,
-      `warned ${warnings} times`,
-    );
+    const finalLog =
+      logBody.content?.replace(/warned \d times/, `warned ${warnings} times`) ||
+      "";
 
     message.edit(finalLog);
     warningMessages.set(simplifiedContent, { warnings, message });
@@ -92,77 +98,110 @@ const constructLog = ({
   extra: origExtra = "",
   staff = [],
   members = [],
-}: Report & { staffRole: Role }): string => {
+}: Report & { staffRole: Role }): MessageOptions => {
   const modAlert = `<@${staffRole.id}>`;
   const preface = `<@${message.author.id}> in <#${message.channel.id}> warned 1 times`;
-  const extra = origExtra ? `${origExtra}\n` : "";
-  const postfix = `Link: ${constructDiscordLink(message)}
-
-${
-  members.length
-    ? `Reactors: ${members.map(({ user }) => user.username).join(", ")}\n`
-    : ""
-}${
+  const extra = origExtra ? `\n${origExtra}\n` : "";
+  const postfix = `${
+    members.length
+      ? `Reactors: ${members.map(({ user }) => user.username).join(", ")}\n`
+      : ""
+  }${
     staff.length
       ? `Staff: ${staff.map(({ user }) => user.username).join(", ")}`
       : ""
   }
 `;
   const reportedMessage = quoteAndEscape(message.content);
+  const link = `[Original message](${constructDiscordLink(message)})`;
+  const attachments =
+    message.attachments.size === 0
+      ? undefined
+      : "\n\nAttachments:\n" +
+        message.attachments
+          .map(
+            (a) =>
+              `${prettyBytes(a.size)}: ${
+                a.contentType?.match(/(image|video)/)
+                  ? `[${a.name}](${a.url})`
+                  : a.name
+              }`,
+          )
+          .join("\n");
 
   switch (reason) {
     case ReportReasons.mod:
-      return `${preface}:
-${extra}
+      return {
+        content: `${preface}:${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: [{ description: `${link}${attachments}` }],
+      };
 
     case ReportReasons.track:
-      return `<@${message.author.id}> (${message.author.username}) in <#${
-        message.channel.id
-      }>
+      return {
+        content: `<@${message.author.id}> (${message.author.username}) in <#${
+          message.channel.id
+        }>
 sent ${formatDistanceToNowStrict(message.createdAt)} ago on ${format(
-        message.createdAt,
-        "Pp 'GMT'x",
-      )}
+          message.createdAt,
+          "Pp 'GMT'x",
+        )}
 tracked by ${staff.map(({ user }) => user.username).join(", ")}:
 ${extra}
-${reportedMessage}`;
+${reportedMessage}`,
+        embeds: [{ description: `${link}${attachments}` }],
+      };
 
     case ReportReasons.userWarn:
-      return `${modAlert} – ${preface}, met the warning threshold for the message:
+      return {
+        content: `${modAlert} – ${preface}, met the warning threshold for the message:
 ${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: [{ description: `${link}${attachments}` }],
+      };
 
     case ReportReasons.userDelete:
-      return `${modAlert} – ${preface}, met the deletion threshold for the message:
+      return {
+        content: `${modAlert} – ${preface}, met the deletion threshold for the message:
 ${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: attachments ? [{ description: `${attachments}` }] : [],
+      };
 
     case ReportReasons.spam:
-      return `${preface}, reported for spam:
+      return {
+        content: `${preface}, reported for spam:
 ${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: attachments ? [{ description: `${attachments}` }] : [],
+      };
 
     case ReportReasons.ping:
-      return `${preface}, pinged everyone:
+      return {
+        content: `${preface}, pinged everyone:
 ${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: attachments ? [{ description: `${attachments}` }] : [],
+      };
 
     case ReportReasons.anonReport:
-      return `${preface}, reported anonymously:
+      return {
+        content: `${preface}, reported anonymously:
 ${extra}
 ${reportedMessage}
 
-${postfix}`;
+${postfix}`,
+        embeds: [{ description: `${link}${attachments}` }],
+      };
   }
 };
