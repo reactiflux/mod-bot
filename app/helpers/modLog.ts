@@ -116,11 +116,14 @@ const constructLog = ({
   const link = `[Original message](${constructDiscordLink(message)})`;
   const attachments =
     message.attachments.size === 0
-      ? undefined
+      ? ""
       : "\n\nAttachments:\n" +
         message.attachments
           .map(
             (a) =>
+              // Include size of the file and the filename
+              // If it's a video or image, include a link.
+              // Renders as `1.12mb: [some-image.jpg](<original image url>)`
               `${prettyBytes(a.size)}: ${
                 a.contentType?.match(/(image|video)/)
                   ? `[${a.name}](${a.url})`
