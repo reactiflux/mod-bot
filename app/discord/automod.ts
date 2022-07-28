@@ -8,7 +8,7 @@ import { reportUser, ReportReasons } from "~/helpers/modLog";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
-const spamKeywords = ["nitro", "steam", "free", "airdrop"];
+const spamKeywords = ["nitro", "steam", "free", "airdrop", "deepfake", "poki"];
 const spamPings = ["@everyone", "@here"];
 const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
 
