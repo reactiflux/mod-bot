@@ -8,6 +8,9 @@ test("isSpam has a reasonable threshold", () => {
   expect(isSpam("free nitro https://example.ru")).toBe(true);
   expect(isSpam("@everyone https://discord.gg/garbage join now")).toBe(true);
   expect(isSpam("https://discord.gg/garbage join now")).toBe(true);
+  expect(
+    isSpam("<https://example.net/1234/poki-private-stream poki deepfakes lol"),
+  ).toBe(true);
   expect(isSpam("Hello")).toBe(false);
   expect(isSpam("Hello https://google.com")).toBe(false);
   expect(isSpam("Hello https://google.com discord")).toBe(false);

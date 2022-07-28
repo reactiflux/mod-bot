@@ -8,7 +8,14 @@ import { reportUser, ReportReasons } from "~/helpers/modLog";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
-const spamKeywords = ["nitro", "steam", "free", "airdrop", "deepfake", "poki"];
+const spamKeywords = [
+  "nitro",
+  "steam",
+  "free",
+  "airdrop",
+  "deepfake",
+  "poki",
+].map((x) => new RegExp(x));
 const spamPings = ["@everyone", "@here"];
 const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
 
@@ -22,12 +29,11 @@ const getPingCount = (content: string) => {
   );
 };
 
-export const isSpam = (content: string, threshold = 3) => {
+export const isSpam = (content: string, threshold = 4) => {
   const pingCount = getPingCount(content);
 
-  const words = content.split(" ");
   const numberOfSpamKeywords = spamKeywords.reduce(
-    (accum, spamTrigger) => (words.includes(spamTrigger) ? accum + 1 : accum),
+    (accum, spamTrigger) => (spamTrigger.test(content) ? accum + 1 : accum),
     0,
   );
 
@@ -36,7 +42,7 @@ export const isSpam = (content: string, threshold = 3) => {
   const hasLink = content.includes("http");
 
   const score =
-    Number(hasLink) +
+    Number(hasLink) * 2 +
     numberOfSpamKeywords +
     // Pinging everyone is always treated as spam
     pingCount * 5 +
