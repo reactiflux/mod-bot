@@ -4,13 +4,20 @@ import knex, { SqliteError } from "~/db.server";
 type jsonString = string;
 export interface Guild {
   id: string;
-  settingss: jsonString;
+  settings: jsonString;
 }
 
 export const SETTINGS = {
   modLog: "modLog",
   moderator: "moderator",
 } as const;
+
+// These types are not enforced by the database, they need to be carefully
+// managed by setup guarantees
+interface SettingsRecord {
+  [SETTINGS.modLog]: string;
+  [SETTINGS.moderator]: string;
+}
 
 export const fetchGuild = async (guild: DiscordGuild) => {
   return await knex<Guild>("guilds").where({ id: guild.id }).first();
@@ -32,7 +39,7 @@ export const registerGuild = async (guild: DiscordGuild) => {
 
 export const setSettings = async (
   guild: DiscordGuild,
-  settings: Record<keyof typeof SETTINGS, string>,
+  settings: SettingsRecord,
 ) => {
   await Promise.all(
     Object.entries(settings).map(([key, value]) =>
@@ -46,7 +53,7 @@ export const setSettings = async (
 export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   guild: DiscordGuild,
   keys: T[],
-): Promise<Pick<typeof SETTINGS, typeof keys[number]>> => {
+): Promise<Pick<SettingsRecord, typeof keys[number]>> => {
   return await knex("guilds")
     .where({ id: guild.id })
     .select(knex.jsonExtract(keys.map((k) => ["settings", `$.${k}`, k])))
