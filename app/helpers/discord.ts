@@ -6,6 +6,7 @@ import type {
   MessageReaction,
   PartialMessageReaction,
 } from "discord.js";
+import prettyBytes from "pretty-bytes";
 import { truncateMessage } from "./string";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
@@ -54,6 +55,28 @@ export const fetchReactionMembers = (
  */
 export const quoteMessageContent = (content: string) => {
   return `> ${content.replace("`", "\\`").replace(/[\n]/g, "\n> ")}`;
+};
+
+/*
+ * Create a message embed that
+ */
+export const describeAttachments = (attachments: Message["attachments"]) => {
+  return attachments.size === 0
+    ? ""
+    : "Attachments:\n" +
+        attachments
+          .map(
+            (a) =>
+              // Include size of the file and the filename
+              // If it's a video or image, include a link.
+              // Renders as `1.12mb: [some-image.jpg](<original image url>)`
+              `${prettyBytes(a.size)}: ${
+                a.contentType?.match(/(image|video)/)
+                  ? `[${a.name}](${a.url})`
+                  : a.name
+              }`,
+          )
+          .join("\n");
 };
 
 /*
