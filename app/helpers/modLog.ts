@@ -52,16 +52,9 @@ export const reportUser = async ({
   )}`;
   const cached = warningMessages.get(simplifiedContent);
 
-  const { moderator: moderatorId } = await fetchSettings(guild, [
-    SETTINGS.moderator,
-  ]);
-
-  const staffRole = (await guild.roles.fetch(moderatorId)) as Role;
-
-  const logBody = constructLog({
+  const logBody = await constructLog({
     reason,
     message,
-    staffRole,
     extra,
     staff,
     members,
@@ -94,14 +87,19 @@ export const reportUser = async ({
   }
 };
 
-const constructLog = ({
+export const constructLog = async ({
   reason,
   message,
-  staffRole,
   extra: origExtra = "",
   staff = [],
   members = [],
-}: Report & { staffRole: Role }): MessageOptions => {
+}: Report): Promise<MessageOptions> => {
+  const { moderator: moderatorId } = await fetchSettings(message.guild!, [
+    SETTINGS.moderator,
+  ]);
+
+  const staffRole = (await message.guild!.roles.fetch(moderatorId)) as Role;
+
   const modAlert = `<@${staffRole.id}>`;
   const preface = `<@${message.author.id}> in <#${message.channel.id}> warned 1 times`;
   const extra = origExtra ? `\n${origExtra}\n` : "";
