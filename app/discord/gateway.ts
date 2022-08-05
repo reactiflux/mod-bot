@@ -9,10 +9,12 @@ import {
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
 
+import * as convene from "~/commands/convene";
 import * as setup from "~/commands/setup";
 import * as report from "~/commands/report";
 import * as track from "~/commands/track";
 
+registerCommand(convene);
 registerCommand(setup);
 registerCommand(report);
 registerCommand(track);
