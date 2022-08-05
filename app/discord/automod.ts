@@ -69,7 +69,7 @@ export default async (bot: Client) => {
     if (isSpam(msg.content)) {
       msg.delete();
 
-      const warnings = await reportUser({
+      const { warnings } = await reportUser({
         reason: ReportReasons.spam,
         message: msg,
       });

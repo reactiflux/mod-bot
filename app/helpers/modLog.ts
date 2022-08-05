@@ -62,28 +62,31 @@ export const reportUser = async ({
 
   if (cached) {
     // If we already logged for ~ this message, edit the log
-    const { message, warnings: oldWarnings } = cached;
+    const { message: cachedMessage, warnings: oldWarnings } = cached;
     const warnings = oldWarnings + 1;
 
     const finalLog =
       logBody.content?.replace(/warned \d times/, `warned ${warnings} times`) ||
       "";
 
-    message.edit(finalLog);
-    warningMessages.set(simplifiedContent, { warnings, message });
-    return warnings;
+    cachedMessage.edit(finalLog);
+    warningMessages.set(simplifiedContent, {
+      warnings,
+      message: cachedMessage,
+    });
+    return { warnings, message: cachedMessage };
   } else {
     // If this is new, send a new message
     const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
-
     const modLog = (await guild.channels.fetch(modLogId)) as TextChannel;
-    modLog.send(logBody).then((warningMessage) => {
-      warningMessages.set(simplifiedContent, {
-        warnings: 1,
-        message: warningMessage,
-      });
+
+    const warningMessage = await modLog.send(logBody);
+
+    warningMessages.set(simplifiedContent, {
+      warnings: 1,
+      message: warningMessage,
     });
-    return 1;
+    return { warnings: 1, message: warningMessage };
   }
 };
 
