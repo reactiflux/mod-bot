@@ -6,10 +6,13 @@ import type {
   TextChannel,
 } from "discord.js";
 import type { APIInteractionGuildMember } from "discord-api-types/v10";
-import prettyBytes from "pretty-bytes";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
-import { constructDiscordLink, quoteAndEscape } from "~/helpers/discord";
+import {
+  constructDiscordLink,
+  describeAttachments,
+  quoteAndEscape,
+} from "~/helpers/discord";
 import { simplifyString } from "~/helpers/string";
 import { format, formatDistanceToNowStrict } from "date-fns";
 
@@ -114,23 +117,7 @@ const constructLog = ({
 `;
   const reportedMessage = quoteAndEscape(message.content);
   const link = `[Original message](${constructDiscordLink(message)})`;
-  const attachments =
-    message.attachments.size === 0
-      ? ""
-      : "\n\nAttachments:\n" +
-        message.attachments
-          .map(
-            (a) =>
-              // Include size of the file and the filename
-              // If it's a video or image, include a link.
-              // Renders as `1.12mb: [some-image.jpg](<original image url>)`
-              `${prettyBytes(a.size)}: ${
-                a.contentType?.match(/(image|video)/)
-                  ? `[${a.name}](${a.url})`
-                  : a.name
-              }`,
-          )
-          .join("\n");
+  const attachments = describeAttachments(message.attachments);
 
   switch (reason) {
     case ReportReasons.mod:
@@ -139,7 +126,9 @@ const constructLog = ({
 ${reportedMessage}
 
 ${postfix}`,
-        embeds: [{ description: `${link}${attachments}` }],
+        embeds: [
+          { description: `${link}${attachments ? `\n\n${attachments}` : ""}` },
+        ],
       };
 
     case ReportReasons.track:
@@ -154,7 +143,9 @@ sent ${formatDistanceToNowStrict(message.createdAt)} ago on ${format(
 tracked by ${staff.map(({ user }) => user.username).join(", ")}:
 ${extra}
 ${reportedMessage}`,
-        embeds: [{ description: `${link}${attachments}` }],
+        embeds: [
+          { description: `${link}${attachments ? `\n\n${attachments}` : ""}` },
+        ],
       };
 
     case ReportReasons.userWarn:
@@ -164,7 +155,9 @@ ${extra}
 ${reportedMessage}
 
 ${postfix}`,
-        embeds: [{ description: `${link}${attachments}` }],
+        embeds: [
+          { description: `${link}${attachments ? `\n\n${attachments}` : ""}` },
+        ],
       };
 
     case ReportReasons.userDelete:
