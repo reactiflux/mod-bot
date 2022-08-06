@@ -20,6 +20,13 @@ export const command = new SlashCommandBuilder()
       .setName("mod-log-channel")
       .setDescription("The channel where moderation reports will be sent")
       .setRequired(true),
+  )
+  .addRoleOption((x) =>
+    x
+      .setName("restricted")
+      .setDescription(
+        "The role that prevents a member from accessing some channels",
+      ),
   ) as SlashCommandBuilder;
 
 export const handler = async (interaction: CommandInteraction) => {
@@ -30,12 +37,14 @@ export const handler = async (interaction: CommandInteraction) => {
 
     const role = interaction.options.getRole("moderator");
     const channel = interaction.options.getChannel("mod-log-channel");
+    const restricted = interaction.options.getRole("restricted");
     if (!role) throw new Error("Interaction has no role");
     if (!channel) throw new Error("Interaction has no channel");
 
     await setSettings(interaction.guild, {
       [SETTINGS.modLog]: channel.id,
       [SETTINGS.moderator]: role.id,
+      [SETTINGS.restricted]: restricted?.id,
     });
 
     interaction.reply("Setup completed!");
