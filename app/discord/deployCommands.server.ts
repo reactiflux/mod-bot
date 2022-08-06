@@ -155,6 +155,9 @@ export const deployCommandsToGuild = async (guild: Guild) => {
                 ("description" in x ? x.description === c.description : true) &&
                 c.options?.every((o) =>
                   x.options?.some((o2) => o.name === o2.name),
+                ) &&
+                x.options?.every((o) =>
+                  c.options?.some((o2) => o.name === o2.name),
                 )
               );
           }
