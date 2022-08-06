@@ -16,4 +16,7 @@ module.exports = {
       version: 27,
     },
   },
+  rules: {
+    "react/style-prop-object": 0,
+  },
 };
