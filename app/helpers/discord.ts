@@ -66,14 +66,12 @@ export const describeAttachments = (attachments: Message["attachments"]) => {
     : "Attachments:\n" +
         attachments
           .map(
-            (a) =>
+            ({ size, name, contentType, url }) =>
               // Include size of the file and the filename
-              // If it's a video or image, include a link.
-              // Renders as `1.12mb: [some-image.jpg](<original image url>)`
-              `${prettyBytes(a.size)}: ${
-                a.contentType?.match(/(image|video)/)
-                  ? `[${a.name}](${a.url})`
-                  : a.name
+              `${prettyBytes(size)}: ${
+                // If it's a video or image, include a link.
+                // Renders as `1.12mb: [some-image.jpg](<original image url>)`
+                contentType?.match(/(image|video)/) ? `[${name}](${url})` : name
               }`,
           )
           .join("\n");
