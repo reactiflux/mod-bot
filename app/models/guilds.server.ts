@@ -10,6 +10,7 @@ export interface Guild {
 export const SETTINGS = {
   modLog: "modLog",
   moderator: "moderator",
+  restricted: "restricted",
 } as const;
 
 // These types are not enforced by the database, they need to be carefully
@@ -17,6 +18,7 @@ export const SETTINGS = {
 interface SettingsRecord {
   [SETTINGS.modLog]: string;
   [SETTINGS.moderator]: string;
+  [SETTINGS.restricted]?: string;
 }
 
 export const fetchGuild = async (guild: DiscordGuild) => {
