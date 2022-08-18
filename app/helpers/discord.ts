@@ -1,3 +1,8 @@
+import {
+  ContextMenuCommandBuilder,
+  SlashCommandBuilder,
+} from "@discordjs/builders";
+import { ApplicationCommandType } from "discord-api-types/v10";
 import type {
   Message,
   GuildMember,
@@ -5,6 +10,9 @@ import type {
   Guild,
   MessageReaction,
   PartialMessageReaction,
+  MessageContextMenuInteraction,
+  UserContextMenuInteraction,
+  CommandInteraction,
 } from "discord.js";
 import prettyBytes from "pretty-bytes";
 import { truncateMessage } from "./string";
@@ -94,3 +102,34 @@ export const escapeDisruptiveContent = (content: string) => {
 export const quoteAndEscape = (content: string) => {
   return truncateMessage(escapeDisruptiveContent(quoteMessageContent(content)));
 };
+
+//
+// Types and type helpers for command configs
+//
+export type MessageContextCommand = {
+  command: ContextMenuCommandBuilder;
+  handler: (interaction: MessageContextMenuInteraction) => void;
+};
+export const isMessageContextCommand = (
+  config: MessageContextCommand | UserContextCommand | SlashCommand,
+): config is MessageContextCommand =>
+  config.command instanceof ContextMenuCommandBuilder &&
+  config.command.type === ApplicationCommandType.Message;
+
+export type UserContextCommand = {
+  command: ContextMenuCommandBuilder;
+  handler: (interaction: UserContextMenuInteraction) => void;
+};
+export const isUserContextCommand = (
+  config: MessageContextCommand | UserContextCommand | SlashCommand,
+): config is UserContextCommand =>
+  config.command instanceof ContextMenuCommandBuilder &&
+  config.command.type === ApplicationCommandType.User;
+
+export type SlashCommand = {
+  command: SlashCommandBuilder;
+  handler: (interaction: CommandInteraction) => void;
+};
+export const isSlashCommand = (
+  config: MessageContextCommand | UserContextCommand | SlashCommand,
+): config is SlashCommand => config.command instanceof SlashCommandBuilder;

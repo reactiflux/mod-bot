@@ -1,61 +1,20 @@
-import type {
-  Client,
-  CommandInteraction,
-  Guild,
-  MessageContextMenuInteraction,
-  UserContextMenuInteraction,
-} from "discord.js";
-import {
-  ContextMenuCommandBuilder,
-  SlashCommandBuilder,
-} from "@discordjs/builders";
+import type { Client, Guild } from "discord.js";
 import { REST } from "@discordjs/rest";
 import { ApplicationCommandType, Routes } from "discord-api-types/v10";
 import type { APIApplicationCommand } from "discord-api-types/v10";
 
 import { applicationId, discordToken } from "~/helpers/env";
 import { difference } from "~/helpers/sets";
-
-//
-// Types and type helpers for command configs
-//
-
-/**
- * MessageContextCommand
- */
-type MessageContextCommand = {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: MessageContextMenuInteraction) => void;
-};
-const isMessageContextCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
-): config is MessageContextCommand =>
-  config.command instanceof ContextMenuCommandBuilder &&
-  config.command.type === ApplicationCommandType.Message;
-
-/**
- * UserContextCommand
- */
-type UserContextCommand = {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: UserContextMenuInteraction) => void;
-};
-const isUserContextCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
-): config is UserContextCommand =>
-  config.command instanceof ContextMenuCommandBuilder &&
-  config.command.type === ApplicationCommandType.User;
-
-/**
- * SlashCommand
- */
-type SlashCommand = {
-  command: SlashCommandBuilder;
-  handler: (interaction: CommandInteraction) => void;
-};
-const isSlashCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
-): config is SlashCommand => config.command instanceof SlashCommandBuilder;
+import type {
+  MessageContextCommand,
+  SlashCommand,
+  UserContextCommand,
+} from "~/helpers/discord";
+import {
+  isMessageContextCommand,
+  isSlashCommand,
+  isUserContextCommand,
+} from "~/helpers/discord";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers
@@ -105,15 +64,11 @@ export const registerCommand = (
 };
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
-const upsertUrl = (guildId: string) =>
-  Routes.applicationGuildCommands(applicationId, guildId);
-const deleteUrl = (guildId: string, commandId: string) =>
-  Routes.applicationGuildCommand(applicationId, guildId, commandId);
 
 // TODO: make this a global command in production
 export const deployCommandsToGuild = async (guild: Guild) => {
   const remoteCommands = (await rest.get(
-    upsertUrl(guild.id),
+    Routes.applicationGuildCommands(applicationId, guild.id),
   )) as APIApplicationCommand[];
   const names = new Set(commands.keys());
 
@@ -130,7 +85,11 @@ export const deployCommandsToGuild = async (guild: Guild) => {
   );
 
   await Promise.allSettled(
-    toDelete.map((commandId) => rest.delete(deleteUrl(guild.id, commandId))),
+    toDelete.map((commandId) =>
+      rest.delete(
+        Routes.applicationGuildCommand(applicationId, guild.id, commandId),
+      ),
+    ),
   );
 
   let localCommands = [...commands.values()].map(({ command }) => command);
@@ -179,5 +138,7 @@ export const deployCommandsToGuild = async (guild: Guild) => {
   }
 
   console.log("DEPLOY", `Upserting ${localCommands.length} commands`);
-  await rest.put(upsertUrl(guild.id), { body: localCommands });
+  await rest.put(Routes.applicationGuildCommands(applicationId, guild.id), {
+    body: localCommands,
+  });
 };
