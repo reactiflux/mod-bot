@@ -1,8 +1,3 @@
-import {
-  ContextMenuCommandBuilder,
-  SlashCommandBuilder,
-} from "@discordjs/builders";
-import { ApplicationCommandType } from "discord-api-types/v10";
 import type {
   Message,
   GuildMember,
@@ -10,12 +5,17 @@ import type {
   Guild,
   MessageReaction,
   PartialMessageReaction,
-  MessageContextMenuInteraction,
-  UserContextMenuInteraction,
-  CommandInteraction,
+  MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
+  ChatInputCommandInteraction,
+} from "discord.js";
+import {
+  ApplicationCommandType,
+  ContextMenuCommandBuilder,
+  SlashCommandBuilder,
 } from "discord.js";
 import prettyBytes from "pretty-bytes";
-import { truncateMessage } from "./string";
+import { truncateMessage } from "~/helpers/string";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -108,7 +108,7 @@ export const quoteAndEscape = (content: string) => {
 //
 export type MessageContextCommand = {
   command: ContextMenuCommandBuilder;
-  handler: (interaction: MessageContextMenuInteraction) => void;
+  handler: (interaction: MessageContextMenuCommandInteraction) => void;
 };
 export const isMessageContextCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,
@@ -118,7 +118,7 @@ export const isMessageContextCommand = (
 
 export type UserContextCommand = {
   command: ContextMenuCommandBuilder;
-  handler: (interaction: UserContextMenuInteraction) => void;
+  handler: (interaction: UserContextMenuCommandInteraction) => void;
 };
 export const isUserContextCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,
@@ -128,7 +128,7 @@ export const isUserContextCommand = (
 
 export type SlashCommand = {
   command: SlashCommandBuilder;
-  handler: (interaction: CommandInteraction) => void;
+  handler: (interaction: ChatInputCommandInteraction) => void;
 };
 export const isSlashCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,

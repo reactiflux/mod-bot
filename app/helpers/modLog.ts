@@ -4,8 +4,8 @@ import type {
   MessageOptions,
   Role,
   TextChannel,
+  APIInteractionGuildMember,
 } from "discord.js";
-import type { APIInteractionGuildMember } from "discord-api-types/v10";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {

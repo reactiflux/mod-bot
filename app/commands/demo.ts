@@ -1,9 +1,9 @@
-import { ApplicationCommandType } from "discord-api-types/v10";
 import type { CommandInteraction } from "discord.js";
 import {
-  SlashCommandBuilder,
+  ApplicationCommandType,
   ContextMenuCommandBuilder,
-} from "@discordjs/builders";
+  SlashCommandBuilder,
+} from "discord.js";
 
 export default new SlashCommandBuilder()
   .setName("demo")

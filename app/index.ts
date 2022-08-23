@@ -49,9 +49,7 @@ discordBot();
 
 const errorHandler = (error: unknown) => {
   Sentry.captureException(error);
-  if (error instanceof Error) {
-    console.log("ERROR", error.message);
-  } else if (typeof error === "string") {
+  if (error instanceof Error || typeof error === "string") {
     console.log("ERROR", error);
   }
 };
