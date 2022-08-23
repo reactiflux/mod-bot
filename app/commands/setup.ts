@@ -1,5 +1,5 @@
-import { SlashCommandBuilder } from "@discordjs/builders";
-import type { CommandInteraction } from "discord.js";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 
 import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
 
@@ -29,7 +29,7 @@ export const command = new SlashCommandBuilder()
       ),
   ) as SlashCommandBuilder;
 
-export const handler = async (interaction: CommandInteraction) => {
+export const handler = async (interaction: ChatInputCommandInteraction) => {
   try {
     if (!interaction.guild) throw new Error("Interaction has no guild");
 

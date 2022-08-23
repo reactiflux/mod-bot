@@ -1,10 +1,11 @@
-import type { Client, Guild } from "discord.js";
-import { REST } from "@discordjs/rest";
-import { ApplicationCommandType, Routes } from "discord-api-types/v10";
-import type { APIApplicationCommand } from "discord-api-types/v10";
+import type { APIApplicationCommand, Client, Guild } from "discord.js";
+import {
+  REST,
+  Routes,
+  InteractionType,
+  ApplicationCommandType,
+} from "discord.js";
 
-import { applicationId, discordToken } from "~/helpers/env";
-import { difference } from "~/helpers/sets";
 import type {
   MessageContextCommand,
   SlashCommand,
@@ -15,6 +16,8 @@ import {
   isSlashCommand,
   isUserContextCommand,
 } from "~/helpers/discord";
+import { applicationId, discordToken } from "~/helpers/env";
+import { difference } from "~/helpers/sets";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers
@@ -30,22 +33,27 @@ export const deployCommands = async (client: Client) => {
   client.on("interactionCreate", (interaction) => {
     if (
       !interaction ||
-      (!interaction.isMessageContextMenu() && !interaction.isCommand())
+      interaction.type !== InteractionType.ApplicationCommand
     ) {
       return;
     }
-    const config = commands.get(interaction.commandName);
+    const config = commands.get(
+      interaction.commandName || "null interaction.command",
+    );
     if (!config) {
       throw new Error(`No command found for ${interaction.commandName}`);
     }
-    if (isMessageContextCommand(config) && interaction.isMessageContextMenu()) {
+    if (
+      isMessageContextCommand(config) &&
+      interaction.isMessageContextMenuCommand()
+    ) {
       config.handler(interaction);
     } else if (
       isUserContextCommand(config) &&
-      interaction.isUserContextMenu()
+      interaction.isUserContextMenuCommand()
     ) {
       config.handler(interaction);
-    } else if (isSlashCommand(config) && interaction.isCommand()) {
+    } else if (isSlashCommand(config) && interaction.isChatInputCommand()) {
       config.handler(interaction);
     } else {
       throw new Error("Didn't find a handler for an interaction");
@@ -53,13 +61,10 @@ export const deployCommands = async (client: Client) => {
   });
 };
 
-const commands = new Map<
-  string,
-  MessageContextCommand | UserContextCommand | SlashCommand
->();
-export const registerCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
-) => {
+type Command = MessageContextCommand | UserContextCommand | SlashCommand;
+
+const commands = new Map<string, Command>();
+export const registerCommand = (config: Command) => {
   commands.set(config.command.name, config);
 };
 

@@ -1,8 +1,14 @@
 import { format } from "date-fns";
-import { Message } from "discord.js";
-import type { MessageContextMenuInteraction, TextChannel } from "discord.js";
-import { ContextMenuCommandBuilder } from "@discordjs/builders";
-import { ApplicationCommandType } from "discord-api-types/v10";
+import {
+  ApplicationCommandType,
+  ChannelType,
+  ContextMenuCommandBuilder,
+  Message,
+} from "discord.js";
+import type {
+  MessageContextMenuCommandInteraction,
+  TextChannel,
+} from "discord.js";
 
 import { reacord } from "~/discord/client";
 import { quoteAndEscape } from "~/helpers/discord";
@@ -17,7 +23,9 @@ export const command = new ContextMenuCommandBuilder()
   .setName("Convene mods")
   .setType(ApplicationCommandType.Message);
 
-export const handler = async (interaction: MessageContextMenuInteraction) => {
+export const handler = async (
+  interaction: MessageContextMenuCommandInteraction,
+) => {
   const { targetMessage: message, member, guild } = interaction;
   if (!(message instanceof Message) || !member || !guild) {
     return;
@@ -29,7 +37,7 @@ export const handler = async (interaction: MessageContextMenuInteraction) => {
   ]);
 
   const logChannel = (await guild.channels.fetch(modLog)) as TextChannel;
-  if (!logChannel || !logChannel.isText()) {
+  if (!logChannel || logChannel.type !== ChannelType.GuildText) {
     throw new Error("Failed to load mod channel");
   }
 
@@ -102,8 +110,8 @@ export const handler = async (interaction: MessageContextMenuInteraction) => {
               // TODO: This won't work in servers that aren't at boost level 2
               // Maybe could create a thread and ensure the "thread created" message is removed? honestly that's pretty invisible to anyone who isn't trawling through threads proactively
               type: guild.features.includes("PRIVATE_THREADS")
-                ? "GUILD_PRIVATE_THREAD"
-                : "GUILD_PUBLIC_THREAD",
+                ? ChannelType.GuildPrivateThread
+                : ChannelType.GuildPublicThread,
               reason: "Private moderation thread",
             });
             const [{ moderator: modRoleId }] = await Promise.all([

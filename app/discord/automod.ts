@@ -96,7 +96,7 @@ export default async (bot: Client) => {
           {
             title: "Tsk tsk.",
             description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${msg.guild.memberCount} members in ${msg.guild.name}.`,
-            color: "#BA0C2F",
+            color: 0xba0c2f,
           },
         ],
       });

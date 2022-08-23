@@ -1,17 +1,17 @@
-import { Intents, Client } from "discord.js";
+import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
 
 export const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-    Intents.FLAGS.DIRECT_MESSAGES,
-    Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.DirectMessageReactions,
   ],
-  partials: ["MESSAGE", "CHANNEL", "REACTION"],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 export const reacord = new ReacordDiscordJs(client);
@@ -23,7 +23,9 @@ export const login = () => {
     .then(async () => {
       console.log("INI", "Bootstrap complete");
 
-      client.user?.setActivity("server activity…", { type: "WATCHING" });
+      client.user?.setActivity("server activity…", {
+        type: ActivityType.Watching,
+      });
 
       try {
         const guilds = await client.guilds.fetch();

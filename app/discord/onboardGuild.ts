@@ -1,4 +1,5 @@
 import type { Client, TextChannel } from "discord.js";
+import { ChannelType } from "discord.js";
 import { retry } from "~/helpers/misc";
 
 import { fetchGuild } from "~/models/guilds.server";
@@ -17,7 +18,8 @@ export default async (bot: Client) => {
       const channels = await guild.channels.fetch();
       const likelyChannels = channels.filter(
         (c): c is TextChannel =>
-          c.isText() && (c.name.includes("mod") || c.name.includes("intro")),
+          c.type === ChannelType.GuildText &&
+          (c.name.includes("mod") || c.name.includes("intro")),
       );
 
       await retry(5, async (n) => {
