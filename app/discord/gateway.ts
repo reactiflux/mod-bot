@@ -1,6 +1,6 @@
 import Sentry from "~/helpers/sentry.server";
 
-import { client, login } from "~/discord/client";
+import { client, login } from "~/discord/client.server";
 import {
   deployCommands,
   registerCommand,
