@@ -10,7 +10,7 @@ import type {
   TextChannel,
 } from "discord.js";
 
-import { reacord } from "~/discord/client";
+import { reacord } from "~/discord/client.server";
 import { quoteAndEscape } from "~/helpers/discord";
 import { ReportReasons, reportUser } from "~/helpers/modLog";
 import { resolutions } from "~/helpers/modResponse";
