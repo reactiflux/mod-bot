@@ -19,5 +19,6 @@ console.log("Running as", isProd() ? "PRODUCTION" : "TEST", "environment");
 export const applicationKey = getEnv("DISCORD_PUBLIC_KEY");
 export const applicationId = getEnv("DISCORD_APP_ID");
 export const discordToken = getEnv("DISCORD_HASH");
+export const testGuild = getEnv("DISCORD_TEST_GUILD");
 
 if (!ok) throw new Error("Environment misconfigured");
