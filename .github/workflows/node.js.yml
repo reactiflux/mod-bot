@@ -163,7 +163,8 @@ jobs:
             --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
             --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
             --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
-            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }}
+            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
+            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }}
           kubectl apply -k .
 
       - name: Set Sentry release
