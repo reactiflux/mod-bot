@@ -3,8 +3,7 @@ import { Button } from "reacord";
 import type { Resolution } from "~/helpers/modResponse";
 import { resolutions, useVotes } from "~/helpers/modResponse";
 
-// TODO const VOTES_TO_APPROVE = 3
-const VOTES_TO_APPROVE = 1;
+const VOTES_TO_APPROVE = 3;
 
 export const ModResponse = ({
   votesRequired = VOTES_TO_APPROVE,
