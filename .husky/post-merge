@@ -10,6 +10,6 @@ check_run() {
 	echo "$changed_files" | grep --quiet "$1" && eval "$2"
 }
 
-check_run yarn.lock 'echo "Deps have changed, run `yarn`"'
-check_run migrations/.* 'echo "Migrations have changed, run `yarn knex migrate:latest`"'
-check_run seeds/.* 'echo "Seeds have changed, run `yarn knex seed:run`"'
+check_run package-lock.json 'echo "Deps have changed, run `npm i`"'
+check_run migrations/.* 'echo "Migrations have changed, run `npm run knex migrate:latest`"'
+check_run seeds/.* 'echo "Seeds have changed, run `npm run knex seed:run`"'

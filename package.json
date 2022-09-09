@@ -9,7 +9,7 @@
     "build": "run-s build:*",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "format": "prettier --write .",
-    "validate": "run-p \"test --run\" lint typecheck test:e2e:run",
+    "validate": "run-p \"test -- run\" lint typecheck test:e2e:run",
     "knex": "knex",
     "": "",
     "start:migrate": "knex migrate:latest",
