@@ -41,7 +41,13 @@ export const ModResponse = ({
 
   return (
     <>
-      {`<@&${modRoleId}>`}
+      {`<@&${modRoleId}> after ${votesRequired} or more votes, the leading resolution will be automatically enforced.
+${Object.entries(votes)
+  .map(
+    ([resolution, voterIds]) =>
+      `${resolution}: ${voterIds.map((id) => `<@${id}>`)}`,
+  )
+  .join("\n")}`}
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
       {renderButton(votes, resolutions.okay, "Okay", "success")}
       {renderButton(votes, resolutions.track, "Track")}
