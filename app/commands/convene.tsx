@@ -101,7 +101,7 @@ export const handler = async (interaction: MessageContextMenuInteraction) => {
               autoArchiveDuration: 60,
               // TODO: This won't work in servers that aren't at boost level 2
               // Maybe could create a thread and ensure the "thread created" message is removed? honestly that's pretty invisible to anyone who isn't trawling through threads proactively
-              // type: "GUILD_PRIVATE_THREAD",
+              type: "GUILD_PRIVATE_THREAD",
               reason: "Private moderation thread",
             });
             const [{ moderator: modRoleId }] = await Promise.all([
