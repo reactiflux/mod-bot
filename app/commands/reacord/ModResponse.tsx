@@ -41,7 +41,7 @@ export const ModResponse = ({
 
   return (
     <>
-      {`<@&${modRoleId} >`}
+      {`<@&${modRoleId}>`}
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
       {renderButton(votes, resolutions.okay, "Okay", "success")}
       {renderButton(votes, resolutions.track, "Track")}
