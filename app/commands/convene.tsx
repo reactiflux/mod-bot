@@ -101,14 +101,16 @@ export const handler = async (interaction: MessageContextMenuInteraction) => {
               autoArchiveDuration: 60,
               // TODO: This won't work in servers that aren't at boost level 2
               // Maybe could create a thread and ensure the "thread created" message is removed? honestly that's pretty invisible to anyone who isn't trawling through threads proactively
-              type: "GUILD_PRIVATE_THREAD",
+              type: guild.features.includes("PRIVATE_THREADS")
+                ? "GUILD_PRIVATE_THREAD"
+                : "GUILD_PUBLIC_THREAD",
               reason: "Private moderation thread",
             });
             const [{ moderator: modRoleId }] = await Promise.all([
               fetchSettings(message.guild!, [SETTINGS.moderator]),
               thread.members.add(message.author),
             ]);
-            await thread.send(`The <@&${modRoleId} > team has determined that the following message is not okay in the community.
+            await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.
 
 This isn't a formal warning, but your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.
 
