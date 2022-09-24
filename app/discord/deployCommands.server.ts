@@ -1,6 +1,12 @@
-import type { APIApplicationCommand, Client } from "discord.js";
-import { Routes, InteractionType } from "discord.js";
+import type {
+  APIApplicationCommand,
+  Client,
+  ContextMenuCommandBuilder,
+  SlashCommandBuilder,
+} from "discord.js";
+import { InteractionType, Routes } from "discord.js";
 
+import { rest } from "~/discord/api";
 import type {
   MessageContextCommand,
   SlashCommand,
@@ -11,10 +17,8 @@ import {
   isSlashCommand,
   isUserContextCommand,
 } from "~/helpers/discord";
-import { applicationId, isProd, testGuild } from "~/helpers/env";
-
-import { rest } from "~/discord/api";
-import { applyCommandChanges } from "~/helpers/discordCommands";
+import { applicationId, isProd } from "~/helpers/env";
+import { calculateChangedCommands } from "~/helpers/discordCommands";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers
@@ -24,56 +28,9 @@ import { applyCommandChanges } from "~/helpers/discordCommands";
 export const deployCommands = async (client: Client) => {
   const localCommands = [...commands.values()].map(({ command }) => command);
 
-  if (isProd()) {
-    // Fetch test guild + global commands
-    const [remoteGuildCommands, remoteGlobalCommands] = await Promise.all([
-      (await rest.get(
-        Routes.applicationGuildCommands(applicationId, testGuild),
-      )) as APIApplicationCommand[],
-      (await rest.get(
-        Routes.applicationCommands(applicationId),
-      )) as APIApplicationCommand[],
-    ]);
-
-    // Deploy to test guild and globally
-    await Promise.all([
-      applyCommandChanges(
-        "Global",
-        localCommands,
-        remoteGlobalCommands,
-        () => Routes.applicationCommands(applicationId),
-        (commandId: string) =>
-          Routes.applicationCommand(applicationId, commandId),
-      ),
-      applyCommandChanges(
-        "Test Guild",
-        localCommands,
-        remoteGuildCommands,
-        () => Routes.applicationGuildCommands(applicationId, testGuild),
-        (commandId: string) =>
-          Routes.applicationGuildCommand(applicationId, testGuild, commandId),
-      ),
-    ]);
-  }
-  if (!isProd()) {
-    // Deploy directly to all connected guilds
-    const guilds = await client.guilds.fetch();
-    await Promise.all(
-      guilds.map(async (guild) => {
-        const remoteCommands = (await rest.get(
-          Routes.applicationGuildCommands(applicationId, guild.id),
-        )) as APIApplicationCommand[];
-        await applyCommandChanges(
-          `${guild.name.slice(0, 10)}…`,
-          localCommands,
-          remoteCommands,
-          () => Routes.applicationGuildCommands(applicationId, guild.id),
-          (commandId: string) =>
-            Routes.applicationGuildCommand(applicationId, guild.id, commandId),
-        );
-      }),
-    );
-  }
+  await (isProd()
+    ? deployProdCommands(client, localCommands)
+    : deployTestCommands(client, localCommands));
 
   client.on("interactionCreate", (interaction) => {
     if (
@@ -104,6 +61,139 @@ export const deployCommands = async (client: Client) => {
       throw new Error("Didn't find a handler for an interaction");
     }
   });
+};
+
+type ChangedCommands = ReturnType<typeof calculateChangedCommands>;
+
+const applyCommandChanges = async (
+  localCommands: (ContextMenuCommandBuilder | SlashCommandBuilder)[],
+  toDelete: ChangedCommands["toDelete"],
+  didCommandsChange: boolean,
+  remoteCount: number,
+  put: () => `/${string}`,
+  del: (id: string) => `/${string}`,
+) => {
+  await Promise.allSettled(
+    toDelete.map((commandId) => rest.delete(del(commandId))),
+  );
+
+  if (didCommandsChange && remoteCount === localCommands.length) {
+    return;
+  }
+
+  await rest.put(put(), { body: localCommands });
+};
+
+export const deployProdCommands = async (
+  client: Client,
+  localCommands: (ContextMenuCommandBuilder | SlashCommandBuilder)[],
+) => {
+  // If a randomly sampled guild has guild commands, wipe all guild commands
+  // This should only one once as a migration, but maybe stuff will get into
+  // weird states.
+  const guilds = await client.guilds.fetch();
+  const randomGuild = guilds.at(Math.floor(Math.random() * guilds.size));
+  const randomGuildCommands = (await rest.get(
+    Routes.applicationGuildCommands(applicationId, randomGuild!.id),
+  )) as APIApplicationCommand[];
+  if (randomGuildCommands.length > 0) {
+    await Promise.allSettled(
+      // for each guild,
+      guilds.map(async (g) => {
+        // fetch all commands,
+        const commands = (await rest.get(
+          Routes.applicationGuildCommands(applicationId, g.id),
+        )) as APIApplicationCommand[];
+        // and delete each one
+        await Promise.allSettled(
+          commands.map(async (c) =>
+            rest.delete(
+              Routes.applicationGuildCommand(applicationId, g.id, c.id),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  const remoteCommands = (await rest.get(
+    Routes.applicationCommands(applicationId),
+  )) as APIApplicationCommand[];
+  const { didCommandsChange, toDelete } = calculateChangedCommands(
+    localCommands,
+    remoteCommands,
+  );
+
+  console.log(
+    `Deploying commands…
+  local:  ${localCommands.map((c) => c.name).join(",")}
+  global: ${remoteCommands.map((c) => c.name).join(",")}
+Global commands ${
+      didCommandsChange || localCommands.length !== remoteCommands.length
+        ? "DID"
+        : "DID NOT"
+    } change
+      ${toDelete.length > 0 ? `  deleting: ${toDelete.join(",")}\n` : ""}`,
+  );
+
+  await applyCommandChanges(
+    localCommands,
+    toDelete,
+    didCommandsChange,
+    remoteCommands.length,
+    () => Routes.applicationCommands(applicationId),
+    (commandId: string) => Routes.applicationCommand(applicationId, commandId),
+  );
+};
+
+export const deployTestCommands = async (
+  client: Client,
+  localCommands: (ContextMenuCommandBuilder | SlashCommandBuilder)[],
+) => {
+  // Delete all global commands
+  // This shouldn't happen, but ensures a consistent state esp in development
+  const globalCommands = (await rest.get(
+    Routes.applicationCommands(applicationId),
+  )) as APIApplicationCommand[];
+  // and delete each one
+  await Promise.allSettled(
+    globalCommands.map(async (c) =>
+      rest.delete(Routes.applicationCommand(applicationId, c.id)),
+    ),
+  );
+
+  // Deploy directly to all connected guilds
+  const guilds = await client.guilds.fetch();
+  console.log(`Deploying test commands to ${guilds.size} guilds…`);
+  await Promise.all(
+    guilds.map(async (guild) => {
+      const guildCommands = (await rest.get(
+        Routes.applicationGuildCommands(applicationId, guild.id),
+      )) as APIApplicationCommand[];
+
+      const changes = calculateChangedCommands(localCommands, guildCommands);
+      console.log(
+        `${guild.name}: ${
+          changes.didCommandsChange
+            ? `Upserting ${localCommands.length} commands.`
+            : "No command updates."
+        } ${
+          changes.toDelete.length > 0
+            ? `Deleting ${changes.toDelete.join(", ")}`
+            : ""
+        }`,
+      );
+      await applyCommandChanges(
+        localCommands,
+        changes.toDelete,
+        changes.didCommandsChange,
+        guildCommands.length,
+        () => Routes.applicationGuildCommands(applicationId, guild.id),
+        (commandId: string) =>
+          Routes.applicationGuildCommand(applicationId, guild.id, commandId),
+      );
+    }),
+  );
 };
 
 type Command = MessageContextCommand | UserContextCommand | SlashCommand;

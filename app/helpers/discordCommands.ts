@@ -4,12 +4,77 @@ import type {
   SlashCommandBuilder,
 } from "discord.js";
 import { ApplicationCommandType } from "discord.js";
-import { rest } from "~/discord/api";
 
 import { difference } from "~/helpers/sets";
 
-const calculateChangedCommands = (
-  deplayStage: string,
+export const compareCommands = (
+  localCommand: ContextMenuCommandBuilder | SlashCommandBuilder,
+  remoteCommand: APIApplicationCommand,
+): boolean => {
+  const json = localCommand.toJSON();
+  if (json.name !== remoteCommand.name) {
+    return false;
+  }
+
+  if (
+    json.type === ApplicationCommandType.User ||
+    json.type === ApplicationCommandType.Message
+  ) {
+    const result =
+      json.name === remoteCommand.name && json.type === remoteCommand.type;
+
+    console.log({ result });
+    return result;
+  }
+  if (json.type === ApplicationCommandType.ChatInput || !json.type) {
+    const hasRemoteOptions =
+      "options" in remoteCommand && remoteCommand.options!.length > 0;
+    const hasLocalOptions = "options" in json && json.options!.length > 0;
+
+    const typeMatches = !json.type || json.type === remoteCommand.type;
+    const descriptionMatches =
+      "description" in json
+        ? json.description === remoteCommand.description
+        : true;
+    const remoteOptionsMatch = hasRemoteOptions
+      ? remoteCommand.options!.every((o) =>
+          json.options?.some(
+            (o2) =>
+              o.name === o2.name &&
+              o.description === o2.description &&
+              o.type === o2.type,
+          ),
+        )
+      : true;
+    const localOptionsMatch = hasLocalOptions
+      ? json.options!.every((o) =>
+          remoteCommand.options?.some(
+            (o2) =>
+              o.name === o2.name &&
+              o.description === o2.description &&
+              o.type === o2.type,
+          ),
+        )
+      : true;
+    console.log({
+      typeMatches,
+      descriptionMatches,
+      remoteOptionsMatch,
+      localOptionsMatch,
+    });
+    const result = Boolean(
+      typeMatches &&
+        descriptionMatches &&
+        remoteOptionsMatch &&
+        localOptionsMatch,
+    );
+    console.log({ result });
+    return result;
+  }
+  throw new Error("Unexpected command type being compared");
+};
+
+export const calculateChangedCommands = (
   localCommands: (ContextMenuCommandBuilder | SlashCommandBuilder)[],
   remoteCommands: APIApplicationCommand[],
 ) => {
@@ -18,83 +83,22 @@ const calculateChangedCommands = (
   // Take the list of names to delete and swap it out for IDs to delete
   const remoteNames = new Set(remoteCommands.map((c) => c.name));
   const deleteNames = [...difference(remoteNames, names)];
+
   const toDelete = deleteNames
     .map((x) => remoteCommands.find((y) => y.name === x)?.id)
     .filter((x): x is string => Boolean(x));
-
-  // Grab a list of commands that need to be updated
-  const toUpdate = remoteCommands.filter(
-    (c) =>
-      // Check all necessary fields to see if any changed. User and Message
-      // commands don't have a description.
-      !localCommands
-        .map((x) => x.toJSON())
-        .find((x) => {
-          const { type = ApplicationCommandType.ChatInput, name } = x;
-          switch (x.type as ApplicationCommandType) {
-            case ApplicationCommandType.User:
-            case ApplicationCommandType.Message:
-              return name === c.name && type === c.type;
-            case ApplicationCommandType.ChatInput:
-            default:
-              return (
-                name === c.name &&
-                type === c.type &&
-                ("description" in x ? x.description === c.description : true) &&
-                c.options?.every((o) =>
-                  x.options?.some((o2) => o.name === o2.name),
-                ) &&
-                x.options?.every((o) =>
-                  c.options?.some((o2) => o.name === o2.name),
-                )
-              );
-          }
-        }),
+  const toUpdate = remoteCommands.filter((remoteCommand) =>
+    // Check all necessary fields to see if any changed. User and Message
+    // commands don't have a description.
+    {
+      const dupe = localCommands.find((localCommand) =>
+        compareCommands(localCommand, remoteCommand),
+      );
+      return !dupe;
+    },
   );
 
-  console.log(
-    "DEPLOY",
-    deplayStage,
-    `local: [${[...names].join(",")}], remote: [${[...remoteNames].join(",")}]`,
-  );
+  console.log({ toUpdate, remoteNames, names });
 
-  return { toDelete, toUpdate };
-};
-
-export const applyCommandChanges = async (
-  deployStage: string,
-  localCommands: (ContextMenuCommandBuilder | SlashCommandBuilder)[],
-  remoteCommands: APIApplicationCommand[],
-  put: () => `/${string}`,
-  del: (id: string) => `/${string}`,
-) => {
-  const { toDelete, toUpdate } = calculateChangedCommands(
-    deployStage,
-    localCommands,
-    remoteCommands,
-  );
-
-  await Promise.allSettled(
-    toDelete.map((commandId) => rest.delete(del(commandId))),
-  );
-
-  console.log(
-    "DEPLOY",
-    deployStage,
-    `Found ${toUpdate.length} changes: [${toUpdate
-      .map((x) => x.name)
-      .join(",")}], and ${toDelete.length} to delete: [${toDelete.join(",")}]`,
-  );
-
-  if (toUpdate.length === 0 && remoteCommands.length === localCommands.length) {
-    console.log("DEPLOY", deployStage, `No changes found, not upserting.`);
-    return;
-  }
-
-  console.log(
-    "DEPLOY",
-    deployStage,
-    `Upserting ${localCommands.length} commands`,
-  );
-  await rest.put(put(), { body: localCommands });
+  return { toDelete, didCommandsChange: toUpdate.length > 0 };
 };
