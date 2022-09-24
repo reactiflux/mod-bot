@@ -12,7 +12,7 @@ const defaultConfig = {
 /**
  * @type { import("./knexfile.d").Knexfile> }
  */
-module.exports = {
+export default {
   development: {
     ...defaultConfig,
     // seeds: {

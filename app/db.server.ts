@@ -1,5 +1,4 @@
 import knex from "knex";
-// @ts-expect-error because this isn't a typed file
 import knexfile from "~/../knexfile";
 export { SqliteError } from "better-sqlite3";
 

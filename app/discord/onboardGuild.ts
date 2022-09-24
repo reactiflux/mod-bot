@@ -16,10 +16,12 @@ export default async (bot: Client) => {
       const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
 
       const channels = await guild.channels.fetch();
-      const likelyChannels = channels.filter(
-        (c): c is TextChannel =>
-          c.type === ChannelType.GuildText &&
-          (c.name.includes("mod") || c.name.includes("intro")),
+      const likelyChannels = channels.filter((c): c is TextChannel =>
+        Boolean(
+          c &&
+            c.type === ChannelType.GuildText &&
+            (c.name.includes("mod") || c.name.includes("intro")),
+        ),
       );
 
       await retry(5, async (n) => {
