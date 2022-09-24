@@ -5,7 +5,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
-export default new SlashCommandBuilder()
+export const command = new SlashCommandBuilder()
   .setName("demo")
   .setDescription("TODO: replace everything in here");
 
