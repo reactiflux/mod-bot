@@ -1,10 +1,10 @@
 import type {
   GuildMember,
   Message,
-  MessageOptions,
   Role,
   TextChannel,
   APIInteractionGuildMember,
+  MessageCreateOptions,
 } from "discord.js";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
@@ -96,7 +96,7 @@ export const constructLog = async ({
   extra: origExtra = "",
   staff = [],
   members = [],
-}: Report): Promise<MessageOptions> => {
+}: Report): Promise<MessageCreateOptions> => {
   const { moderator: moderatorId } = await fetchSettings(message.guild!, [
     SETTINGS.moderator,
   ]);
