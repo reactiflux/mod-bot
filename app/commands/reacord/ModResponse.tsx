@@ -11,7 +11,7 @@ export const ModResponse = ({
   modRoleId,
 }: {
   votesRequired?: number;
-  onResolve: (result: Resolution) => void;
+  onResolve: (result: Resolution) => Promise<void>;
   modRoleId: string;
 }) => {
   const { votes, recordVote } = useVotes();
@@ -25,7 +25,7 @@ export const ModResponse = ({
     <Button
       label={label}
       style={style}
-      onClick={(event) => {
+      onClick={async (event) => {
         const { leader, voteCount } = recordVote(
           votes,
           resolution,
@@ -33,7 +33,7 @@ export const ModResponse = ({
         );
 
         if (leader && voteCount >= votesRequired) {
-          onResolve(leader);
+          await onResolve(leader);
         }
       }}
     />
