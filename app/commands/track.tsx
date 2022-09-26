@@ -4,6 +4,8 @@ import {
   ContextMenuCommandBuilder,
   Message,
 } from "discord.js";
+import { Button } from "reacord";
+import { reacord } from "~/discord/client.server";
 
 import { ReportReasons, reportUser } from "~/helpers/modLog";
 
@@ -25,5 +27,18 @@ export const handler = async (
     staff: [member],
   });
 
-  await interaction.reply({ ephemeral: true, content: "Tracked" });
+  const instance = await reacord.ephemeralReply(
+    interaction,
+    <>
+      Tracked
+      <Button
+        label="Delete message"
+        style="danger"
+        onClick={async () => {
+          await message.delete();
+          instance.render("Tracked");
+        }}
+      />
+    </>,
+  );
 };
