@@ -26,6 +26,10 @@ export const ModResponse = ({
       label={label}
       style={style}
       onClick={async (event) => {
+        if (!event.guild?.member.roles?.includes(modRoleId)) {
+          return;
+        }
+
         const { leader, voteCount } = recordVote(
           votes,
           resolution,
