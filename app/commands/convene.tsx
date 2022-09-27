@@ -17,7 +17,7 @@ import { resolutions } from "~/helpers/modResponse";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "~/models/discord.server";
-import { ModResponse } from "~/commands/reacord/ModResponse";
+import { Confirmation, ModResponse } from "~/commands/reacord/ModResponse";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Convene mods")
@@ -55,12 +55,12 @@ export const handler = async (
     name: `${message.author.username} mod response ${format(new Date(), "P")}`,
   });
   const originalChannel = (await message.channel.fetch()) as TextChannel;
-  const instance = await reacord.send(
+  const pollInstance = reacord.send(
     thread.id,
     <ModResponse
       modRoleId={moderator}
       onResolve={async (resolution) => {
-        instance.deactivate();
+        pollInstance.deactivate();
         switch (resolution) {
           case resolutions.restrict:
             reportUser({
@@ -162,5 +162,15 @@ This isn't a formal warning, but your message concerned the moderators enough th
   );
 
   // reply
-  await interaction.reply({ ephemeral: true, content: "Notification sent" });
+  const ackInstance = reacord.ephemeralReply(
+    interaction,
+    <Confirmation
+      modRoleId={moderator}
+      thread={thread}
+      onNotify={() => {
+        ackInstance.render("Mods notified");
+        ackInstance.deactivate();
+      }}
+    />,
+  );
 };

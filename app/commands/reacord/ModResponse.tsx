@@ -1,3 +1,4 @@
+import type { AnyThreadChannel } from "discord.js";
 import { Button } from "reacord";
 
 import type { Resolution } from "~/helpers/modResponse";
@@ -45,7 +46,7 @@ export const ModResponse = ({
 
   return (
     <>
-      {`<@&${modRoleId}> after ${votesRequired} or more votes, the leading resolution will be automatically enforced.
+      {`After ${votesRequired} or more votes, the leading resolution will be automatically enforced.
 ${Object.entries(votes)
   .map(
     ([resolution, voterIds]) =>
@@ -61,6 +62,32 @@ ${Object.entries(votes)
       {renderButton(votes, resolutions.restrict, "Restrict")}
       {renderButton(votes, resolutions.kick, "Kick")}
       {renderButton(votes, resolutions.ban, "Ban", "danger")}
+    </>
+  );
+};
+
+export const Confirmation = ({
+  thread,
+  modRoleId,
+  onNotify,
+}: {
+  thread: AnyThreadChannel;
+  modRoleId: string;
+  onNotify: () => void;
+}) => {
+  return (
+    <>
+      Discussion thread created
+      <Button
+        label="Notify mods"
+        style="success"
+        onClick={async (event) => {
+          await thread.send(
+            `<@${event.user.id}> indicated this is urgent. <@&${modRoleId}> please respond`,
+          );
+          await onNotify();
+        }}
+      />
     </>
   );
 };
