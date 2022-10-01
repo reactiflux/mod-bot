@@ -55,52 +55,52 @@ export const isSpam = (content: string, threshold = 4) => {
 
 export default async (bot: Client) => {
   bot.on("messageCreate", async (msg) => {
-    if (msg.author?.id === bot.user?.id) return;
-    if (!msg.guild) return;
+    if (msg.author?.id === bot.user?.id || !msg.guild) return;
 
-    const [author] = await Promise.all([
+    const [author, message] = await Promise.all([
       msg.guild.members.fetch(msg.author.id),
+      msg.fetch(),
     ]);
-    // Skip if the post is from someone from the staff or reactor is not staff
-    if (isStaff(author)) {
+    if (!message.guild || isStaff(author)) {
       return;
     }
 
-    if (isSpam(msg.content)) {
-      msg.delete();
-
-      const { warnings } = await reportUser({
-        reason: ReportReasons.spam,
-        message: msg,
-      });
+    if (isSpam(message.content)) {
+      const [{ warnings }] = await Promise.all([
+        reportUser({
+          reason: ReportReasons.spam,
+          message: message,
+        }),
+        message.delete(),
+      ]);
 
       if (warnings >= AUTO_SPAM_THRESHOLD) {
-        const { modLog: modLogId } = await fetchSettings(msg.guild, [
+        const { modLog: modLogId } = await fetchSettings(message.guild, [
           SETTINGS.modLog,
         ]);
         const [member, modLog] = await Promise.all([
-          msg.guild.members.fetch(msg.author.id),
-          msg.guild.channels.fetch(modLogId) as unknown as TextChannel,
+          message.guild.members.fetch(message.author.id),
+          message.guild.channels.fetch(modLogId) as unknown as TextChannel,
         ]);
         if (!modLog) throw new Error("Failed to load mod log when automodding");
         member.kick("Autokicked for spamming");
-        modLog.send(`Automatically kicked <@${msg.author.id}> for spam`);
+        modLog.send(`Automatically kicked <@${message.author.id}> for spam`);
       }
-    } else if (getPingCount(msg.content) > 0) {
+    } else if (getPingCount(message.content) > 0) {
       await reportUser({
         reason: ReportReasons.ping,
-        message: msg,
+        message: message,
       });
-      const tsk = await msg.reply({
+      const tsk = await message.reply({
         embeds: [
           {
             title: "Tsk tsk.",
-            description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${msg.guild.memberCount} members in ${msg.guild.name}.`,
+            description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${message.guild.memberCount} members in ${message.guild.name}.`,
             color: 0xba0c2f,
           },
         ],
       });
-      await Promise.all([msg.delete(), sleep(15)]);
+      await Promise.all([message.delete(), sleep(15)]);
       await tsk.delete();
     }
   });
