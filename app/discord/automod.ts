@@ -57,11 +57,11 @@ export default async (bot: Client) => {
   bot.on("messageCreate", async (msg) => {
     if (msg.author?.id === bot.user?.id || !msg.guild) return;
 
-    const [author, message] = await Promise.all([
+    const [member, message] = await Promise.all([
       msg.guild.members.fetch(msg.author.id),
       msg.fetch(),
     ]);
-    if (!message.guild || isStaff(author)) {
+    if (!message.guild || isStaff(member)) {
       return;
     }
 
@@ -78,13 +78,14 @@ export default async (bot: Client) => {
         const { modLog: modLogId } = await fetchSettings(message.guild, [
           SETTINGS.modLog,
         ]);
-        const [member, modLog] = await Promise.all([
-          message.guild.members.fetch(message.author.id),
-          message.guild.channels.fetch(modLogId) as unknown as TextChannel,
-        ]);
+        const modLog = message.guild.channels.fetch(
+          modLogId,
+        ) as unknown as TextChannel;
         if (!modLog) throw new Error("Failed to load mod log when automodding");
-        member.kick("Autokicked for spamming");
-        modLog.send(`Automatically kicked <@${message.author.id}> for spam`);
+        await Promise.all([
+          member.kick("Autokicked for spamming"),
+          modLog.send(`Automatically kicked <@${message.author.id}> for spam`),
+        ]);
       }
     } else if (getPingCount(message.content) > 0) {
       await reportUser({
