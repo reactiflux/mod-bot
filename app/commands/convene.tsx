@@ -63,57 +63,62 @@ export const handler = async (
         pollInstance.deactivate();
         switch (resolution) {
           case resolutions.restrict:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              extra: "✅ Restricted",
-            });
-            await applyRestriction(message.member!);
-            message.reply(
-              "After a vote by the mods, this member has had restrictions applied to them",
-            );
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.mod,
+                message,
+                extra: "✅ Restricted",
+              }),
+              applyRestriction(message.member!),
+              message.reply(
+                "After a vote by the mods, this member has had restrictions applied to them",
+              ),
+            ]);
             return;
           case resolutions.kick:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              extra: "✅ Kicked",
-            });
-
-            await kick(message.member!);
-            message.reply(
-              "After a vote by the mods, this member has been kicked from the server to cool off",
-            );
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.mod,
+                message,
+                extra: "✅ Kicked",
+              }),
+              kick(message.member!),
+              message.reply(
+                "After a vote by the mods, this member has been kicked from the server to cool off",
+              ),
+            ]);
             return;
           case resolutions.ban:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              extra: "✅ Banned",
-            });
-
-            await ban(message.member!);
-            message.reply(
-              "After a vote by the mods, this member has been permanently banned",
-            );
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.mod,
+                message,
+                extra: "✅ Banned",
+              }),
+              ban(message.member!),
+              message.reply(
+                "After a vote by the mods, this member has been permanently banned",
+              ),
+            ]);
             return;
           case resolutions.nudge:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              extra: "✅ Nudge",
-            });
-
-            const thread = await originalChannel.threads.create({
-              name: message.author.username,
-              autoArchiveDuration: 60,
-              // TODO: This won't work in servers that aren't at boost level 2
-              // Maybe could create a thread and ensure the "thread created" message is removed? honestly that's pretty invisible to anyone who isn't trawling through threads proactively
-              type: guild.features.includes("PRIVATE_THREADS")
-                ? ChannelType.GuildPrivateThread
-                : ChannelType.GuildPublicThread,
-              reason: "Private moderation thread",
-            });
+            const [thread] = await Promise.all([
+              originalChannel.threads.create({
+                name: message.author.username,
+                autoArchiveDuration: 60,
+                // TODO: This won't work in servers that aren't at boost level 2
+                // Maybe could create a thread and ensure the "thread created" message is removed? honestly that's pretty invisible to anyone who isn't trawling through threads proactively
+                type: guild.features.includes("PRIVATE_THREADS")
+                  ? ChannelType.PrivateThread
+                  : ChannelType.PublicThread,
+                reason: "Private moderation thread",
+              }),
+              reportUser({
+                reason: ReportReasons.mod,
+                message,
+                extra: "✅ Nudge",
+              }),
+            ]);
             const [{ moderator: modRoleId }] = await Promise.all([
               fetchSettings(message.guild!, [SETTINGS.moderator]),
               thread.members.add(message.author),
