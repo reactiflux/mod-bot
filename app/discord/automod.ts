@@ -22,7 +22,7 @@ const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
 const checkWords = (message: string, wordList: string[]) =>
   message.split(/\b/).some((word) => wordList.includes(word.toLowerCase()));
 
-const isSpam = (content: string, threshold = 4) => {
+export const isSpam = (content: string, threshold = 4) => {
   const numberOfSpamKeywords = spamKeywords.reduce(
     (accum, spamTrigger) => (spamTrigger.test(content) ? accum + 1 : accum),
     0,
@@ -53,7 +53,6 @@ export default async (bot: Client) => {
     if (!message.guild || isStaff(author)) {
       return;
     }
-    console.log(msg.content, msg.mentions.everyone, isSpam(message.content));
 
     if (isSpam(message.content)) {
       const [{ warnings }] = await Promise.all([
