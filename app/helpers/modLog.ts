@@ -25,6 +25,15 @@ export const enum ReportReasons {
   spam = "spam",
   ping = "ping",
 }
+const ReadableReasons: Record<ReportReasons, string> = {
+  [ReportReasons.anonReport]: "Reported anonymously",
+  [ReportReasons.track]: "Tracked by moderator",
+  [ReportReasons.userWarn]: "Met 👎 threshold",
+  [ReportReasons.userDelete]: "Met 👎 deletion threshold",
+  [ReportReasons.mod]: "Moderators convened",
+  [ReportReasons.spam]: "Detected as spam",
+  [ReportReasons.ping]: "Pinged everyone",
+};
 type Member = GuildMember | APIInteractionGuildMember;
 interface Report {
   reason: ReportReasons;
@@ -36,7 +45,7 @@ interface Report {
 
 const warningMessages = new Map<
   string,
-  { warnings: number; message: Message }
+  { logMessage: Message; logs: { message: Message; reason: ReportReasons }[] }
 >();
 export const reportUser = async ({
   reason,
@@ -52,59 +61,79 @@ export const reportUser = async ({
   )}`;
   const cached = warningMessages.get(simplifiedContent);
 
-  const logBody = await constructLog({
-    reason,
-    message,
-    extra,
-    staff,
-    members,
-  });
-
   if (cached) {
     // If we already logged for ~ this message, edit the log
-    const { message: cachedMessage, warnings: oldWarnings } = cached;
-    const warnings = oldWarnings + 1;
+    const { logMessage: cachedMessage, logs } = cached;
+
+    const newLogs = logs.concat([{ message, reason }]);
+    const warnings = newLogs.length;
+
+    const logBody = await constructLog({
+      logs: newLogs,
+      extra,
+      staff,
+      members,
+    });
 
     const finalLog =
       logBody.content?.replace(/warned \d times/, `warned ${warnings} times`) ||
       "";
 
-    cachedMessage.edit(finalLog);
+    await cachedMessage.edit(finalLog);
     warningMessages.set(simplifiedContent, {
-      warnings,
-      message: cachedMessage,
+      logMessage: cachedMessage,
+      logs: newLogs,
     });
     return { warnings, message: cachedMessage };
   } else {
     // If this is new, send a new message
     const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
     const modLog = (await guild.channels.fetch(modLogId)) as TextChannel;
+    const newLogs = [{ message, reason }];
+
+    const logBody = await constructLog({
+      extra,
+      logs: newLogs,
+      staff,
+      members,
+    });
 
     const warningMessage = await modLog.send(logBody);
 
     warningMessages.set(simplifiedContent, {
-      warnings: 1,
-      message: warningMessage,
+      logMessage: warningMessage,
+      logs: newLogs,
     });
     return { warnings: 1, message: warningMessage };
   }
 };
 
 export const constructLog = async ({
-  reason,
-  message,
+  logs,
   extra: origExtra = "",
   staff = [],
   members = [],
-}: Report): Promise<MessageCreateOptions> => {
-  const { moderator: moderatorId } = await fetchSettings(message.guild!, [
+}: Pick<Report, "extra" | "staff" | "members"> & {
+  logs: { message: Message; reason: ReportReasons }[];
+}): Promise<MessageCreateOptions> => {
+  const { guild } = logs[0].message;
+  const lastReport = logs.at(-1)!;
+  const { moderator: moderatorId } = await fetchSettings(guild!, [
     SETTINGS.moderator,
   ]);
 
-  const staffRole = (await message.guild!.roles.fetch(moderatorId)) as Role;
+  const staffRole = (await guild!.roles.fetch(moderatorId)) as Role;
 
   const modAlert = `<@${staffRole.id}>`;
-  const preface = `<@${message.author.id}> in <#${message.channel.id}> warned 1 times`;
+  const preface = `<@${lastReport.message.author.id}> (${
+    lastReport.message.author.username
+  }) warned ${logs.length} times:
+${logs
+  .map(
+    ({ message, reason }) =>
+      `in <#${message.channel.id}>: ${ReadableReasons[reason]}`,
+  )
+  .join("\n")}`.trim();
   const extra = origExtra ? `\n${origExtra}\n` : "";
   const postfix = `${
     members.length
@@ -115,12 +144,17 @@ export const constructLog = async ({
       ? `Staff: ${staff.map(({ user }) => user.username).join(", ")}`
       : ""
   }
-`;
-  const reportedMessage = quoteAndEscape(message.content);
-  const link = `[Original message](${constructDiscordLink(message)})`;
-  const attachments = describeAttachments(message.attachments);
+`.trim();
+  const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
+  const link = logs
+    .map(
+      ({ message }) =>
+        `[In <#${message.channelId}>](${constructDiscordLink(message)})`,
+    )
+    .join("\n");
+  const attachments = describeAttachments(lastReport.message.attachments);
 
-  switch (reason) {
+  switch (getLogFormat(logs.map(({ reason }) => reason))) {
     case ReportReasons.mod:
       return {
         content: `${preface}:${extra}
@@ -134,11 +168,9 @@ ${postfix}`,
 
     case ReportReasons.track:
       return {
-        content: `<@${message.author.id}> (${message.author.username}) in <#${
-          message.channel.id
-        }>
-sent ${formatDistanceToNowStrict(message.createdAt)} ago on ${format(
-          message.createdAt,
+        content: `${preface}
+sent ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago on ${format(
+          lastReport.message.createdAt,
           "Pp 'GMT'x",
         )}
 tracked by ${staff.map(({ user }) => user.username).join(", ")}:
@@ -150,8 +182,9 @@ ${reportedMessage}`,
       };
 
     case ReportReasons.userWarn:
+    case ReportReasons.userDelete:
       return {
-        content: `${modAlert} – ${preface}, met the warning threshold for the message:
+        content: `${modAlert} – ${preface}
 ${extra}
 ${reportedMessage}
 
@@ -161,44 +194,40 @@ ${postfix}`,
         ],
       };
 
-    case ReportReasons.userDelete:
-      return {
-        content: `${modAlert} – ${preface}, met the deletion threshold for the message:
-${extra}
-${reportedMessage}
-
-${postfix}`,
-        embeds: attachments ? [{ description: `${attachments}` }] : [],
-      };
-
     case ReportReasons.spam:
-      return {
-        content: `${preface}, reported for spam:
-${extra}
-${reportedMessage}
-
-${postfix}`,
-        embeds: attachments ? [{ description: `${attachments}` }] : [],
-      };
-
     case ReportReasons.ping:
-      return {
-        content: `${preface}, pinged everyone:
-${extra}
-${reportedMessage}
-
-${postfix}`,
-        embeds: attachments ? [{ description: `${attachments}` }] : [],
-      };
-
     case ReportReasons.anonReport:
       return {
-        content: `${preface}, reported anonymously:
+        content: `${preface}
 ${extra}
 ${reportedMessage}
 
 ${postfix}`,
-        embeds: [{ description: `${link}${attachments}` }],
+        embeds: [
+          { description: `${link}${attachments ? `\n\n${attachments}` : ""}` },
+        ],
       };
   }
 };
+
+const reportScores = {
+  [ReportReasons.anonReport]: 1,
+  [ReportReasons.track]: 3,
+  [ReportReasons.userWarn]: 1,
+  [ReportReasons.userDelete]: 1,
+  [ReportReasons.mod]: 5,
+  [ReportReasons.spam]: 1,
+  [ReportReasons.ping]: 1,
+};
+// Determine what format to use when sending a message. When a single message can
+// be reported multiple times, we'd prefer that some types of reports have more
+// weight over what format is used. For instance, if a message is tracked by
+// moderators, then reported anonymously, we'd prefer to render it as a "tracked
+// by moderators" message because it has more information.
+const getLogFormat = (reports: ReportReasons[]): ReportReasons =>
+  reports.reduce((mainType, report) => {
+    if (reportScores[report] >= reportScores[mainType]) {
+      return report;
+    }
+    return mainType;
+  }, reports[0]);
