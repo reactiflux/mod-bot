@@ -108,7 +108,7 @@ export const reportUser = async ({
   }
 };
 
-export const constructLog = async ({
+const constructLog = async ({
   logs,
   extra: origExtra = "",
   staff = [],
