@@ -59,6 +59,9 @@ export const handler = async (
     thread.id,
     <ModResponse
       modRoleId={moderator}
+      onVote={async (newVote) => {
+        thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
+      }}
       onResolve={async (resolution) => {
         pollInstance.deactivate();
         switch (resolution) {
