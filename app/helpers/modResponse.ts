@@ -11,6 +11,16 @@ export const resolutions = {
   kick: "kick",
   ban: "ban",
 } as const;
+export const humanReadableResolutions = {
+  [resolutions.okay]: "Okay",
+  [resolutions.track]: "Track",
+  [resolutions.nudge]: "Informal Warning",
+  [resolutions.warning]: "Formal Warning",
+  [resolutions.timeout]: "Timeout Overnight",
+  [resolutions.restrict]: "Restrict",
+  [resolutions.kick]: "Kick",
+  [resolutions.ban]: "Ban",
+} as const;
 export type Resolution = typeof resolutions[keyof typeof resolutions];
 
 export const useVotes = () => {
