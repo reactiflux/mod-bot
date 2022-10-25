@@ -48,6 +48,10 @@ export const handler = async (
   });
 
   if (logMessage.hasThread) {
+    await interaction.reply({
+      content: `Already active: <#${logMessage.thread?.id}>`,
+      ephemeral: true,
+    });
     return;
   }
 
