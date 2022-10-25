@@ -3,7 +3,6 @@ import {
   ApplicationCommandType,
   ChannelType,
   ContextMenuCommandBuilder,
-  Message,
 } from "discord.js";
 import type {
   MessageContextMenuCommandInteraction,
@@ -27,7 +26,15 @@ export const handler = async (
   interaction: MessageContextMenuCommandInteraction,
 ) => {
   const { targetMessage: message, member, guild } = interaction;
-  if (!(message instanceof Message) || !member || !guild) {
+  if (!member || !guild) {
+    console.log(
+      `Bailing out of Convene Mods because member or guild weren't defined:`,
+      { member, guild },
+    );
+    await interaction.reply({
+      content: "Couldn’t find one of member or guild",
+      ephemeral: true,
+    });
     return;
   }
 
@@ -35,10 +42,16 @@ export const handler = async (
     SETTINGS.modLog,
     SETTINGS.moderator,
   ]);
-
   const logChannel = (await guild.channels.fetch(modLog)) as TextChannel;
   if (!logChannel || logChannel.type !== ChannelType.GuildText) {
-    throw new Error("Failed to load mod channel");
+    console.log(
+      "Bailing out of Convene Mods because mod log channel wasn't found",
+    );
+    await interaction.reply({
+      content: "Failed to load mod channel",
+      ephemeral: true,
+    });
+    return;
   }
 
   const { message: logMessage } = await reportUser({
@@ -48,6 +61,7 @@ export const handler = async (
   });
 
   if (logMessage.hasThread) {
+    console.log("Ignoring a redundant Convene Mods call");
     await interaction.reply({
       content: `Already active: <#${logMessage.thread?.id}>`,
       ephemeral: true,
@@ -64,7 +78,7 @@ export const handler = async (
     <ModResponse
       modRoleId={moderator}
       onVote={async (newVote) => {
-        thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
+        await thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
       }}
       onResolve={async (resolution) => {
         pollInstance.deactivate();
