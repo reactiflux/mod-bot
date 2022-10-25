@@ -1,9 +1,5 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
-import {
-  ApplicationCommandType,
-  ContextMenuCommandBuilder,
-  Message,
-} from "discord.js";
+import { ApplicationCommandType, ContextMenuCommandBuilder } from "discord.js";
 import { ReportReasons, reportUser } from "~/helpers/modLog";
 
 export const command = new ContextMenuCommandBuilder()
@@ -13,12 +9,13 @@ export const command = new ContextMenuCommandBuilder()
 export const handler = async (
   interaction: MessageContextMenuCommandInteraction,
 ) => {
-  const message = interaction.targetMessage;
-  if (!(message instanceof Message)) {
-    return;
-  }
+  const { targetMessage: message } = interaction;
 
-  await reportUser({ reason: ReportReasons.anonReport, message });
+  await reportUser({
+    reason: ReportReasons.anonReport,
+    message,
+    staff: false,
+  });
 
   await interaction.reply({
     ephemeral: true,
