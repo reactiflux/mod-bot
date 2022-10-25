@@ -1,9 +1,5 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
-import {
-  ApplicationCommandType,
-  ContextMenuCommandBuilder,
-  Message,
-} from "discord.js";
+import { ApplicationCommandType, ContextMenuCommandBuilder } from "discord.js";
 import { Button } from "reacord";
 import { reacord } from "~/discord/client.server";
 
@@ -16,15 +12,12 @@ export const command = new ContextMenuCommandBuilder()
 export const handler = async (
   interaction: MessageContextMenuCommandInteraction,
 ) => {
-  const { targetMessage: message, member } = interaction;
-  if (!(message instanceof Message) || !member) {
-    return;
-  }
+  const { targetMessage: message, user } = interaction;
 
   await reportUser({
     reason: ReportReasons.track,
     message,
-    staff: [member],
+    staff: user,
   });
 
   const instance = await reacord.ephemeralReply(

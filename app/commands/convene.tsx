@@ -57,6 +57,7 @@ export const handler = async (
   const { message: logMessage } = await reportUser({
     message,
     reason: ReportReasons.mod,
+    staff: interaction.user,
     extra: `‼️ <@${interaction.user.id}> requested mods respond`,
   });
 
@@ -72,6 +73,7 @@ export const handler = async (
   const thread = await logMessage.startThread({
     name: `${message.author.username} mod response ${format(new Date(), "P")}`,
   });
+  const staff = interaction.user;
   const originalChannel = (await message.channel.fetch()) as TextChannel;
   const pollInstance = reacord.send(
     thread.id,
@@ -88,6 +90,7 @@ export const handler = async (
               reportUser({
                 reason: ReportReasons.mod,
                 message,
+                staff,
                 extra: "✅ Restricted",
               }),
               applyRestriction(message.member!),
@@ -101,6 +104,7 @@ export const handler = async (
               reportUser({
                 reason: ReportReasons.mod,
                 message,
+                staff,
                 extra: "✅ Kicked",
               }),
               kick(message.member!),
@@ -114,6 +118,7 @@ export const handler = async (
               reportUser({
                 reason: ReportReasons.mod,
                 message,
+                staff,
                 extra: "✅ Banned",
               }),
               ban(message.member!),
@@ -137,6 +142,7 @@ export const handler = async (
               reportUser({
                 reason: ReportReasons.mod,
                 message,
+                staff,
                 extra: "✅ Nudge",
               }),
             ]);
@@ -154,6 +160,7 @@ This isn't a formal warning, but your message concerned the moderators enough th
             reportUser({
               reason: ReportReasons.mod,
               message,
+              staff,
               extra: "✅ Warning",
             });
             message.reply(
@@ -165,18 +172,24 @@ This isn't a formal warning, but your message concerned the moderators enough th
             reportUser({
               reason: ReportReasons.mod,
               message,
+              staff,
               extra: "✅ Determined to be okay",
             });
             return;
 
           case resolutions.track:
-            reportUser({ reason: ReportReasons.track, message });
+            reportUser({
+              reason: ReportReasons.track,
+              message,
+              staff,
+            });
             return;
 
           case resolutions.timeout:
             reportUser({
               reason: ReportReasons.mod,
               message,
+              staff,
               extra: "✅ Timed out overnight",
             });
             timeout(message.member!);

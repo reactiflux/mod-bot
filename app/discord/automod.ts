@@ -5,6 +5,7 @@ import { SETTINGS, fetchSettings } from "~/models/guilds.server";
 import { isStaff } from "~/helpers/discord";
 import { sleep } from "~/helpers/misc";
 import { reportUser, ReportReasons } from "~/helpers/modLog";
+import { client } from "./client.server";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
@@ -61,7 +62,7 @@ export default async (bot: Client) => {
       msg.guild.members.fetch(msg.author.id),
       msg.fetch(),
     ]);
-    if (!message.guild || isStaff(member)) {
+    if (!message.guild || !member || isStaff(member)) {
       return;
     }
 
@@ -70,6 +71,7 @@ export default async (bot: Client) => {
         reportUser({
           reason: ReportReasons.spam,
           message: message,
+          staff: client.user || false,
         }),
         message.delete(),
       ]);
@@ -91,6 +93,7 @@ export default async (bot: Client) => {
       await reportUser({
         reason: ReportReasons.ping,
         message: message,
+        staff: client.user || false,
       });
       const tsk = await message.reply({
         embeds: [
