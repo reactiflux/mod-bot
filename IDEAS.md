@@ -1,3 +1,7 @@
+# some kind of invite management UI
+
+spammer joining by invites is pretty hard to discover and manage. an interface for tidying up invites to protect members might be helpful
+
 # admin onboarding and web experience
 
 should have a web-based onboarding flow to configure server where necessary. hand off between discord bot and web as appropriate
