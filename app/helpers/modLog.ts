@@ -5,7 +5,6 @@ import type {
   User,
   ClientUser,
 } from "discord.js";
-import { EmbedType } from "discord.js";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {
@@ -130,11 +129,6 @@ const constructLog = async ({
 ${reports}
 ${extra}
 ${reportedMessage}`,
-    embeds: [
-      {
-        type: EmbedType.Rich,
-        description: `${attachments ? `\n\n${attachments}` : ""}`,
-      },
-    ],
+    embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };
