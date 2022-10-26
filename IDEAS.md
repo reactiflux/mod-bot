@@ -2,6 +2,14 @@
 
 spammer joining by invites is pretty hard to discover and manage. an interface for tidying up invites to protect members might be helpful
 
+# "mod message" feature
+
+use for other things too, like a role menu + vetting process
+long-lived button to initialize
+create a thread (private if possible) with the user
+ask member to complete "application", onboarding-style series of responses maybe
+create a thread in #mod-log and share application with application deets, with approve button
+
 # admin onboarding and web experience
 
 should have a web-based onboarding flow to configure server where necessary. hand off between discord bot and web as appropriate
