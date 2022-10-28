@@ -21,9 +21,11 @@ export const compareCommands = (
     json.type === ApplicationCommandType.Message
   ) {
     const result =
-      json.name === remoteCommand.name && json.type === remoteCommand.type;
+      json.name === remoteCommand.name &&
+      json.type === remoteCommand.type &&
+      (json.default_member_permissions ?? null) ===
+        (remoteCommand.default_member_permissions ?? null);
 
-    console.log({ result });
     return result;
   }
   if (json.type === ApplicationCommandType.ChatInput || !json.type) {
@@ -32,10 +34,16 @@ export const compareCommands = (
     const hasLocalOptions = "options" in json && json.options!.length > 0;
 
     const typeMatches = !json.type || json.type === remoteCommand.type;
+    if (!typeMatches) {
+      return false;
+    }
     const descriptionMatches =
       "description" in json
         ? json.description === remoteCommand.description
         : true;
+    if (!descriptionMatches) {
+      return false;
+    }
     const remoteOptionsMatch = hasRemoteOptions
       ? remoteCommand.options!.every((o) =>
           json.options?.some(
@@ -46,6 +54,9 @@ export const compareCommands = (
           ),
         )
       : true;
+    if (!remoteOptionsMatch) {
+      return false;
+    }
     const localOptionsMatch = hasLocalOptions
       ? json.options!.every((o) =>
           remoteCommand.options?.some(
@@ -56,20 +67,10 @@ export const compareCommands = (
           ),
         )
       : true;
-    console.log({
-      typeMatches,
-      descriptionMatches,
-      remoteOptionsMatch,
-      localOptionsMatch,
-    });
-    const result = Boolean(
-      typeMatches &&
-        descriptionMatches &&
-        remoteOptionsMatch &&
-        localOptionsMatch,
-    );
-    console.log({ result });
-    return result;
+    if (!localOptionsMatch) {
+      return false;
+    }
+    return true;
   }
   throw new Error("Unexpected command type being compared");
 };
@@ -87,18 +88,16 @@ export const calculateChangedCommands = (
   const toDelete = deleteNames
     .map((x) => remoteCommands.find((y) => y.name === x)?.id)
     .filter((x): x is string => Boolean(x));
-  const toUpdate = remoteCommands.filter((remoteCommand) =>
+  const toUpdate = localCommands.filter((localCommand) =>
     // Check all necessary fields to see if any changed. User and Message
     // commands don't have a description.
     {
-      const dupe = localCommands.find((localCommand) =>
+      const dupe = remoteCommands.find((remoteCommand) =>
         compareCommands(localCommand, remoteCommand),
       );
       return !dupe;
     },
   );
-
-  console.log({ toUpdate, remoteNames, names });
 
   return { toDelete, didCommandsChange: toUpdate.length > 0 };
 };
