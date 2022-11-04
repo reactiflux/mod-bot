@@ -1,4 +1,5 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 import { ApplicationCommandType, ContextMenuCommandBuilder } from "discord.js";
 import { Button } from "reacord";
 import { reacord } from "~/discord/client.server";
@@ -7,7 +8,8 @@ import { ReportReasons, reportUser } from "~/helpers/modLog";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Track")
-  .setType(ApplicationCommandType.Message);
+  .setType(ApplicationCommandType.Message)
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export const handler = async (
   interaction: MessageContextMenuCommandInteraction,

@@ -3,6 +3,7 @@ import {
   ApplicationCommandType,
   ChannelType,
   ContextMenuCommandBuilder,
+  PermissionFlagsBits,
 } from "discord.js";
 import type {
   MessageContextMenuCommandInteraction,
@@ -20,7 +21,8 @@ import { Confirmation, ModResponse } from "~/commands/reacord/ModResponse";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Convene mods")
-  .setType(ApplicationCommandType.Message);
+  .setType(ApplicationCommandType.Message)
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
 export const handler = async (
   interaction: MessageContextMenuCommandInteraction,
