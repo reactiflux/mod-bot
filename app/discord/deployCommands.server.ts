@@ -77,7 +77,7 @@ const applyCommandChanges = async (
     toDelete.map((commandId) => rest.delete(del(commandId))),
   );
 
-  if (didCommandsChange && remoteCount === localCommands.length) {
+  if (!didCommandsChange && remoteCount === localCommands.length) {
     return;
   }
 
