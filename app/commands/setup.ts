@@ -1,4 +1,5 @@
 import type { ChatInputCommandInteraction } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 import { SlashCommandBuilder } from "discord.js";
 
 import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
@@ -6,6 +7,7 @@ import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
 export const command = new SlashCommandBuilder()
   .setName("setup")
   .setDescription("Set up necessities for using the bot")
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   // TODO: update permissions so non-mods can never use it
   // maybe implement as "adder must init immediately"?
   // .setDefaultPermission(true);

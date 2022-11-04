@@ -1,10 +1,12 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 import { ApplicationCommandType, ContextMenuCommandBuilder } from "discord.js";
 import { ReportReasons, reportUser } from "~/helpers/modLog";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Report")
-  .setType(ApplicationCommandType.Message);
+  .setType(ApplicationCommandType.Message)
+  .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
 
 export const handler = async (
   interaction: MessageContextMenuCommandInteraction,
