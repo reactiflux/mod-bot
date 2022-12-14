@@ -46,9 +46,9 @@ const warningMessages = new Map<
 export const reportUser = async ({ reason, message, extra, staff }: Report) => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
-  const simplifiedContent = `${message.author.id}${simplifyString(
-    message.content,
-  )}`;
+  const simplifiedContent = `${message.guildId}${
+    message.author.id
+  }${simplifyString(message.content)}`;
   const cached = warningMessages.get(simplifiedContent);
 
   if (cached) {
