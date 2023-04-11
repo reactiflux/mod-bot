@@ -15,7 +15,6 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import prettyBytes from "pretty-bytes";
-import { truncateMessage } from "~/helpers/string";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -100,7 +99,7 @@ export const escapeDisruptiveContent = (content: string) => {
 };
 
 export const quoteAndEscape = (content: string) => {
-  return truncateMessage(escapeDisruptiveContent(quoteMessageContent(content)));
+  return escapeDisruptiveContent(quoteMessageContent(content));
 };
 
 //
