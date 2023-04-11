@@ -12,7 +12,7 @@ import {
   describeAttachments,
   quoteAndEscape,
 } from "~/helpers/discord";
-import { simplifyString } from "~/helpers/string";
+import { simplifyString, truncateMessage } from "~/helpers/string";
 import { format, formatDistanceToNowStrict } from "date-fns";
 
 export const enum ReportReasons {
@@ -68,7 +68,7 @@ export const reportUser = async ({ reason, message, extra, staff }: Report) => {
       logBody.content?.replace(/warned \d times/, `warned ${warnings} times`) ||
       "";
 
-    await cachedMessage.edit(finalLog);
+    await cachedMessage.edit(truncateMessage(finalLog.slice(0, 1999)));
     warningMessages.set(simplifiedContent, {
       logMessage: cachedMessage,
       logs: newLogs,
@@ -125,10 +125,10 @@ const constructLog = async ({
   const attachments = describeAttachments(lastReport.message.attachments);
 
   return {
-    content: `${preface}
+    content: truncateMessage(`${preface}
 ${reports}
 ${extra}
-${reportedMessage}`,
+${reportedMessage}`),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };
