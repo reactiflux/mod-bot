@@ -21,8 +21,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-
-      - uses: c-hive/gha-npm-cache@v1
+          cache: npm
 
       - run: npm install
 
@@ -40,8 +39,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-
-      - uses: c-hive/gha-npm-cache@v1
+          cache: npm
 
       - run: npm install
 
@@ -59,8 +57,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-
-      - uses: c-hive/gha-npm-cache@v1
+          cache: npm
 
       - run: npm install
 
