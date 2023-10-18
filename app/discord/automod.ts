@@ -3,7 +3,6 @@ import type { Client, TextChannel } from "discord.js";
 import { SETTINGS, fetchSettings } from "~/models/guilds.server";
 
 import { isStaff } from "~/helpers/discord";
-import { sleep } from "~/helpers/misc";
 import { reportUser, ReportReasons } from "~/helpers/modLog";
 import { client } from "./client.server";
 
@@ -89,23 +88,6 @@ export default async (bot: Client) => {
           modLog.send(`Automatically kicked <@${message.author.id}> for spam`),
         ]);
       }
-    } else if (getPingCount(message.content) > 0) {
-      await reportUser({
-        reason: ReportReasons.ping,
-        message: message,
-        staff: client.user || false,
-      });
-      const tsk = await message.reply({
-        embeds: [
-          {
-            title: "Tsk tsk.",
-            description: `Please do **not** try to use \`@here\` or \`@everyone\` - there are ${message.guild.memberCount} members in ${message.guild.name}.`,
-            color: 0xba0c2f,
-          },
-        ],
-      });
-      await Promise.all([message.delete(), sleep(15)]);
-      await tsk.delete();
     }
   });
 };
