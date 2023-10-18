@@ -20,14 +20,12 @@ export const enum ReportReasons {
   track = "track",
   mod = "mod",
   spam = "spam",
-  ping = "ping",
 }
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
   [ReportReasons.track]: "Tracked",
   [ReportReasons.mod]: "Moderators convened",
   [ReportReasons.spam]: "Detected as spam",
-  [ReportReasons.ping]: "Pinged everyone",
 };
 interface Report {
   reason: ReportReasons;
