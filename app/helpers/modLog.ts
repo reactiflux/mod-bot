@@ -23,15 +23,16 @@ export const enum ReportReasons {
 }
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
-  [ReportReasons.track]: "Tracked",
-  [ReportReasons.mod]: "Moderators convened",
-  [ReportReasons.spam]: "Detected as spam",
+  [ReportReasons.track]: "tracked",
+  [ReportReasons.mod]: "convened mods",
+  [ReportReasons.spam]: "detected as spam",
 };
 interface Report {
   reason: ReportReasons;
   message: Message;
   extra?: string;
   staff: User | ClientUser | false;
+  date: Date;
 }
 
 const warningMessages = new Map<
@@ -41,7 +42,12 @@ const warningMessages = new Map<
     logs: Report[];
   }
 >();
-export const reportUser = async ({ reason, message, extra, staff }: Report) => {
+export const reportUser = async ({
+  reason,
+  message,
+  extra,
+  staff,
+}: Omit<Report, "date">) => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
   const simplifiedContent = `${message.guildId}${
@@ -53,7 +59,7 @@ export const reportUser = async ({ reason, message, extra, staff }: Report) => {
     // If we already logged for ~ this message, edit the log
     const { logMessage: cachedMessage, logs } = cached;
 
-    const newLogs = logs.concat([{ message, reason, staff }]);
+    const newLogs = logs.concat([{ message, reason, staff, date: new Date() }]);
     const warnings = newLogs.length;
 
     const logBody = await constructLog({
@@ -76,7 +82,7 @@ export const reportUser = async ({ reason, message, extra, staff }: Report) => {
     // If this is new, send a new message
     const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
     const modLog = (await guild.channels.fetch(modLogId)) as TextChannel;
-    const newLogs = [{ message, reason, staff }];
+    const newLogs = [{ message, reason, staff, date: new Date() }];
 
     const logBody = await constructLog({
       extra,
@@ -104,19 +110,18 @@ const constructLog = async ({
 
   const reports = logs
     .map(
-      ({ message, reason, staff }) =>
-        `${formatDistanceToNowStrict(lastReport.message.createdAt)} ago in <#${
-          message.channel.id
-        }> ${ReadableReasons[reason]}${
-          staff ? `, by ${staff.username}` : ""
-        }: ${constructDiscordLink(message)} on ${format(
-          lastReport.message.createdAt,
-          "Pp 'GMT'x",
-        )}`,
+      ({ message, reason, staff, date }) =>
+        `- ${constructDiscordLink(message)} ${
+          staff ? ` ${staff.username} ` : ""
+        }${ReadableReasons[reason]} on ${format(date, "Pp")}`,
     )
     .join("\n")
     .trim();
-  const preface = `<@${lastReport.message.author.id}> (${lastReport.message.author.username}) warned ${logs.length} times:`;
+  const preface = `<@${lastReport.message.author.id}> (${
+    lastReport.message.author.username
+  }) warned ${logs.length} times, posted ${formatDistanceToNowStrict(
+    lastReport.message.createdAt,
+  )} ago`;
   const extra = origExtra ? `\n${origExtra}\n` : "";
 
   const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
@@ -124,6 +129,7 @@ const constructLog = async ({
 
   return {
     content: truncateMessage(`${preface}
+
 ${reports}
 ${extra}
 ${reportedMessage}`),
