@@ -1,4 +1,4 @@
-import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
+import { GatewayIntentBits, Client, ActivityType } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
 
 export const client = new Client({
@@ -10,8 +10,9 @@ export const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.DirectMessageReactions,
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.AutoModerationConfiguration,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 export const reacord = new ReacordDiscordJs(client);
