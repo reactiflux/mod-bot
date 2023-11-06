@@ -79,9 +79,9 @@ export default async (bot: Client) => {
         const { modLog: modLogId } = await fetchSettings(message.guild, [
           SETTINGS.modLog,
         ]);
-        const modLog = message.guild.channels.fetch(
+        const modLog = (await message.guild.channels.fetch(
           modLogId,
-        ) as unknown as TextChannel;
+        )) as unknown as TextChannel;
         if (!modLog) throw new Error("Failed to load mod log when automodding");
         await Promise.all([
           member.kick("Autokicked for spamming"),
