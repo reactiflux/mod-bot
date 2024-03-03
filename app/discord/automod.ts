@@ -15,6 +15,10 @@ const spamKeywords = [
   "airdrop",
   "deepfake",
   "poki",
+  "gift",
+  "\\d\\$",
+  "18+",
+  "nudes"
 ].map((x) => new RegExp(x));
 const spamPings = ["@everyone", "@here"];
 const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
