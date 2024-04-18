@@ -1,8 +1,8 @@
-FROM node:16-alpine as build
+FROM node:20-alpine as build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm install --production=false
+RUN npm install
 
 COPY remix.config.js tailwind.config.js knexfile.ts tsconfig.json .eslint* .prettierignore ./
 COPY app ./app
@@ -10,7 +10,7 @@ COPY app ./app
 RUN npm run build
 
 # Build the production image with minimal footprint
-FROM node:16-alpine
+FROM node:20-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
