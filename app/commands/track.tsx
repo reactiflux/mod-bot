@@ -16,7 +16,7 @@ export const handler = async (
 ) => {
   const { targetMessage: message, user } = interaction;
 
-  await reportUser({
+  const { message: logMessage } = await reportUser({
     reason: ReportReasons.track,
     message,
     staff: user,
@@ -30,7 +30,13 @@ export const handler = async (
         label="Delete message"
         style="danger"
         onClick={async () => {
-          await message.delete();
+          await Promise.allSettled([
+            message.delete(),
+            logMessage.reply({
+              allowedMentions: { users: [] },
+              content: `Messaged deleted by <@${user.id}>`,
+            }),
+          ]);
           instance.render("Tracked");
         }}
       />
