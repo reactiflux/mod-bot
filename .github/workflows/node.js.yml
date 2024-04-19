@@ -20,7 +20,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
 
       - run: npm install
 
@@ -37,7 +37,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
 
       - uses: c-hive/gha-npm-cache@v1
 
@@ -56,7 +56,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
 
       - run: npm install
 
@@ -102,7 +102,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
