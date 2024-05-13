@@ -13,4 +13,9 @@ test("escapeDisruptiveContent", () => {
   expect(escapeDisruptiveContent("https://example.com")).toBe(
     "<https://example.com>",
   );
+  expect(
+    escapeDisruptiveContent(
+      "some dumb text https://example.com with a link and text",
+    ),
+  ).toBe("some dumb text <https://example.com> with a link and text");
 });
