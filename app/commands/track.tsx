@@ -16,7 +16,7 @@ export const handler = async (
 ) => {
   const { targetMessage: message, user } = interaction;
 
-  const { message: logMessage } = await reportUser({
+  const reportPromise = reportUser({
     reason: ReportReasons.track,
     message,
     staff: user,
@@ -30,6 +30,10 @@ export const handler = async (
         label="Delete message"
         style="danger"
         onClick={async () => {
+          // Need to ensure that we've finished reporting before we try to
+          // respond to a click event.
+          // Initiating at the top level and waiting here is a big UX win.
+          const { message: logMessage } = await reportPromise;
           await Promise.allSettled([
             message.delete(),
             logMessage.reply({
