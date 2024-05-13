@@ -91,6 +91,10 @@ export const reportUser = async ({
     });
 
     const warningMessage = await modLog.send(logBody);
+    const thread = await warningMessage.startThread({
+      name: message.content.slice(0, 50).toLocaleLowerCase().trim(),
+    });
+    await thread.send(quoteAndEscape(message.content).trim().slice(0, 2000));
 
     warningMessages.set(simplifiedContent, {
       logMessage: warningMessage,
@@ -124,15 +128,13 @@ const constructLog = async ({
   )} ago`;
   const extra = origExtra ? `\n${origExtra}\n` : "";
 
-  const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
   const attachments = describeAttachments(lastReport.message.attachments);
 
   return {
     content: truncateMessage(`${preface}
 
 ${reports}
-${extra}
-${reportedMessage}`),
+${extra}`),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };
