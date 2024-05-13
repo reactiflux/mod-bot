@@ -84,6 +84,7 @@ export const describeAttachments = (attachments: Message["attachments"]) => {
           .join("\n");
 };
 
+const urlRegex = /(https?:\/\/\S+)\b/g;
 /*
  * Escape content that Discord would otherwise do undesireable things with.
  * Sepecifically, suppresses @-mentions and link previews.
@@ -94,7 +95,7 @@ export const escapeDisruptiveContent = (content: string) => {
       // Silence pings
       .replace(/@(\S*)(\s)?/g, "@ $1$2")
       // Wrap links in <> so they don't make a preview
-      .replace(/(https?:\/\/.*)\s?/g, "<$1>")
+      .replace(urlRegex, "<$1>")
   );
 };
 
