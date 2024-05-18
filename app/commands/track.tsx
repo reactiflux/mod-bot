@@ -33,10 +33,10 @@ export const handler = async (
           // Need to ensure that we've finished reporting before we try to
           // respond to a click event.
           // Initiating at the top level and waiting here is a big UX win.
-          const { message: logMessage } = await reportPromise;
+          const { latestReport } = await reportPromise;
           await Promise.allSettled([
             message.delete(),
-            logMessage.reply({
+            latestReport.reply({
               allowedMentions: { users: [] },
               content: `Message in <#${message.channelId}> deleted by <@${user.id}>`,
             }),

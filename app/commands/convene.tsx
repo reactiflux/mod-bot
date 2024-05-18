@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import {
   ApplicationCommandType,
   ChannelType,
@@ -56,25 +55,13 @@ export const handler = async (
     return;
   }
 
-  const { message: logMessage } = await reportUser({
+  const { thread } = await reportUser({
     message,
     reason: ReportReasons.mod,
     staff: interaction.user,
     extra: `‼️ <@${interaction.user.id}> requested mods respond`,
   });
 
-  if (logMessage.hasThread) {
-    console.log("Ignoring a redundant Convene Mods call");
-    await interaction.reply({
-      content: `Already active: <#${logMessage.thread?.id}>`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const thread = await logMessage.startThread({
-    name: `${message.author.username} mod response ${format(new Date(), "P")}`,
-  });
   const staff = interaction.user;
   const originalChannel = (await message.channel.fetch()) as TextChannel;
   const pollInstance = reacord.send(
