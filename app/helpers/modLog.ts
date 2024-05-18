@@ -35,6 +35,12 @@ interface Report {
   date: Date;
 }
 
+const makeLogThread = (message: Message, user: User) => {
+  return message.startThread({
+    name: `${user.username} – ${format(message.createdAt, "P")}`,
+  });
+};
+
 const warningMessages = new Map<
   string,
   {
@@ -54,30 +60,35 @@ export const reportUser = async ({
     message.author.id
   }${simplifyString(message.content)}`;
   const cached = warningMessages.get(simplifiedContent);
+  const newReport = { message, reason, staff, date: new Date() };
 
   if (cached) {
-    // If we already logged for ~ this message, edit the log
+    // If we already logged for ~ this message, post to the existing thread
     const { logMessage: cachedMessage, logs } = cached;
 
-    const newLogs = logs.concat([{ message, reason, staff, date: new Date() }]);
+    const newLogs = logs.concat([newReport]);
     const warnings = newLogs.length;
 
-    const logBody = await constructLog({
-      logs: newLogs,
-      extra,
-      staff,
-    });
+    let thread = cachedMessage.thread;
+    if (!thread || !cachedMessage.hasThread) {
+      thread = await makeLogThread(cachedMessage, message.author);
+    }
 
-    const finalLog =
-      logBody.content?.replace(/warned \d times/, `warned ${warnings} times`) ||
-      "";
+    const [latestReport] = await Promise.all([
+      thread.send({ content: await makeReportString(newReport) }),
+      cachedMessage.edit(
+        cachedMessage.content?.replace(
+          /warned \d times/,
+          `warned ${warnings} times`,
+        ) || "",
+      ),
+    ]);
 
-    await cachedMessage.edit(truncateMessage(finalLog.slice(0, 1999)));
     warningMessages.set(simplifiedContent, {
       logMessage: cachedMessage,
       logs: newLogs,
     });
-    return { warnings, message: cachedMessage };
+    return { warnings, message: cachedMessage, latestReport, thread };
   } else {
     // If this is new, send a new message
     const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
@@ -90,19 +101,25 @@ export const reportUser = async ({
       staff,
     });
 
-    const warningMessage = await modLog.send(logBody);
-    const thread = await warningMessage.startThread({
-      name: message.content.slice(0, 50).toLocaleLowerCase().trim(),
-    });
-    await thread.send(quoteAndEscape(message.content).trim().slice(0, 2000));
+    const [warningMessage, reportString] = await Promise.all([
+      modLog.send(logBody),
+      makeReportString(newReport),
+    ]);
+    const thread = await makeLogThread(warningMessage, message.author);
+    const latestReport = await thread.send(reportString);
 
     warningMessages.set(simplifiedContent, {
       logMessage: warningMessage,
       logs: newLogs,
     });
-    return { warnings: 1, message: warningMessage };
+    return { warnings: 1, message: warningMessage, latestReport, thread };
   }
 };
+
+const makeReportString = ({ message, reason, staff, date }: Report) =>
+  `- ${constructDiscordLink(message)} ${staff ? ` ${staff.username} ` : ""}${
+    ReadableReasons[reason]
+  } on ${format(date, "Pp")}`;
 
 const constructLog = async ({
   logs,
@@ -112,15 +129,6 @@ const constructLog = async ({
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1)!;
 
-  const reports = logs
-    .map(
-      ({ message, reason, staff, date }) =>
-        `- ${constructDiscordLink(message)} ${
-          staff ? ` ${staff.username} ` : ""
-        }${ReadableReasons[reason]} on ${format(date, "Pp")}`,
-    )
-    .join("\n")
-    .trim();
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
   }) warned ${logs.length} times, posted ${formatDistanceToNowStrict(
@@ -128,13 +136,13 @@ const constructLog = async ({
   )} ago`;
   const extra = origExtra ? `\n${origExtra}\n` : "";
 
+  const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
   const attachments = describeAttachments(lastReport.message.attachments);
 
   return {
     content: truncateMessage(`${preface}
-
-${reports}
-${extra}`),
+${extra}
+${reportedMessage}`).trim(),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };

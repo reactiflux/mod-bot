@@ -16,7 +16,8 @@ export const truncateMessage = (
   // Discord's limit for message length
   maxLength = 2000,
 ) => {
-  if (content.length > maxLength) return `${content.slice(0, maxLength - 1)}…`;
+  if (content.length > maxLength)
+    return `${content.trim().slice(0, maxLength - 1)}…`;
 
   return content;
 };
