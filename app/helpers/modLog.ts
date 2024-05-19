@@ -32,7 +32,6 @@ interface Report {
   message: Message;
   extra?: string;
   staff: User | ClientUser | false;
-  date: Date;
 }
 
 const makeLogThread = (message: Message, user: User) => {
@@ -60,7 +59,7 @@ export const reportUser = async ({
     message.author.id
   }${simplifyString(message.content)}`;
   const cached = warningMessages.get(simplifiedContent);
-  const newReport = { message, reason, staff, date: new Date() };
+  const newReport: Report = { message, reason, staff };
 
   if (cached) {
     // If we already logged for ~ this message, post to the existing thread
@@ -75,7 +74,7 @@ export const reportUser = async ({
     }
 
     const [latestReport] = await Promise.all([
-      thread.send({ content: await makeReportString(newReport) }),
+      thread.send({ content: makeReportString(newReport) }),
       cachedMessage.edit(
         cachedMessage.content?.replace(
           /warned \d times/,
@@ -93,7 +92,7 @@ export const reportUser = async ({
     // If this is new, send a new message
     const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
     const modLog = (await guild.channels.fetch(modLogId)) as TextChannel;
-    const newLogs = [{ message, reason, staff, date: new Date() }];
+    const newLogs: Report[] = [{ message, reason, staff }];
 
     const logBody = await constructLog({
       extra,
@@ -101,12 +100,9 @@ export const reportUser = async ({
       staff,
     });
 
-    const [warningMessage, reportString] = await Promise.all([
-      modLog.send(logBody),
-      makeReportString(newReport),
-    ]);
+    const warningMessage = await modLog.send(logBody);
     const thread = await makeLogThread(warningMessage, message.author);
-    const latestReport = await thread.send(reportString);
+    const latestReport = await thread.send(makeReportString(newReport));
 
     warningMessages.set(simplifiedContent, {
       logMessage: warningMessage,
@@ -116,10 +112,10 @@ export const reportUser = async ({
   }
 };
 
-const makeReportString = ({ message, reason, staff, date }: Report) =>
+const makeReportString = ({ message, reason, staff }: Report) =>
   `- ${constructDiscordLink(message)} ${staff ? ` ${staff.username} ` : ""}${
     ReadableReasons[reason]
-  } on ${format(date, "Pp")}`;
+  }`;
 
 const constructLog = async ({
   logs,
@@ -134,15 +130,14 @@ const constructLog = async ({
   }) warned ${logs.length} times, posted ${formatDistanceToNowStrict(
     lastReport.message.createdAt,
   )} ago`;
-  const extra = origExtra ? `\n${origExtra}\n` : "";
+  const extra = origExtra ? `${origExtra}\n` : "";
 
   const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
   const attachments = describeAttachments(lastReport.message.attachments);
 
   return {
     content: truncateMessage(`${preface}
-${extra}
-${reportedMessage}`).trim(),
+${extra}${reportedMessage}`).trim(),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };
