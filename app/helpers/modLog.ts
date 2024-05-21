@@ -5,6 +5,7 @@ import type {
   User,
   ClientUser,
 } from "discord.js";
+import TTLCache from "@isaacs/ttlcache";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {
@@ -34,19 +35,30 @@ interface Report {
   staff: User | ClientUser | false;
 }
 
+const HOUR = 60 * 60 * 1000;
+type UserID = string;
+type GuildID = string;
+const cache = new TTLCache<
+  `${UserID}${GuildID}`,
+  Map<
+    string,
+    {
+      logMessage: Message;
+      logs: Report[];
+    }
+  >
+>({
+  ttl: 20 * HOUR,
+  max: 1000,
+});
+
 const makeLogThread = (message: Message, user: User) => {
   return message.startThread({
     name: `${user.username} – ${format(message.createdAt, "P")}`,
   });
 };
 
-const warningMessages = new Map<
-  string,
-  {
-    logMessage: Message;
-    logs: Report[];
-  }
->();
+// const warningMessages = new ();
 export const reportUser = async ({
   reason,
   message,
@@ -55,10 +67,21 @@ export const reportUser = async ({
 }: Omit<Report, "date">) => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
-  const simplifiedContent = `${message.guildId}${
-    message.author.id
-  }${simplifyString(message.content)}`;
-  const cached = warningMessages.get(simplifiedContent);
+  const cacheKey = `${message.guildId}${message.author.id}`;
+  const simplifiedContent = simplifyString(message.content);
+
+  let cachedWarnings = cache.get(cacheKey);
+  if (!cachedWarnings) {
+    cachedWarnings = new Map<
+      string,
+      {
+        logMessage: Message;
+        logs: Report[];
+      }
+    >();
+    cache.set(cacheKey, cachedWarnings);
+  }
+  const cached = cachedWarnings.get(simplifiedContent);
   const newReport: Report = { message, reason, staff };
 
   if (cached) {
@@ -66,6 +89,11 @@ export const reportUser = async ({
     const { logMessage: cachedMessage, logs } = cached;
 
     const newLogs = logs.concat([newReport]);
+    cachedWarnings.set(simplifiedContent, {
+      logMessage: cachedMessage,
+      logs: newLogs,
+    });
+
     const warnings = newLogs.length;
 
     let thread = cachedMessage.thread;
@@ -76,17 +104,11 @@ export const reportUser = async ({
     const [latestReport] = await Promise.all([
       thread.send({ content: makeReportString(newReport) }),
       cachedMessage.edit(
-        cachedMessage.content?.replace(
-          /warned \d times/,
-          `warned ${warnings} times`,
-        ) || "",
+        cachedMessage.content
+          ?.replace(/warned \d times/, `warned ${cachedWarnings.size} times`)
+          .replace(/in \d channels/, `in ${warnings} channels`) || "",
       ),
     ]);
-
-    warningMessages.set(simplifiedContent, {
-      logMessage: cachedMessage,
-      logs: newLogs,
-    });
     return { warnings, message: cachedMessage, latestReport, thread };
   } else {
     // If this is new, send a new message
@@ -97,6 +119,7 @@ export const reportUser = async ({
     const logBody = await constructLog({
       extra,
       logs: newLogs,
+      uniquePastWarnings: cachedWarnings.size + 1,
       staff,
     });
 
@@ -104,7 +127,7 @@ export const reportUser = async ({
     const thread = await makeLogThread(warningMessage, message.author);
     const latestReport = await thread.send(makeReportString(newReport));
 
-    warningMessages.set(simplifiedContent, {
+    cachedWarnings.set(simplifiedContent, {
       logMessage: warningMessage,
       logs: newLogs,
     });
@@ -119,17 +142,19 @@ const makeReportString = ({ message, reason, staff }: Report) =>
 
 const constructLog = async ({
   logs,
+  uniquePastWarnings,
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
+  uniquePastWarnings: number;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1)!;
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  }) warned ${logs.length} times, posted ${formatDistanceToNowStrict(
-    lastReport.message.createdAt,
-  )} ago`;
+  }) warned ${uniquePastWarnings} times recently, posted in ${
+    logs.length
+  } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
