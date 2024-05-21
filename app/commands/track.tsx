@@ -38,7 +38,7 @@ export const handler = async (
             message.delete(),
             latestReport.reply({
               allowedMentions: { users: [] },
-              content: `Message in <#${message.channelId}> deleted by <@${user.id}>`,
+              content: `deleted by ${user.username}`,
             }),
           ]);
           instance.render("Tracked");
