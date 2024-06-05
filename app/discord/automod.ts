@@ -9,7 +9,6 @@ const AUTO_SPAM_THRESHOLD = 3;
 const spamKeywords = [
   "nitro",
   "steam",
-  "free",
   "airdrop",
   "deepfake",
   "poki",
