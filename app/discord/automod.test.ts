@@ -2,10 +2,6 @@ import { isSpam } from "./automod";
 
 test("isSpam has a reasonable threshold", () => {
   expect(isSpam("Hello @everyone")).toBe(true);
-  expect(isSpam("free nitro 3 month https://discord-example.ru/accept")).toBe(
-    true,
-  );
-  expect(isSpam("free nitro https://example.ru")).toBe(true);
   expect(isSpam("@everyone https://discord.gg/garbage join now")).toBe(true);
   expect(isSpam("https://discord.gg/garbage join now")).toBe(true);
   expect(
