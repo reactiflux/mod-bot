@@ -119,7 +119,7 @@ export const reportUser = async ({
     const logBody = await constructLog({
       extra,
       logs: newLogs,
-      uniquePastWarnings: cachedWarnings.size + 1,
+      previousWarnings: cachedWarnings,
       staff,
     });
 
@@ -142,27 +142,38 @@ const makeReportString = ({ message, reason, staff }: Report) =>
 
 const constructLog = async ({
   logs,
-  uniquePastWarnings,
+  previousWarnings,
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
-  uniquePastWarnings: number;
+  previousWarnings: Map<string, { logMessage: Message; logs: Report[] }>;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1)!;
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  }) warned ${uniquePastWarnings} times recently, posted in ${
+  }) warned ${previousWarnings.size + 1} times recently, posted in ${
     logs.length
   } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
   const attachments = describeAttachments(lastReport.message.attachments);
+  let warnings = [];
+  for (const { logMessage } of previousWarnings.values()) {
+    warnings.push(
+      `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(
+        logMessage,
+      )}) (${formatDistanceToNowStrict(logMessage.createdAt, {
+        addSuffix: true,
+      })})`,
+    );
+  }
 
   return {
     content: truncateMessage(`${preface}
-${extra}${reportedMessage}`).trim(),
+${extra}${reportedMessage}
+${warnings.join("\n")}`).trim(),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
   };
 };
