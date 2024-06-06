@@ -149,6 +149,9 @@ const constructLog = async ({
   previousWarnings: Map<string, { logMessage: Message; logs: Report[] }>;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1)!;
+  const { moderator } = await fetchSettings(lastReport.message.guild!, [
+    SETTINGS.moderator,
+  ]);
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
@@ -175,5 +178,6 @@ const constructLog = async ({
 ${extra}${reportedMessage}
 ${warnings.join("\n")}`).trim(),
     embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
+    allowedMentions: { roles: [moderator] },
   };
 };
