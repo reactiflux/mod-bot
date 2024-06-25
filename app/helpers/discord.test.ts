@@ -17,6 +17,9 @@ test("escapeDisruptiveContent", () => {
     "<discord.gg/butts>",
   );
   expect(
+    escapeDisruptiveContent("test stuff discord.gg/butts wrapped around"),
+  ).toBe("test stuff <discord.gg/butts> wrapped around");
+  expect(
     escapeDisruptiveContent(
       "some dumb text https://example.com with a link and text",
     ),
