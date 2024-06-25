@@ -1,0 +1,17 @@
+
+track audit logs in realtime
+on delete/ban/kick/etc, check for an associated audit log
+if no, wait 500ms and try again, up to 3x
+add retry helper
+
+async pairing essentially. unreliable delivery, dual queue of messages/audit logs
+TTL cache for deleted messages/kicks/bans + audit logs
+for each audit log, schedule a task for 1s later to seek an associated message and print log. Retry up to 3x
+
+
+
+
+
+Surface actions taken by mods in a more intuitive way for members.
+Concept of "oversight board" separate from moderators.
+Message deletions, kicks, bans
