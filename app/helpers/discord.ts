@@ -84,7 +84,7 @@ export const describeAttachments = (attachments: Message["attachments"]) => {
           .join("\n");
 };
 
-const urlRegex = /(https?:\/\/\S+)\b/g;
+const urlRegex = /(https?:\/\/\S+|discord.gg\/\S+)\b/g;
 /*
  * Escape content that Discord would otherwise do undesireable things with.
  * Sepecifically, suppresses @-mentions and link previews.
