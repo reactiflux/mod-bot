@@ -1,44 +1,51 @@
 import { randomUUID } from "crypto";
+import type { Users } from "kysely-codegen";
 
-import knex from "~/db.server";
+import db from "~/db.server";
 
-export interface User {
-  id: string;
-  email: string;
-  externalId: string;
-  authProvider: "discord";
+export async function getUserById(id: Users["id"]) {
+  return db
+    .selectFrom("users")
+    .selectAll()
+    .where("id", "=", id)
+    .executeTakeFirst();
 }
 
-export async function getUserById(id: User["id"]) {
-  return knex<User>("users").select().where({ id }).first();
+export async function getUserByExternalId(externalId: Users["externalId"]) {
+  return await db
+    .selectFrom("users")
+    .selectAll()
+    .where("externalId", "=", externalId)
+    .executeTakeFirst();
 }
 
-export async function getUserByExternalId(externalId: User["externalId"]) {
-  return await knex<User>("users").select().where({ externalId }).first();
-}
-
-export async function getUserByEmail(email: User["email"]) {
-  return await knex<User>("users").select().where({ email }).first();
+export async function getUserByEmail(email: Users["email"]) {
+  return await db
+    .selectFrom("users")
+    .selectAll()
+    .where("email", "=", email)
+    .executeTakeFirst();
 }
 
 export async function createUser(
-  email: User["email"],
-  externalId: User["externalId"],
+  email: Users["email"],
+  externalId: Users["externalId"],
 ) {
-  const out = await knex<User>("users").insert(
-    {
-      id: randomUUID(),
-      email,
-      externalId,
-      authProvider: "discord",
-    },
-    ["id"],
-  );
-  const first = out.at(0);
-  if (!first) throw Error("Failed to create user!");
-  return first.id;
+  const out = await db
+    .insertInto("users")
+    .values([
+      {
+        id: randomUUID(),
+        email,
+        externalId,
+        authProvider: "discord",
+      },
+    ])
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  return out.id;
 }
 
-export async function deleteUserByEmail(email: User["email"]) {
-  return knex("users").where({ email }).delete();
+export async function deleteUserByEmail(email: Users["email"]) {
+  return db.deleteFrom("users").where("email", "=", email).execute();
 }

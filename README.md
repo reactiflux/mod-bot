@@ -11,7 +11,7 @@ yarn dev
 Uses:
 
 - [Remix](https://remix.run/docs/en/v1)
-- [Knex](https://knexjs.org/)
+- [Kysely](https://kysely.dev/)
 - SQLite3 (with [better-sqlite3](http://npmjs.com/package/better-sqlite3))
 
 Deployed with:
