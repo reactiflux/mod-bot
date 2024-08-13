@@ -1,4 +1,4 @@
-const enum ENVIONMENTS {
+const enum ENVIRONMENTS {
   production = "production",
 }
 
