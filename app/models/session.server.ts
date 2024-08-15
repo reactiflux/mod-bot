@@ -5,7 +5,6 @@ import {
   Response,
   json,
 } from "@remix-run/node";
-import invariant from "tiny-invariant";
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
@@ -17,13 +16,12 @@ import {
   getUserById,
 } from "~/models/user.server";
 import { fetchUser } from "~/models/discord.server";
-
-invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
+import { applicationId, discordSecret, sessionSecret } from "~/helpers/env";
 
 const config = {
   client: {
-    id: process.env.DISCORD_APP_ID || "",
-    secret: process.env.DISCORD_SECRET || "",
+    id: applicationId,
+    secret: discordSecret,
   },
   auth: {
     tokenHost: "https://discord.com",
@@ -48,7 +46,7 @@ const {
     maxAge: 0,
     path: "/",
     sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET],
+    secrets: [sessionSecret],
     secure: process.env.NODE_ENV === "production",
   },
 });
