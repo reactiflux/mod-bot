@@ -9,7 +9,6 @@ import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
 import db from "~/db.server";
-import type { Users } from "~/models/user.server";
 import type { DB } from "~/db.server";
 import {
   createUser,
@@ -154,7 +153,7 @@ export async function createTestingUserSession({
   return res;
 }
 
-export async function getUser(request: Request): Promise<null | Users> {
+export async function getUser(request: Request) {
   const userId = await getUserId(request);
   if (userId === undefined) return null;
 

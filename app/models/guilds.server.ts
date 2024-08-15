@@ -60,12 +60,17 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   guild: DiscordGuild,
   keys: T[],
 ) => {
-  return await db
-    .selectFrom("guilds")
-    // @ts-expect-error This is broken because of a migration from knex and
-    // old/bad use of jsonb for storing settings. The type is guaranteed here not
-    // by the codegen
-    .select((eb) => keys.map((k) => eb.ref("settings", "->").key(k).as(k)))
-    .where("id", "=", guild.id)
-    .executeTakeFirstOrThrow();
+  return (
+    (await db
+      .selectFrom("guilds")
+      // @ts-expect-error This is broken because of a migration from knex and
+      // old/bad use of jsonb for storing settings. The type is guaranteed here
+      // not by the codegen
+      .select<DB, "guilds", SettingsRecord>((eb) =>
+        keys.map((k) => eb.ref("settings", "->").key(k).as(k)),
+      )
+      .where("id", "=", guild.id)
+      // This cast is also evidence of the pattern being broken
+      .executeTakeFirstOrThrow()) as Pick<SettingsRecord, T>
+  );
 };
