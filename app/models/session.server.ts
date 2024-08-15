@@ -10,6 +10,7 @@ import { AuthorizationCode } from "simple-oauth2";
 
 import db from "~/db.server";
 import type { Users } from "~/models/user.server";
+import type { DB } from "~/db.server";
 import {
   createUser,
   getUserByExternalId,
@@ -17,6 +18,8 @@ import {
 } from "~/models/user.server";
 import { fetchUser } from "~/models/discord.server";
 import { applicationId, discordSecret, sessionSecret } from "~/helpers/env";
+
+export type Sessions = DB["sessions"];
 
 const config = {
   client: {

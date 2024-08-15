@@ -1,9 +1,11 @@
 import { randomUUID } from "crypto";
-import type { Users } from "kysely-codegen";
 
+import type { DB } from "~/db.server";
 import db from "~/db.server";
 
-export async function getUserById(id: Users["id"]) {
+export type User = DB["users"];
+
+export async function getUserById(id: User["id"]) {
   return db
     .selectFrom("users")
     .selectAll()
@@ -11,7 +13,7 @@ export async function getUserById(id: Users["id"]) {
     .executeTakeFirst();
 }
 
-export async function getUserByExternalId(externalId: Users["externalId"]) {
+export async function getUserByExternalId(externalId: User["externalId"]) {
   return await db
     .selectFrom("users")
     .selectAll()
@@ -19,7 +21,7 @@ export async function getUserByExternalId(externalId: Users["externalId"]) {
     .executeTakeFirst();
 }
 
-export async function getUserByEmail(email: Users["email"]) {
+export async function getUserByEmail(email: User["email"]) {
   return await db
     .selectFrom("users")
     .selectAll()
@@ -28,8 +30,8 @@ export async function getUserByEmail(email: Users["email"]) {
 }
 
 export async function createUser(
-  email: Users["email"],
-  externalId: Users["externalId"],
+  email: User["email"],
+  externalId: User["externalId"],
 ) {
   const out = await db
     .insertInto("users")
@@ -46,6 +48,6 @@ export async function createUser(
   return out.id;
 }
 
-export async function deleteUserByEmail(email: Users["email"]) {
+export async function deleteUserByEmail(email: User["email"]) {
   return db.deleteFrom("users").where("email", "=", email).execute();
 }
