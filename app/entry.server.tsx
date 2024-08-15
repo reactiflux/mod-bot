@@ -10,6 +10,8 @@ export default function handleRequest(
   remixContext: EntryContext,
 ) {
   const markup = renderToString(
+    // @ts-expect-error Dunno why but shit's busted here. All remix types so I'm
+    // ignoring for now
     <RemixServer context={remixContext} url={request.url} />,
   );
 
