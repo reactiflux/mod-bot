@@ -9,6 +9,19 @@ export interface Guilds {
   settings: string | null;
 }
 
+export interface MessageStats {
+  author_id: string;
+  channel_category: string | null;
+  channel_id: string;
+  char_count: number;
+  guild_id: string;
+  message_id: string | null;
+  react_count: Generated<number>;
+  recipient_id: string | null;
+  sent_at: string;
+  word_count: number;
+}
+
 export interface Sessions {
   data: string | null;
   expires: string | null;
@@ -24,6 +37,7 @@ export interface Users {
 
 export interface DB {
   guilds: Guilds;
+  message_stats: MessageStats;
   sessions: Sessions;
   users: Users;
 }
