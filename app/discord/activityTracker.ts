@@ -5,7 +5,6 @@ import {
   type Message,
   type PartialMessage,
 } from "discord.js";
-import { sql } from "kysely";
 import type { DB } from "kysely-codegen";
 import type { UpdateObjectExpression } from "kysely/dist/cjs/parser/update-set-parser";
 import db from "~/db.server";
@@ -85,21 +84,19 @@ async function getMessageStats(msg: Message | PartialMessage) {
 }
 
 async function reportByGuild(guildId: string) {
-  if (!guildId) throw new Error("Tried to report by guild without guildId");
-  const query = sql`
-    select
-      author_id,
-      count(*) as message_count,
-      sum(char_count) as char_total,
-      sum(word_count) as word_total,
-      sum(react_count) as react_total,
-      avg(char_count) as avg_chars,
-      avg(word_count) as avg_words,
-      avg(react_count) as avg_reacts
-    from message_stats
-    where guild_id = ${guildId}
-    group by author_id
-  `;
-  const result = await query.execute(db);
-  console.log(result.rows);
+  const result = await db
+    .selectFrom("message_stats")
+    .select((eb) => [
+      eb.fn.countAll().as("message_count"),
+      eb.fn.sum("char_count").as("char_total"),
+      eb.fn.sum("word_count").as("word_total"),
+      eb.fn.sum("react_count").as("react_total"),
+      eb.fn.avg("char_count").as("avg_chars"),
+      eb.fn.avg("word_count").as("avg_words"),
+      eb.fn.avg("react_count").as("avg_reacts"),
+    ])
+    .where("guild_id", "=", guildId)
+    .groupBy("author_id")
+    .execute();
+  console.log(result);
 }
