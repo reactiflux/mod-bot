@@ -1,11 +1,8 @@
 import type { Guild as DiscordGuild } from "discord.js";
-import knex, { SqliteError } from "~/db.server";
+import db, { SqliteError } from "~/db.server";
+import type { DB } from "~/db.server";
 
-type jsonString = string;
-export interface Guild {
-  id: string;
-  settings: jsonString;
-}
+export type Guild = DB["guilds"];
 
 export const SETTINGS = {
   modLog: "modLog",
@@ -22,14 +19,21 @@ interface SettingsRecord {
 }
 
 export const fetchGuild = async (guild: DiscordGuild) => {
-  return await knex<Guild>("guilds").where({ id: guild.id }).first();
+  return await db
+    .selectFrom("guilds")
+    .where("id", "=", guild.id)
+    .executeTakeFirst();
 };
+
 export const registerGuild = async (guild: DiscordGuild) => {
   try {
-    await knex("guilds").insert({
-      id: guild.id,
-      settings: {},
-    });
+    await db
+      .insertInto("guilds")
+      .values({
+        id: guild.id,
+        settings: JSON.stringify({}),
+      })
+      .execute();
   } catch (e) {
     if (e instanceof SqliteError && e.code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
       // do nothing
@@ -43,21 +47,30 @@ export const setSettings = async (
   guild: DiscordGuild,
   settings: SettingsRecord,
 ) => {
-  await Promise.all(
-    Object.entries(settings).map(([key, value]) =>
-      knex("guilds")
-        .update({ settings: knex.jsonSet("settings", `$.${key}`, value) })
-        .where({ id: guild.id }),
-    ),
-  );
+  await db
+    .updateTable("guilds")
+    .set("settings", (eb) =>
+      eb.fn("json_patch", ["settings", eb.val(JSON.stringify(settings))]),
+    )
+    .where("id", "=", guild.id)
+    .execute();
 };
 
 export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   guild: DiscordGuild,
   keys: T[],
-): Promise<Pick<SettingsRecord, typeof keys[number]>> => {
-  return await knex("guilds")
-    .where({ id: guild.id })
-    .select(knex.jsonExtract(keys.map((k) => ["settings", `$.${k}`, k])))
-    .first();
+) => {
+  return (
+    (await db
+      .selectFrom("guilds")
+      // @ts-expect-error This is broken because of a migration from knex and
+      // old/bad use of jsonb for storing settings. The type is guaranteed here
+      // not by the codegen
+      .select<DB, "guilds", SettingsRecord>((eb) =>
+        keys.map((k) => eb.ref("settings", "->").key(k).as(k)),
+      )
+      .where("id", "=", guild.id)
+      // This cast is also evidence of the pattern being broken
+      .executeTakeFirstOrThrow()) as Pick<SettingsRecord, T>
+  );
 };
