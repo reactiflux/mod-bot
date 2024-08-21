@@ -1,6 +1,6 @@
 import SQLite from "better-sqlite3";
 import { Kysely, SqliteDialect } from "kysely";
-import type { DB } from "kysely-codegen";
+import type { DB } from "./db";
 import { databaseUrl } from "./helpers/env";
 
 export { SqliteError } from "better-sqlite3";
