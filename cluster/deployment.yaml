@@ -59,6 +59,12 @@ spec:
                   name: modbot-env
                   key: DISCORD_TEST_GUILD
 
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: DATABASE_URL
+
   volumeClaimTemplates:
     - metadata:
         name: mod-bot-pvc
