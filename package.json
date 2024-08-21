@@ -23,7 +23,7 @@
     "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix watch",
     "kysely:seed": "kysely seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
-    "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite",
+    "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts",
     "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build",
     "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"cypress open\"",
     "test:e2e:run": "exit; echo 'these tests are disabled because theyre broken'; cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"cypress run\"",
