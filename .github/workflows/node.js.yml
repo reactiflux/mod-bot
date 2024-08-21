@@ -160,7 +160,7 @@ jobs:
             --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
             --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
             --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
-            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }}
+            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
             --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }}
           kubectl apply -k .
 
