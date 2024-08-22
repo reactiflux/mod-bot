@@ -5,25 +5,25 @@ import {
   Response,
   json,
 } from "@remix-run/node";
+import invariant from "tiny-invariant";
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
-import db from "~/db.server";
-import type { DB } from "~/db.server";
+import knex from "~/db.server";
+import type { User } from "~/models/user.server";
 import {
   createUser,
   getUserByExternalId,
   getUserById,
 } from "~/models/user.server";
 import { fetchUser } from "~/models/discord.server";
-import { applicationId, discordSecret, sessionSecret } from "~/helpers/env";
 
-export type Sessions = DB["sessions"];
+invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
 const config = {
   client: {
-    id: applicationId,
-    secret: discordSecret,
+    id: process.env.DISCORD_APP_ID || "",
+    secret: process.env.DISCORD_SECRET || "",
   },
   auth: {
     tokenHost: "https://discord.com",
@@ -48,10 +48,16 @@ const {
     maxAge: 0,
     path: "/",
     sameSite: "lax",
-    secrets: [sessionSecret],
+    secrets: [process.env.SESSION_SECRET],
     secure: process.env.NODE_ENV === "production",
   },
 });
+
+interface Session {
+  id: string;
+  data?: string;
+  expires?: string;
+}
 
 const {
   commitSession: commitDbSession,
@@ -63,35 +69,30 @@ const {
     sameSite: "lax",
   },
   async createData(data, expires) {
-    const result = await db
-      .insertInto("sessions")
-      .values({
+    const result = await knex<Session>("sessions").insert(
+      {
         id: randomUUID(),
         data: JSON.stringify(data),
         expires: expires?.toString(),
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
-    return result.id!;
+      },
+      ["id"],
+    );
+    return result[0].id;
   },
   async readData(id) {
-    const result = await db
-      .selectFrom("sessions")
-      .where("id", "=", id)
-      .selectAll()
-      .executeTakeFirst();
+    const result = await knex<Session>("sessions")
+      .select()
+      .where({ id })
+      .first();
     return result?.data ? JSON.parse(result.data) : null;
   },
   async updateData(id, data, expires) {
-    await db
-      .updateTable("sessions")
-      .set("data", JSON.stringify(data))
-      .set("expires", expires!.toString())
-      .where("id", "=", id)
-      .execute();
+    await knex<Session>("sessions")
+      .update({ data: JSON.stringify(data), expires: expires?.toString() })
+      .where({ id });
   },
   async deleteData(id) {
-    await db.deleteFrom("sessions").where("id", "=", id).execute();
+    await knex<Session>("sessions").delete().where({ id });
   },
 });
 
@@ -153,7 +154,7 @@ export async function createTestingUserSession({
   return res;
 }
 
-export async function getUser(request: Request) {
+export async function getUser(request: Request): Promise<null | User> {
   const userId = await getUserId(request);
   if (userId === undefined) return null;
 

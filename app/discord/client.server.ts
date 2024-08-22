@@ -1,6 +1,5 @@
 import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
-import { discordToken } from "~/helpers/env";
 
 export const client = new Client({
   intents: [
@@ -20,7 +19,7 @@ export const reacord = new ReacordDiscordJs(client);
 export const login = () => {
   console.log("INI", "Bootstrap starting…");
   client
-    .login(discordToken)
+    .login(process.env.DISCORD_HASH || "")
     .then(async () => {
       console.log("INI", "Bootstrap complete");
 

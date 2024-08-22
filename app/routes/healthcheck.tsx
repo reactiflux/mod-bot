@@ -1,6 +1,6 @@
 // learn more: https://fly.io/docs/reference/configuration/#services-http_checks
 import type { LoaderFunction } from "@remix-run/node";
-import db from "~/db.server";
+import knex from "~/db.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const host =
@@ -11,8 +11,7 @@ export const loader: LoaderFunction = async ({ request }) => {
     // if we can connect to the database and make a simple query
     // and make a HEAD request to ourselves, then we're good.
     await Promise.all([
-      // @ts-expect-error because kysely doesn't generate types for these
-      db.selectFrom("sqlite_master").where("type", "=", "table"),
+      knex("sqlite_master").select().where({ type: "table" }),
       fetch(url.toString(), { method: "HEAD" }).then((r) => {
         if (!r.ok) return Promise.reject(r);
       }),
