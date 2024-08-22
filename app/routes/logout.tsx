@@ -18,7 +18,7 @@ export default function Logout({
         <Form method="post" className="space-y-6">
           <button
             type="submit"
-            className="w-full rounded bg-blue-500  px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
+            className="w-full rounded bg-blue-500  py-2 px-4 text-white hover:bg-blue-600 focus:bg-blue-400"
           >
             Log out
           </button>

@@ -1,6 +1,4 @@
-# Mod bot
-
-This code powers the Euno bot on Discord.
+# Jobs bot
 
 Initial setup
 
@@ -13,7 +11,7 @@ yarn dev
 Uses:
 
 - [Remix](https://remix.run/docs/en/v1)
-- [Kysely](https://kysely.dev/)
+- [Knex](https://knexjs.org/)
 - SQLite3 (with [better-sqlite3](http://npmjs.com/package/better-sqlite3))
 
 Deployed with:
@@ -24,9 +22,8 @@ Deployed with:
 
 Details:
 
-migrations with `npm run start:migrate`. latest installed version is tracked in 2 tables of the sqlite data. schema changes must be done cautiously, should have a set up/tear down function tested before merging. Start a new migration with `npx kysely migrate:make <name>`
+migrations with `yarn migrate:latest`. latest installed version is tracked in 2 tables of the sqlite data. schema changes must be done cautiously, should have a set up/tear down function tested before merging.
 
-Migrations are stored in `migrations/`
-Generated DB types are stored in `app/db.d.ts` and generated automatically in a precommit hook.
+seed data is stored in seeds/
 
 auth system is simple delegated auth to discord. accounts are created if not found locally, no passwords or secondary confirmation atm

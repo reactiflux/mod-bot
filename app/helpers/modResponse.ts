@@ -21,7 +21,7 @@ export const humanReadableResolutions = {
   [resolutions.kick]: "Kick",
   [resolutions.ban]: "Ban",
 } as const;
-export type Resolution = (typeof resolutions)[keyof typeof resolutions];
+export type Resolution = typeof resolutions[keyof typeof resolutions];
 
 export const useVotes = () => {
   const [votes, setVotes] = useState({} as Record<Resolution, string[]>);
