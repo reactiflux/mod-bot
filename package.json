@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "run-p dev:*",
-    "start": "run-s start:migrate start:bot",
+    "start": "npm run start:migrate; npm run start:bot",
     "test": "vitest",
     "build": "run-s build:*",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
