@@ -4,7 +4,7 @@
 // and that user will get deleted
 
 import { installGlobals } from "@remix-run/node";
-import knex from "~/db.server";
+import db from "~/db.server";
 
 installGlobals();
 
@@ -16,7 +16,7 @@ async function deleteUser(email: string) {
     throw new Error("All test emails must end in @example.com");
   }
 
-  await knex("users").delete().where({ email });
+  await db.deleteFrom("users").where("email", "=", email).execute();
 }
 
 deleteUser(process.argv[2]);
