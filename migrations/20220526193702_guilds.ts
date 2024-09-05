@@ -3,6 +3,7 @@ import type { Kysely } from "kysely";
 export async function up(db: Kysely<any>) {
   return db.schema
     .createTable("guilds")
+    .ifNotExists()
     .addColumn("id", "serial", (x) => x.primaryKey())
     .addColumn("settings", "jsonb")
     .execute();

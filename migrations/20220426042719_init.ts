@@ -3,6 +3,7 @@ import type { Kysely } from "kysely";
 export async function up(db: Kysely<any>) {
   db.schema
     .createTable("users")
+    .ifNotExists()
     .addColumn("id", "uuid", (c) => c.primaryKey().notNull())
     .addColumn("email", "text")
     .addColumn("externalId", "text", (c) => c.notNull())
@@ -11,6 +12,7 @@ export async function up(db: Kysely<any>) {
 
   db.schema
     .createTable("sessions")
+    .ifNotExists()
     .addColumn("id", "uuid", (c) => c.primaryKey())
     .addColumn("data", "json")
     .addColumn("expires", "datetime")
