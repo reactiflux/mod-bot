@@ -5,6 +5,8 @@ import { databaseUrl } from "./helpers/env";
 
 export { SqliteError } from "better-sqlite3";
 
+console.log(`Connecting to database at ${databaseUrl}`);
+
 export const dialect = new SqliteDialect({
   database: new SQLite(databaseUrl),
 });
