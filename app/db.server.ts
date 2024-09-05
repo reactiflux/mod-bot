@@ -1,15 +1,17 @@
-import knex from "knex";
-import knexfile from "~/../knexfile";
+import SQLite from "better-sqlite3";
+import { Kysely, SqliteDialect } from "kysely";
+import type { DB } from "./db";
+import { databaseUrl } from "./helpers/env";
+
 export { SqliteError } from "better-sqlite3";
 
-const environment = process.env.NODE_ENV || ("development" as const);
-// @ts-nocheck
-const config: {
-  client: string;
-  connection: {
-    filename: string;
-  };
-  useNullAsDefault: boolean;
-} = (knexfile as any)[environment];
+export const dialect = new SqliteDialect({
+  database: new SQLite(databaseUrl),
+});
 
-export default knex(config);
+const db = new Kysely<DB>({
+  dialect,
+});
+
+export default db;
+export type { DB };
