@@ -1,8 +1,18 @@
 import { Events, ChannelType } from "discord.js";
-import type { Client, Message, PartialMessage } from "discord.js";
+import type { Client, Message, PartialMessage, TextChannel } from "discord.js";
 import db from "~/db.server";
 
 export async function startActivityTracking(client: Client) {
+  const channelCache = new Map<string, TextChannel>();
+
+  async function getOrFetchChannel(msg: Message<true>) {
+    return channelCache.has(msg.channelId)
+      ? channelCache.get(msg.channelId)
+      : channelCache
+          .set(msg.channelId, await msg.channel.fetch())
+          .get(msg.channelId)!;
+  }
+
   client.on(Events.MessageCreate, async (msg) => {
     const info = await getMessageStats(msg);
     if (!info) return;
@@ -16,7 +26,7 @@ export async function startActivityTracking(client: Client) {
         channel_id: msg.channelId,
         recipient_id: msg.mentions?.repliedUser?.id ?? null,
         // TODO: cache this?
-        channel_category: (await msg.channel.fetch()).parentId,
+        channel_category: (await getOrFetchChannel(msg))!.parentId,
       })
       .execute();
     reportByGuild(msg.guildId!);
