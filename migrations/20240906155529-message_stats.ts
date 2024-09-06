@@ -19,3 +19,4 @@ export async function up(db: Kysely<any>) {
 export async function down(db: Kysely<any>) {
   return db.schema.dropTable("message_stats").execute();
 }
+
