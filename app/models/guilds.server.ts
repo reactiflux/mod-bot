@@ -60,7 +60,7 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   guild: DiscordGuild,
   keys: T[],
 ) => {
-  return (
+  const result = Object.entries(
     (await db
       .selectFrom("guilds")
       // @ts-expect-error This is broken because of a migration from knex and
@@ -71,6 +71,9 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
       )
       .where("id", "=", guild.id)
       // This cast is also evidence of the pattern being broken
-      .executeTakeFirstOrThrow()) as Pick<SettingsRecord, T>
+      .executeTakeFirstOrThrow()) as Pick<SettingsRecord, T>,
+  );
+  return Object.fromEntries(
+    result.map(([k, v]) => [k, JSON.parse(v as string)]),
   );
 };

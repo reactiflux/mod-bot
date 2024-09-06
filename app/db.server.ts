@@ -1,5 +1,5 @@
 import SQLite from "better-sqlite3";
-import { Kysely, SqliteDialect } from "kysely";
+import { Kysely, ParseJSONResultsPlugin, SqliteDialect } from "kysely";
 import type { DB } from "./db";
 import { databaseUrl } from "./helpers/env";
 
@@ -13,6 +13,7 @@ export const dialect = new SqliteDialect({
 
 const db = new Kysely<DB>({
   dialect,
+  plugins: [new ParseJSONResultsPlugin()],
 });
 
 export default db;
