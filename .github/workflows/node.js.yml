@@ -3,6 +3,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  HUSKY: 0
+
 on:
   pull_request:
   push:
@@ -22,7 +25,7 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install
+      - run: npm ci
 
       - name: Lint
         run: npm run lint
@@ -39,9 +42,7 @@ jobs:
         with:
           node-version: 20
 
-      - uses: c-hive/gha-npm-cache@v1
-
-      - run: npm install
+      - run: npm ci
 
       - name: Type check
         run: npm run typecheck --if-present
@@ -58,7 +59,7 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install
+      - run: npm ci
 
       - name: Run vitest
         run: npm run test -- --coverage
@@ -102,23 +103,13 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           push: ${{github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/actions'}}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
-
-      # This ugly bit is necessary if you don't want your cache to grow forever
-      # till it hits GitHub's limit of 5GB.
-      # Temp fix
-      # https://github.com/docker/build-push-action/issues/252
-      # https://github.com/moby/buildkit/issues/1896
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deployment:
     needs: build
