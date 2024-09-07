@@ -29,15 +29,12 @@ export async function startActivityTracking(client: Client) {
         channel_category: (await getOrFetchChannel(msg))?.parent?.name,
       })
       .execute();
-    reportByGuild(msg.guildId!);
   });
 
   client.on(Events.MessageUpdate, async (msg) => {
     const info = await getMessageStats(msg);
-    console.log(msg, info);
     if (!info) return;
     await updateStatsById(msg.id).set(info).execute();
-    reportByGuild(msg.guildId!);
   });
 
   client.on(Events.MessageDelete, async (msg) => {
@@ -47,21 +44,18 @@ export async function startActivityTracking(client: Client) {
       .deleteFrom("message_stats")
       .where("message_id", "=", msg.id)
       .execute();
-    reportByGuild(msg.guildId!);
   });
 
   client.on(Events.MessageReactionAdd, async (msg) => {
     await updateStatsById(msg.message.id)
       .set({ react_count: (eb) => eb(eb.ref("react_count"), "+", 1) })
       .execute();
-    reportByGuild(msg.message.guildId!);
   });
 
   client.on(Events.MessageReactionRemove, async (msg) => {
     await updateStatsById(msg.message.id)
       .set({ react_count: (eb) => eb(eb.ref("react_count"), "-", 1) })
       .execute();
-    reportByGuild(msg.message.guildId!);
   });
 }
 
@@ -82,7 +76,7 @@ async function getMessageStats(msg: Message | PartialMessage) {
   };
 }
 
-async function reportByGuild(guildId: string) {
+export async function reportByGuild(guildId: string) {
   const result = await db
     .selectFrom("message_stats")
     .select((eb) => [
@@ -97,5 +91,5 @@ async function reportByGuild(guildId: string) {
     .where("guild_id", "=", guildId)
     .groupBy("author_id")
     .execute();
-  console.log(result);
+  return result
 }
