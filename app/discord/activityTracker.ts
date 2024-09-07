@@ -5,12 +5,13 @@ import db from "~/db.server";
 export async function startActivityTracking(client: Client) {
   const channelCache = new Map<string, TextChannel>();
 
-  async function getOrFetchChannel(msg: Message<true>) {
+  async function getOrFetchChannel(msg: Message) {
+    // TODO: cache eviction?
     return channelCache.has(msg.channelId)
       ? channelCache.get(msg.channelId)
       : channelCache
-          .set(msg.channelId, await msg.channel.fetch())
-          .get(msg.channelId)!;
+          .set(msg.channelId, (await msg.channel.fetch()) as TextChannel)
+          .get(msg.channelId);
   }
 
   client.on(Events.MessageCreate, async (msg) => {
@@ -22,11 +23,10 @@ export async function startActivityTracking(client: Client) {
         ...info,
         message_id: msg.id,
         author_id: msg.author!.id,
-        guild_id: msg.guildId,
+        guild_id: msg.guildId!,
         channel_id: msg.channelId,
         recipient_id: msg.mentions?.repliedUser?.id ?? null,
-        // TODO: cache this?
-        channel_category: (await getOrFetchChannel(msg))!.parentId,
+        channel_category: (await getOrFetchChannel(msg))?.parent?.name,
       })
       .execute();
     reportByGuild(msg.guildId!);
