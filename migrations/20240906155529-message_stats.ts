@@ -12,7 +12,7 @@ export async function up(db: Kysely<any>) {
     .addColumn("char_count", "integer", (c) => c.notNull())
     .addColumn("word_count", "integer", (c) => c.notNull())
     .addColumn("react_count", "integer", (c) => c.notNull().defaultTo(0))
-    .addColumn("sent_at", "text", (c) => c.notNull())
+    .addColumn("sent_at", "integer", (c) => c.notNull())
     .execute();
 }
 
