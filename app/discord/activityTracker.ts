@@ -68,9 +68,10 @@ async function getMessageStats(msg: Message | PartialMessage) {
   if (msg.channel.type !== ChannelType.GuildText || msg.author?.bot) {
     return;
   }
+  const { content } = await msg.fetch();
   return {
-    char_count: msg.content?.length ?? 0,
-    word_count: msg.content?.split(/\s+/).length ?? 0,
+    char_count: content?.length ?? 0,
+    word_count: content?.split(/\s+/).length ?? 0,
     react_count: msg.reactions.cache.size,
     sent_at: String(msg.createdTimestamp),
   };
