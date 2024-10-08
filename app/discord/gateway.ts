@@ -8,6 +8,7 @@ import {
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
+import { startActivityTracking } from "~/discord/activityTracker";
 
 import * as convene from "~/commands/convene";
 import * as setup from "~/commands/setup";
@@ -27,6 +28,7 @@ export default function init() {
       onboardGuild(client),
       automod(client),
       deployCommands(client),
+      startActivityTracking(client),
     ]);
   });
 
