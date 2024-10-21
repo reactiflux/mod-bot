@@ -12,6 +12,7 @@ import {
   constructDiscordLink,
   describeAttachments,
   quoteAndEscape,
+  quoteAndEscapePoll,
 } from "~/helpers/discord";
 import { simplifyString, truncateMessage } from "~/helpers/string";
 import { format, formatDistanceToNowStrict } from "date-fns";
@@ -176,7 +177,9 @@ const constructLog = async ({
   } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
-  const reportedMessage = quoteAndEscape(message.content).trim();
+  const reportedMessage = message.poll
+    ? quoteAndEscapePoll(message.poll)
+    : quoteAndEscape(message.content).trim();
   const attachments = describeAttachments(message.attachments);
   let warnings = [];
   for (const { logMessage } of previousWarnings.values()) {
