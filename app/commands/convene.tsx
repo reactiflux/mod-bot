@@ -157,15 +157,6 @@ This isn't a formal warning, but your message concerned the moderators enough th
             );
             return;
 
-          case resolutions.okay:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              staff,
-              extra: "✅ Determined to be okay",
-            });
-            return;
-
           case resolutions.track:
             reportUser({
               reason: ReportReasons.track,

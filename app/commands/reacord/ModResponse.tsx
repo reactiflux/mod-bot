@@ -58,14 +58,9 @@ export const ModResponse = ({
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
       {renderButton(
         votes,
-        resolutions.okay,
-        humanReadableResolutions[resolutions.okay],
-        "success",
-      )}
-      {renderButton(
-        votes,
         resolutions.track,
         humanReadableResolutions[resolutions.track],
+        "success",
       )}
       {renderButton(
         votes,
