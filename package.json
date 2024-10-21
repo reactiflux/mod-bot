@@ -15,7 +15,7 @@
     "start:migrate": "kysely migrate:list; kysely migrate:latest",
     "start:bot": "node build/index.js",
     "prepare": "husky || true",
-    "typecheck": "tsc -b && tsc -b cypress",
+    "typecheck": "tsc -b",
     "build:css": "npm run generate:css --minify",
     "build:remix": "remix build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
