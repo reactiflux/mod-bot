@@ -1,5 +1,4 @@
 import {
-  ApplicationCommandType,
   ChannelType,
   ContextMenuCommandBuilder,
   PermissionFlagsBits,
@@ -8,6 +7,7 @@ import type {
   MessageContextMenuCommandInteraction,
   TextChannel,
 } from "discord.js";
+import { ApplicationCommandType } from "discord-api-types/v10";
 
 import { reacord } from "~/discord/client.server";
 import { quoteAndEscape } from "~/helpers/discord";
