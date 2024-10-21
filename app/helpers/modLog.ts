@@ -157,8 +157,11 @@ const constructLog = async ({
   logs: Report[];
   previousWarnings: Map<string, { logMessage: Message; logs: Report[] }>;
 }): Promise<MessageCreateOptions> => {
-  const lastReport = logs.at(-1)!;
-  const { moderator } = await fetchSettings(lastReport.message.guild!, [
+  const lastReport = logs.at(-1);
+  if (!lastReport || !lastReport.message.guild) {
+    throw new Error("Something went wrong when trying to retrieve last report");
+  }
+  const { moderator } = await fetchSettings(lastReport.message.guild, [
     SETTINGS.moderator,
   ]);
   let { message } = lastReport;
@@ -181,7 +184,7 @@ const constructLog = async ({
     ? quoteAndEscapePoll(message.poll)
     : quoteAndEscape(message.content).trim();
   const attachments = describeAttachments(message.attachments);
-  let warnings = [];
+  const warnings = [];
   for (const { logMessage } of previousWarnings.values()) {
     warnings.push(
       `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(

@@ -2,8 +2,11 @@ import type { UserInfo } from "reacord";
 import { Button } from "reacord";
 
 import type { Resolution } from "~/helpers/modResponse";
-import { humanReadableResolutions } from "~/helpers/modResponse";
-import { resolutions, useVotes } from "~/helpers/modResponse";
+import {
+  humanReadableResolutions,
+  resolutions,
+  useVotes,
+} from "~/helpers/modResponse";
 
 const VOTES_TO_APPROVE = 3;
 

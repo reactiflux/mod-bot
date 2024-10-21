@@ -1,6 +1,5 @@
 import type { ChatInputCommandInteraction } from "discord.js";
-import { PermissionFlagsBits } from "discord.js";
-import { SlashCommandBuilder } from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
 
