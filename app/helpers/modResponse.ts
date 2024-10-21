@@ -2,7 +2,6 @@ import { uniq } from "lodash";
 import { useCallback, useMemo, useState } from "react";
 
 export const resolutions = {
-  okay: "okay",
   track: "track",
   nudge: "informalWarning",
   warning: "formalWarning",
@@ -12,7 +11,6 @@ export const resolutions = {
   ban: "ban",
 } as const;
 export const humanReadableResolutions = {
-  [resolutions.okay]: "Okay",
   [resolutions.track]: "Track",
   [resolutions.nudge]: "Informal Warning",
   [resolutions.warning]: "Formal Warning",
@@ -21,7 +19,7 @@ export const humanReadableResolutions = {
   [resolutions.kick]: "Kick",
   [resolutions.ban]: "Ban",
 } as const;
-export type Resolution = (typeof resolutions)[keyof typeof resolutions];
+export type Resolution = typeof resolutions[keyof typeof resolutions];
 
 export const useVotes = () => {
   const [votes, setVotes] = useState({} as Record<Resolution, string[]>);

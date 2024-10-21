@@ -1,5 +1,4 @@
 import {
-  ApplicationCommandType,
   ChannelType,
   ContextMenuCommandBuilder,
   PermissionFlagsBits,
@@ -8,6 +7,7 @@ import type {
   MessageContextMenuCommandInteraction,
   TextChannel,
 } from "discord.js";
+import { ApplicationCommandType } from "discord-api-types/v10";
 
 import { reacord } from "~/discord/client.server";
 import { quoteAndEscape } from "~/helpers/discord";
@@ -16,7 +16,7 @@ import { resolutions } from "~/helpers/modResponse";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "~/models/discord.server";
-import { Confirmation, ModResponse } from "~/commands/reacord/ModResponse";
+import { ModResponse } from "~/commands/reacord/ModResponse";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Convene mods")
@@ -157,15 +157,6 @@ This isn't a formal warning, but your message concerned the moderators enough th
             );
             return;
 
-          case resolutions.okay:
-            reportUser({
-              reason: ReportReasons.mod,
-              message,
-              staff,
-              extra: "✅ Determined to be okay",
-            });
-            return;
-
           case resolutions.track:
             reportUser({
               reason: ReportReasons.track,
@@ -190,15 +181,8 @@ This isn't a formal warning, but your message concerned the moderators enough th
   );
 
   // reply
-  const ackInstance = reacord.ephemeralReply(
-    interaction,
-    <Confirmation
-      modRoleId={moderator}
-      thread={thread}
-      onNotify={() => {
-        ackInstance.render("Mods notified");
-        ackInstance.deactivate();
-      }}
-    />,
-  );
+  await interaction.reply({
+    content: `Discussion thread created <#${thread.id}>`,
+    ephemeral: true,
+  });
 };

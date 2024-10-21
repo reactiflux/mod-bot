@@ -1,10 +1,12 @@
-import type { AnyThreadChannel } from "discord.js";
 import type { UserInfo } from "reacord";
 import { Button } from "reacord";
 
 import type { Resolution } from "~/helpers/modResponse";
-import { humanReadableResolutions } from "~/helpers/modResponse";
-import { resolutions, useVotes } from "~/helpers/modResponse";
+import {
+  humanReadableResolutions,
+  resolutions,
+  useVotes,
+} from "~/helpers/modResponse";
 
 const VOTES_TO_APPROVE = 3;
 
@@ -55,18 +57,13 @@ export const ModResponse = ({
 
   return (
     <>
-      {`After ${votesRequired} or more votes, the leading resolution will be automatically enforced.`}
+      {`After ${votesRequired} or more votes, the leading resolution will be automatically enforced. <@&${modRoleId}> please respond.`}
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
-      {renderButton(
-        votes,
-        resolutions.okay,
-        humanReadableResolutions[resolutions.okay],
-        "success",
-      )}
       {renderButton(
         votes,
         resolutions.track,
         humanReadableResolutions[resolutions.track],
+        "success",
       )}
       {renderButton(
         votes,
@@ -100,32 +97,6 @@ export const ModResponse = ({
         humanReadableResolutions[resolutions.ban],
         "danger",
       )}
-    </>
-  );
-};
-
-export const Confirmation = ({
-  thread,
-  modRoleId,
-  onNotify,
-}: {
-  thread: AnyThreadChannel;
-  modRoleId: string;
-  onNotify: () => void;
-}) => {
-  return (
-    <>
-      Discussion thread created
-      <Button
-        label="Notify mods"
-        style="success"
-        onClick={async (event) => {
-          await thread.send(
-            `<@${event.user.id}> indicated this is urgent. <@&${modRoleId}> please respond`,
-          );
-          await onNotify();
-        }}
-      />
     </>
   );
 };

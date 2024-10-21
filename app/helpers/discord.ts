@@ -8,6 +8,7 @@ import type {
   MessageContextMenuCommandInteraction,
   UserContextMenuCommandInteraction,
   ChatInputCommandInteraction,
+  Poll,
 } from "discord.js";
 import {
   ApplicationCommandType,
@@ -101,6 +102,12 @@ export const escapeDisruptiveContent = (content: string) => {
 
 export const quoteAndEscape = (content: string) => {
   return escapeDisruptiveContent(quoteMessageContent(content));
+};
+
+export const quoteAndEscapePoll = (poll: Poll) => {
+  return `Poll:
+> ${poll.question.text}
+${poll.answers.map((a) => `> - ${a.text}`).join("\n")}`;
 };
 
 //

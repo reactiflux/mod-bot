@@ -1,6 +1,6 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
-import { PermissionFlagsBits } from "discord.js";
-import { ApplicationCommandType, ContextMenuCommandBuilder } from "discord.js";
+import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
+import { ApplicationCommandType } from "discord-api-types/v10";
 import { Button } from "reacord";
 import { reacord } from "~/discord/client.server";
 

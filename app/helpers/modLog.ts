@@ -12,6 +12,7 @@ import {
   constructDiscordLink,
   describeAttachments,
   quoteAndEscape,
+  quoteAndEscapePoll,
 } from "~/helpers/discord";
 import { simplifyString, truncateMessage } from "~/helpers/string";
 import { format, formatDistanceToNowStrict } from "date-fns";
@@ -156,10 +157,17 @@ const constructLog = async ({
   logs: Report[];
   previousWarnings: Map<string, { logMessage: Message; logs: Report[] }>;
 }): Promise<MessageCreateOptions> => {
-  const lastReport = logs.at(-1)!;
-  const { moderator } = await fetchSettings(lastReport.message.guild!, [
+  const lastReport = logs.at(-1);
+  if (!lastReport || !lastReport.message.guild) {
+    throw new Error("Something went wrong when trying to retrieve last report");
+  }
+  const { moderator } = await fetchSettings(lastReport.message.guild, [
     SETTINGS.moderator,
   ]);
+  let { message } = lastReport;
+  if (lastReport.message.reference) {
+    message = await message.fetchReference();
+  }
 
   if (!moderator) {
     throw new Error("No role configured to be used as moderator");
@@ -172,9 +180,11 @@ const constructLog = async ({
   } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
-  const reportedMessage = quoteAndEscape(lastReport.message.content).trim();
-  const attachments = describeAttachments(lastReport.message.attachments);
-  let warnings = [];
+  const reportedMessage = message.poll
+    ? quoteAndEscapePoll(message.poll)
+    : quoteAndEscape(message.content).trim();
+  const attachments = describeAttachments(message.attachments);
+  const warnings = [];
   for (const { logMessage } of previousWarnings.values()) {
     warnings.push(
       `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(
