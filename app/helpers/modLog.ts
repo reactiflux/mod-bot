@@ -4,7 +4,8 @@ import type {
   User,
   ClientUser,
 } from "discord.js";
-import { ChannelType } from "discord.js";
+import { MessageType, ChannelType } from "discord.js";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import TTLCache from "@isaacs/ttlcache";
 
 import { fetchSettings, SETTINGS } from "~/models/guilds.server";
@@ -15,7 +16,6 @@ import {
   quoteAndEscapePoll,
 } from "~/helpers/discord";
 import { simplifyString, truncateMessage } from "~/helpers/string";
-import { format, formatDistanceToNowStrict } from "date-fns";
 
 export const enum ReportReasons {
   anonReport = "anonReport",
@@ -165,10 +165,16 @@ const constructLog = async ({
     SETTINGS.moderator,
   ]);
   let { message } = lastReport;
-  if (lastReport.message.reference) {
+  if (
+    // If there's a reference and it's not a reply, it's a forwarded message.
+    // Fetch the reference and track that message.
+    lastReport.message.type !== MessageType.Reply &&
+    lastReport.message.reference
+  ) {
     message = await message.fetchReference();
   }
 
+  // This should never be possible but we gotta satisfy types
   if (!moderator) {
     throw new Error("No role configured to be used as moderator");
   }
@@ -180,6 +186,7 @@ const constructLog = async ({
   } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
+  // If it has the data for a poll, use a specialized formatting function
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
     : quoteAndEscape(message.content).trim();
