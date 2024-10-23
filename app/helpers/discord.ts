@@ -9,6 +9,8 @@ import type {
   UserContextMenuCommandInteraction,
   ChatInputCommandInteraction,
   Poll,
+  APIEmbed,
+  Collection,
 } from "discord.js";
 import {
   ApplicationCommandType,
@@ -66,23 +68,49 @@ export const quoteMessageContent = (content: string) => {
 };
 
 /*
- * Create a message embed that
+ * Given files attached to a message, return a plaintext description of those
+ * files.
  */
-export const describeAttachments = (attachments: Message["attachments"]) => {
+export const describeAttachments = (
+  attachments: Message["attachments"],
+): APIEmbed | undefined => {
   return attachments.size === 0
-    ? ""
-    : "Attachments:\n" +
-        attachments
-          .map(
-            ({ size, name, contentType, url }) =>
-              // Include size of the file and the filename
-              `${prettyBytes(size)}: ${
-                // If it's a video or image, include a link.
-                // Renders as `1.12mb: [some-image.jpg](<original image url>)`
-                contentType?.match(/(image|video)/) ? `[${name}](${url})` : name
-              }`,
-          )
-          .join("\n");
+    ? undefined
+    : {
+        description:
+          "Attachments:\n" +
+          attachments
+            .map(
+              ({ size, name, contentType, url }) =>
+                // Include size of the file and the filename
+                `${prettyBytes(size)}: ${
+                  // If it's a video or image, include a link.
+                  // Renders as `1.12mb: [some-image.jpg](<original image url>)`
+                  contentType?.match(/(image|video)/)
+                    ? `[${name}](${url})`
+                    : name
+                }`,
+            )
+            .join("\n"),
+      };
+};
+
+/*
+ * Create a message embed that describes the reactions on a message
+ */
+export const describeReactions = (
+  reactions: Collection<string, MessageReaction>,
+): APIEmbed | undefined => {
+  return reactions.size === 0
+    ? undefined
+    : {
+        title: "Reactions",
+        fields: reactions.map((r) => ({
+          name: "",
+          value: `${r.count} ${r.emoji.name}`,
+          inline: true,
+        })),
+      };
 };
 
 const urlRegex = /(https?:\/\/\S+|discord.gg\/\S+)\b/g;
