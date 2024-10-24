@@ -91,6 +91,25 @@ export const reportUser = async ({
     // If we already logged for ~ this message, post to the existing thread
     const { logMessage: cachedMessage, logs } = cached;
 
+    let thread = cachedMessage.thread;
+    if (!thread || !cachedMessage.hasThread) {
+      thread = await makeLogThread(cachedMessage, message.author);
+    }
+
+    if (cached.logs.some((l) => l.message.id === message.id)) {
+      // If we've already logged exactly this message, don't log it again as a
+      // separate report.
+      const latestReport = await thread.send({
+        content: makeReportString(newReport),
+      });
+      return {
+        warnings: logs.length,
+        message: cachedMessage,
+        latestReport,
+        thread,
+      };
+    }
+
     const newLogs = logs.concat([newReport]);
     cachedWarnings.set(simplifiedContent, {
       logMessage: cachedMessage,
@@ -98,11 +117,6 @@ export const reportUser = async ({
     });
 
     const warnings = newLogs.length;
-
-    let thread = cachedMessage.thread;
-    if (!thread || !cachedMessage.hasThread) {
-      thread = await makeLogThread(cachedMessage, message.author);
-    }
 
     const [latestReport] = await Promise.all([
       thread.send({ content: makeReportString(newReport) }),
