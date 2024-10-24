@@ -107,7 +107,9 @@ export const describeReactions = (
         title: "Reactions",
         fields: reactions.map((r) => ({
           name: "",
-          value: `${r.count} ${r.emoji.name}`,
+          value: `${r.count} ${
+            r.emoji.id ? `<:${r.emoji.name}:${r.emoji.id}>` : r.emoji.name
+          }`,
           inline: true,
         })),
       };

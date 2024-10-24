@@ -91,6 +91,23 @@ export const reportUser = async ({
     // If we already logged for ~ this message, post to the existing thread
     const { logMessage: cachedMessage, logs } = cached;
 
+    let thread = cachedMessage.thread;
+    if (!thread || !cachedMessage.hasThread) {
+      thread = await makeLogThread(cachedMessage, message.author);
+    }
+
+    if (cached.logs.some((l) => l.message.id === message.id)) {
+      // If we've already logged exactly this message, don't log it again as a
+      // separate report.
+      const latestReport = await thread.send(makeReportMessage(newReport));
+      return {
+        warnings: logs.length,
+        message: cachedMessage,
+        latestReport,
+        thread,
+      };
+    }
+
     const newLogs = logs.concat([newReport]);
     cachedWarnings.set(simplifiedContent, {
       logMessage: cachedMessage,
@@ -99,13 +116,8 @@ export const reportUser = async ({
 
     const warnings = newLogs.length;
 
-    let thread = cachedMessage.thread;
-    if (!thread || !cachedMessage.hasThread) {
-      thread = await makeLogThread(cachedMessage, message.author);
-    }
-
     const [latestReport] = await Promise.all([
-      thread.send({ content: makeReportString(newReport) }),
+      thread.send(makeReportMessage(newReport)),
       cachedMessage.edit(
         cachedMessage.content
           ?.replace(/warned \d times/, `warned ${cachedWarnings.size} times`)
@@ -113,43 +125,51 @@ export const reportUser = async ({
       ),
     ]);
     return { warnings, message: cachedMessage, latestReport, thread };
-  } else {
-    // If this is new, send a new message
-    const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
-    const modLog = await guild.channels.fetch(modLogId);
-    if (!modLog) {
-      throw new Error("Channel configured for use as mod log not found");
-    }
-    if (modLog.type !== ChannelType.GuildText) {
-      throw new Error(
-        "Invalid channel configured for use as mod log, must be guild text",
-      );
-    }
-    const newLogs: Report[] = [{ message, reason, staff }];
-
-    const logBody = await constructLog({
-      extra,
-      logs: newLogs,
-      previousWarnings: cachedWarnings,
-      staff,
-    });
-
-    const warningMessage = await modLog.send(logBody);
-    const thread = await makeLogThread(warningMessage, message.author);
-    const latestReport = await thread.send(makeReportString(newReport));
-
-    cachedWarnings.set(simplifiedContent, {
-      logMessage: warningMessage,
-      logs: newLogs,
-    });
-    return { warnings: 1, message: warningMessage, latestReport, thread };
   }
+
+  // If this is new, send a new message
+  const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
+  const modLog = await guild.channels.fetch(modLogId);
+  if (!modLog) {
+    throw new Error("Channel configured for use as mod log not found");
+  }
+  if (modLog.type !== ChannelType.GuildText) {
+    throw new Error(
+      "Invalid channel configured for use as mod log, must be guild text",
+    );
+  }
+  const newLogs: Report[] = [{ message, reason, staff }];
+
+  const logBody = await constructLog({
+    extra,
+    logs: newLogs,
+    previousWarnings: cachedWarnings,
+    staff,
+  });
+
+  const warningMessage = await modLog.send(logBody);
+  const thread = await makeLogThread(warningMessage, message.author);
+  const latestReport = await thread.send(makeReportMessage(newReport));
+
+  cachedWarnings.set(simplifiedContent, {
+    logMessage: warningMessage,
+    logs: newLogs,
+  });
+  return { warnings: 1, message: warningMessage, latestReport, thread };
 };
 
-const makeReportString = ({ message, reason, staff }: Report) =>
-  `- ${constructDiscordLink(message)} ${staff ? ` ${staff.username} ` : ""}${
-    ReadableReasons[reason]
-  }`;
+const makeReportMessage = ({ message, reason, staff }: Report) => {
+  const embeds = [describeReactions(message.reactions.cache)].filter(
+    (e): e is APIEmbed => Boolean(e),
+  );
+
+  return {
+    content: `- ${constructDiscordLink(message)} ${
+      staff ? ` ${staff.username} ` : ""
+    }${ReadableReasons[reason]}`,
+    embeds: embeds.length === 0 ? undefined : embeds,
+  };
+};
 
 const constructLog = async ({
   logs,
@@ -201,10 +221,9 @@ const constructLog = async ({
     );
   }
 
-  const embeds = [
-    describeAttachments(message.attachments),
-    describeReactions(message.reactions.cache),
-  ].filter((e): e is APIEmbed => Boolean(e));
+  const embeds = [describeAttachments(message.attachments)].filter(
+    (e): e is APIEmbed => Boolean(e),
+  );
 
   return {
     content: truncateMessage(`${preface}
