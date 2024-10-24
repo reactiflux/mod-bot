@@ -113,37 +113,37 @@ export const reportUser = async ({
       ),
     ]);
     return { warnings, message: cachedMessage, latestReport, thread };
-  } else {
-    // If this is new, send a new message
-    const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
-    const modLog = await guild.channels.fetch(modLogId);
-    if (!modLog) {
-      throw new Error("Channel configured for use as mod log not found");
-    }
-    if (modLog.type !== ChannelType.GuildText) {
-      throw new Error(
-        "Invalid channel configured for use as mod log, must be guild text",
-      );
-    }
-    const newLogs: Report[] = [{ message, reason, staff }];
-
-    const logBody = await constructLog({
-      extra,
-      logs: newLogs,
-      previousWarnings: cachedWarnings,
-      staff,
-    });
-
-    const warningMessage = await modLog.send(logBody);
-    const thread = await makeLogThread(warningMessage, message.author);
-    const latestReport = await thread.send(makeReportString(newReport));
-
-    cachedWarnings.set(simplifiedContent, {
-      logMessage: warningMessage,
-      logs: newLogs,
-    });
-    return { warnings: 1, message: warningMessage, latestReport, thread };
   }
+
+  // If this is new, send a new message
+  const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
+  const modLog = await guild.channels.fetch(modLogId);
+  if (!modLog) {
+    throw new Error("Channel configured for use as mod log not found");
+  }
+  if (modLog.type !== ChannelType.GuildText) {
+    throw new Error(
+      "Invalid channel configured for use as mod log, must be guild text",
+    );
+  }
+  const newLogs: Report[] = [{ message, reason, staff }];
+
+  const logBody = await constructLog({
+    extra,
+    logs: newLogs,
+    previousWarnings: cachedWarnings,
+    staff,
+  });
+
+  const warningMessage = await modLog.send(logBody);
+  const thread = await makeLogThread(warningMessage, message.author);
+  const latestReport = await thread.send(makeReportString(newReport));
+
+  cachedWarnings.set(simplifiedContent, {
+    logMessage: warningMessage,
+    logs: newLogs,
+  });
+  return { warnings: 1, message: warningMessage, latestReport, thread };
 };
 
 const makeReportString = ({ message, reason, staff }: Report) =>
