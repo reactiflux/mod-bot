@@ -3,6 +3,7 @@ import type {
   MessageCreateOptions,
   User,
   ClientUser,
+  APIEmbed,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
 import { format, formatDistanceToNowStrict } from "date-fns";
@@ -12,6 +13,7 @@ import { fetchSettings, SETTINGS } from "~/models/guilds.server";
 import {
   constructDiscordLink,
   describeAttachments,
+  describeReactions,
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "~/helpers/discord";
@@ -190,23 +192,25 @@ const constructLog = async ({
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
     : quoteAndEscape(message.content).trim();
-  const attachments = describeAttachments(message.attachments);
   const warnings = [];
   for (const { logMessage } of previousWarnings.values()) {
     warnings.push(
       `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(
         logMessage,
-      )}) (${formatDistanceToNowStrict(logMessage.createdAt, {
-        addSuffix: true,
-      })})`,
+      )}) (<t:${logMessage.createdAt}:R>)`,
     );
   }
+
+  const embeds = [
+    describeAttachments(message.attachments),
+    describeReactions(message.reactions.cache),
+  ].filter((e): e is APIEmbed => Boolean(e));
 
   return {
     content: truncateMessage(`${preface}
 ${extra}${reportedMessage}
 ${warnings.join("\n")}`).trim(),
-    embeds: attachments ? [{ description: `\n\n${attachments}` }] : undefined,
+    embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
 };
