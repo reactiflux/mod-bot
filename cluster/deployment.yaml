@@ -8,6 +8,8 @@ spec:
       app: mod-bot
   serviceName: "mod-bot"
   replicas: 1
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
