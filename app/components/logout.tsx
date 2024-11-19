@@ -6,19 +6,18 @@ interface LoginProps extends ButtonHTMLAttributes<Element> {
   redirectTo?: string;
 }
 
-export function Login({
-  children = "Log in with Discord",
+export function Logout({
+  children = "Log out",
   errors,
   redirectTo,
   ...props
 }: LoginProps) {
   return (
-    <Form method="post" className="space-y-6" action="/auth">
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+    <Form method="post" action="/logout" className="space-y-6">
       <button
-        className="w-full rounded bg-blue-500  px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
-        {...props}
         type="submit"
+        {...props}
+        className="w-full rounded bg-blue-500  px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
       >
         {children}
       </button>
