@@ -75,26 +75,18 @@ const {
     return result.id!;
   },
   async readData(id) {
-    const result = await db
+    const result = (await db
       .selectFrom("sessions")
       .where("id", "=", id)
       .selectAll()
-      .executeTakeFirst();
-    return (result?.data as { state: string } | null) || null;
+      .executeTakeFirst()) ?? { data: {} as any, expires: undefined };
+    return result.data;
   },
   async updateData(id, data, expires) {
     await db
       .updateTable("sessions")
       .set("data", JSON.stringify(data))
-      .set(
-        "expires",
-        expires?.toString() ||
-          (() => {
-            const soon = new Date();
-            soon.setMinutes(soon.getMinutes() + 15);
-            return soon.toString();
-          })(),
-      )
+      .set("expires", expires?.toString() || null)
       .where("id", "=", id)
       .execute();
   },
@@ -196,14 +188,21 @@ const OAUTH_REDIRECT = "http://localhost:3000/discord-oauth";
 
 export async function initOauthLogin({
   request,
+  redirectTo,
 }: {
   request: Request;
-  redirectTo: string;
+  redirectTo?: string;
 }) {
   const dbSession = await getDbSession(request.headers.get("Cookie"));
 
   const state = randomUUID();
   dbSession.set("state", state);
+  if (redirectTo) {
+    dbSession.set("redirectTo", redirectTo);
+  }
+  const cookie = await commitDbSession(dbSession, {
+    maxAge: 60 * 60 * 1, // 1 hour
+  });
   return redirect(
     authorization.authorizeURL({
       redirect_uri: OAUTH_REDIRECT,
@@ -212,21 +211,17 @@ export async function initOauthLogin({
     }),
     {
       headers: {
-        "Set-Cookie": await commitDbSession(dbSession, {
-          maxAge: 60 * 60 * 1, // 1 hour
-        }),
+        "Set-Cookie": cookie,
       },
     },
   );
 }
 
-export async function completeOauthLogin(request: Request) {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  if (!code) {
-    throw json({ message: `Discord didn't send an auth code` }, 500);
-  }
-
+export async function completeOauthLogin(
+  code: string,
+  reqCookie: string,
+  state?: string,
+) {
   const token = await authorization.getToken({
     scope: SCOPE,
     code,
@@ -253,14 +248,14 @@ export async function completeOauthLogin(request: Request) {
   }
 
   const [cookieSession, dbSession] = await Promise.all([
-    getCookieSession(request.headers.get("Cookie")),
-    getDbSession(request.headers.get("Cookie")),
+    getCookieSession(reqCookie),
+    getDbSession(reqCookie),
   ]);
 
-  // 401 if the state arg doesn't match
-  const state = url.searchParams.get("state");
+  // Redirect to login if the state arg doesn't match
   if (dbSession.get("state") !== state) {
-    throw redirect("/login", 401);
+    console.error("DB state didn’t match cookie state");
+    throw redirect("/login");
   }
 
   cookieSession.set(USER_SESSION_KEY, userId);
@@ -276,7 +271,7 @@ export async function completeOauthLogin(request: Request) {
   headers.append("Set-Cookie", cookie);
   headers.append("Set-Cookie", dbCookie);
 
-  return redirect("/", { headers });
+  return redirect(dbSession.get("redirectTo") ?? "/", { headers });
 }
 
 export async function refreshSession(request: Request) {
