@@ -158,9 +158,8 @@ export async function getUser(request: Request) {
   if (userId === undefined) return null;
 
   const user = await getUserById(userId);
-  if (user) return user;
-
-  throw await logout(request);
+  if (!user) throw await logout(request);
+  return user;
 }
 
 export async function requireUserId(

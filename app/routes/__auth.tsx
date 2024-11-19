@@ -1,7 +1,12 @@
 import { Outlet, useLocation } from "@remix-run/react";
 
 import { Login } from "~/components/login";
+import { getUser } from "~/models/session.server";
 import { useOptionalUser } from "~/utils";
+
+export function loader({ request }: { request: Request }) {
+  return getUser(request);
+}
 
 export default function Auth() {
   const user = useOptionalUser();
