@@ -61,7 +61,7 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   keys: T[],
 ) => {
   const result = Object.entries(
-    (await db
+    await db
       .selectFrom("guilds")
       // @ts-expect-error This is broken because of a migration from knex and
       // old/bad use of jsonb for storing settings. The type is guaranteed here
@@ -71,9 +71,9 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
       )
       .where("id", "=", guild.id)
       // This cast is also evidence of the pattern being broken
-      .executeTakeFirstOrThrow()) as Pick<SettingsRecord, T>,
-  );
+      .executeTakeFirstOrThrow(),
+  ) as [T, string][];
   return Object.fromEntries(
-    result.map(([k, v]) => [k, JSON.parse(v as string)]),
+    result.map(([k, v]) => [k, JSON.parse(v) as Pick<SettingsRecord, T>]),
   );
 };
