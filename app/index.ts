@@ -7,6 +7,15 @@ import { verifyKey } from "discord-interactions";
 
 import Sentry from "~/helpers/sentry.server";
 import discordBot from "~/discord/gateway";
+import { applicationKey } from "./helpers/env";
+import bodyParser from "body-parser";
+
+import * as convene from "~/commands/convene";
+import * as setup from "~/commands/setup";
+import * as report from "~/commands/report";
+import * as track from "~/commands/track";
+import * as setupTicket from "~/commands/setupTickets";
+import { registerCommand } from "./discord/deployCommands.server";
 
 const app = express();
 
@@ -48,6 +57,16 @@ app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
  * Initialize Discord gateway.
  */
 discordBot();
+/**
+ * Register Discord commands. These may add arbitrary express routes, because
+ * abstracting Discord interaction handling is weird and complex.
+ */
+registerCommand(convene, app);
+registerCommand(setup, app);
+registerCommand(report, app);
+registerCommand(track, app);
+registerCommand(setupTicket, app);
+
 // needs to handle all verbs (GET, POST, etc.)
 app.all(
   "*",

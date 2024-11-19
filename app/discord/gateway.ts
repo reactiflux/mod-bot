@@ -1,24 +1,11 @@
 import Sentry from "~/helpers/sentry.server";
 
 import { client, login } from "~/discord/client.server";
-import {
-  deployCommands,
-  registerCommand,
-} from "~/discord/deployCommands.server";
+import { deployCommands } from "~/discord/deployCommands.server";
 
 import automod from "~/discord/automod";
 import onboardGuild from "~/discord/onboardGuild";
 import { startActivityTracking } from "~/discord/activityTracker";
-
-import * as convene from "~/commands/convene";
-import * as setup from "~/commands/setup";
-import * as report from "~/commands/report";
-import * as track from "~/commands/track";
-
-registerCommand(convene);
-registerCommand(setup);
-registerCommand(report);
-registerCommand(track);
 
 export default function init() {
   login();
