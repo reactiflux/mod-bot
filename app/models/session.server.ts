@@ -80,13 +80,21 @@ const {
       .where("id", "=", id)
       .selectAll()
       .executeTakeFirst();
-    return result?.data ? JSON.parse(result.data) : null;
+    return (result?.data as { state: string } | null) || null;
   },
   async updateData(id, data, expires) {
     await db
       .updateTable("sessions")
       .set("data", JSON.stringify(data))
-      .set("expires", expires!.toString())
+      .set(
+        "expires",
+        expires?.toString() ||
+          (() => {
+            const soon = new Date();
+            soon.setMinutes(soon.getMinutes() + 15);
+            return soon.toString();
+          })(),
+      )
       .where("id", "=", id)
       .execute();
   },
@@ -251,7 +259,6 @@ export async function completeOauthLogin(request: Request) {
 
   // 401 if the state arg doesn't match
   const state = url.searchParams.get("state");
-  console.log({ state, dbState: dbSession.get("state") });
   if (dbSession.get("state") !== state) {
     throw redirect("/login", 401);
   }
