@@ -20,5 +20,11 @@ export const action: ActionFunction = async ({ request }) => {
 };
 
 export default function LoginPage() {
-  return <Login errors={undefined} />;
+  return (
+    <div className="flex min-h-full flex-col justify-center">
+      <div className="mx-auto w-full max-w-md px-8">
+        <Login redirectTo="/dashboard" />;
+      </div>
+    </div>
+  );
 }
