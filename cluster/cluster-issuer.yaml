@@ -1,0 +1,17 @@
+# I believe this only needed to be run once on the cluster as a whole, to make
+# a LetsEncrypt service available. That was done with:
+# kubectl apply -f cluster/cluster-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: vcarl@reactiflux.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
