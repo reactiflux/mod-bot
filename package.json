@@ -32,6 +32,7 @@
   },
   "license": "AGPL-3.0",
   "dependencies": {
+    "@discordjs/rest": "^2.4.0",
     "@isaacs/ttlcache": "^1.4.1",
     "@remix-run/express": "~1.19",
     "@remix-run/node": "~1.19",
