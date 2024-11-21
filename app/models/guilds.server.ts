@@ -73,7 +73,8 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
       // This cast is also evidence of the pattern being broken
       .executeTakeFirstOrThrow(),
   ) as [T, string][];
-  return Object.fromEntries(
-    result.map(([k, v]) => [k, JSON.parse(v) as Pick<SettingsRecord, T>]),
-  );
+  return Object.fromEntries(result.map(([k, v]) => [k, JSON.parse(v)])) as Pick<
+    SettingsRecord,
+    T
+  >;
 };
