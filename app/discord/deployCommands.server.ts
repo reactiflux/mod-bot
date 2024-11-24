@@ -5,6 +5,7 @@ import type {
   SlashCommandBuilder,
 } from "discord.js";
 import { InteractionType, Routes } from "discord.js";
+import type { Application } from "express";
 
 import { rest } from "~/discord/api";
 import type {
@@ -199,6 +200,9 @@ export const deployTestCommands = async (
 type Command = MessageContextCommand | UserContextCommand | SlashCommand;
 
 const commands = new Map<string, Command>();
-export const registerCommand = (config: Command) => {
+export const registerCommand = (config: Command, express: Application) => {
+  if (config.webserver) {
+    express.post("/webhooks/discord", config.webserver);
+  }
   commands.set(config.command.name, config);
 };

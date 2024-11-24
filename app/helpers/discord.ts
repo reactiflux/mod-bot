@@ -17,6 +17,7 @@ import {
   ContextMenuCommandBuilder,
   SlashCommandBuilder,
 } from "discord.js";
+import type { RequestHandler } from "express";
 import prettyBytes from "pretty-bytes";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
@@ -146,6 +147,7 @@ ${poll.answers.map((a) => `> - ${a.text}`).join("\n")}`;
 export type MessageContextCommand = {
   command: ContextMenuCommandBuilder;
   handler: (interaction: MessageContextMenuCommandInteraction) => void;
+  webserver?: RequestHandler;
 };
 export const isMessageContextCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,
@@ -156,6 +158,7 @@ export const isMessageContextCommand = (
 export type UserContextCommand = {
   command: ContextMenuCommandBuilder;
   handler: (interaction: UserContextMenuCommandInteraction) => void;
+  webserver?: RequestHandler;
 };
 export const isUserContextCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,
@@ -166,6 +169,7 @@ export const isUserContextCommand = (
 export type SlashCommand = {
   command: SlashCommandBuilder;
   handler: (interaction: ChatInputCommandInteraction) => void;
+  webserver?: RequestHandler;
 };
 export const isSlashCommand = (
   config: MessageContextCommand | UserContextCommand | SlashCommand,

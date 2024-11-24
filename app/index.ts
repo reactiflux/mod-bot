@@ -1,10 +1,21 @@
+// started with https://developers.cloudflare.com/workers/get-started/quickstarts/
 import express from "express";
 import { createRequestHandler } from "@remix-run/express";
 import path from "path";
 import * as build from "@remix-run/dev/server-build";
+import { verifyKey } from "discord-interactions";
 
 import Sentry from "~/helpers/sentry.server";
 import discordBot from "~/discord/gateway";
+import { applicationKey } from "./helpers/env";
+import bodyParser from "body-parser";
+
+import * as convene from "~/commands/convene";
+import * as setup from "~/commands/setup";
+import * as report from "~/commands/report";
+import * as track from "~/commands/track";
+import * as setupTicket from "~/commands/setupTickets";
+import { registerCommand } from "./discord/deployCommands.server";
 
 const app = express();
 
@@ -19,6 +30,42 @@ Route handlers and static hosting
 */
 
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+// Discord signature verification
+app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
+  const isValidRequest = await verifyKey(
+    JSON.stringify(req.body),
+    req.header("X-Signature-Ed25519")!,
+    req.header("X-Signature-Timestamp")!,
+    applicationKey,
+  );
+  console.log("WEBHOOK", "isValidRequest:", isValidRequest);
+  if (!isValidRequest) {
+    console.log("[REQ] Invalid request signature");
+    res.status(401).send({ message: "Bad request signature" });
+    return;
+  }
+  if (req.body.type === 1) {
+    res.json({ type: 1, data: {} });
+    return;
+  }
+
+  next();
+});
+
+/**
+ * Initialize Discord gateway.
+ */
+discordBot();
+/**
+ * Register Discord commands. These may add arbitrary express routes, because
+ * abstracting Discord interaction handling is weird and complex.
+ */
+registerCommand(convene, app);
+registerCommand(setup, app);
+registerCommand(report, app);
+registerCommand(track, app);
+registerCommand(setupTicket, app);
 
 // needs to handle all verbs (GET, POST, etc.)
 app.all(
@@ -44,8 +91,6 @@ app.use(Sentry.Handlers.errorHandler());
 
 /** Init app */
 app.listen(process.env.PORT || "3000");
-
-discordBot();
 
 const errorHandler = (error: unknown) => {
   Sentry.captureException(error);
