@@ -60,7 +60,7 @@ export const webserver: RequestHandler = async (req, res, next) => {
     const [, ticketOpenerUserId] = body.data.custom_id.split("||");
     const threadId = body.message?.channel_id;
     if (!body.member) {
-      console.log(
+      console.error(
         "[err]: no member in ticket interaction",
         JSON.stringify(body),
       );
@@ -68,46 +68,57 @@ export const webserver: RequestHandler = async (req, res, next) => {
         type: InteractionResponseType.ChannelMessageWithSource,
         data: {
           content: "Something went wrong",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         },
       });
       return;
     }
 
-    const { [SETTINGS.moderator]: mod } = await fetchSettings(
-      // @ts-expect-error because this shouldn't have used a Guild instance but
-      // it's a lot to refactor
-      { id: body.guild_id },
-      [SETTINGS.moderator],
-    );
+    const { [SETTINGS.moderator]: mod, [SETTINGS.modLog]: modLog } =
+      await fetchSettings(
+        // @ts-expect-error because this shouldn't have used a Guild instance but
+        // it's a lot to refactor
+        { id: body.guild_id },
+        [SETTINGS.moderator, SETTINGS.modLog],
+      );
 
     const { roles, user } = body.member;
     const interactionUserId = user.id;
 
     if (
       !threadId ||
-      roles?.includes(mod) ||
-      ticketOpenerUserId !== interactionUserId
+      (!roles?.includes(mod) && ticketOpenerUserId !== interactionUserId)
     ) {
       res.send({
         type: InteractionResponseType.ChannelMessageWithSource,
         data: {
           content: "This isn't your ticket to close!",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         },
       });
       return;
     }
 
-    await rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId));
     // TODO: await interaction.channel.setLocked(true);
+    await Promise.all([
+      rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
+      rest.post(Routes.channelMessages(modLog), {
+        body: {
+          content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}> `,
+          mentions: [],
+          flags: MessageFlags.SuppressNotifications,
+        },
+      }),
+      res.send({
+        type: InteractionResponseType.ChannelMessageWithSource,
+        data: {
+          content: `The ticket was closed by <@${ticketOpenerUserId}>`,
+          mentions: [],
+          flags: MessageFlags.SuppressNotifications,
+        },
+      }),
+    ]);
 
-    res.send({
-      type: InteractionResponseType.ChannelMessageWithSource,
-      data: {
-        content: "The ticket was closed by the member who opened it.",
-      },
-    });
     return;
   }
 
@@ -163,7 +174,7 @@ export const webserver: RequestHandler = async (req, res, next) => {
       // @ts-expect-error because this shouldn't have used a Guild instance but
       // it's a lot to refactor
       { id: body.guild_id },
-      [SETTINGS.moderator],
+      [SETTINGS.moderator, SETTINGS.modLog],
     );
     const thread = (await rest.post(Routes.threads(body.channel.id), {
       body: {
@@ -189,6 +200,7 @@ export const webserver: RequestHandler = async (req, res, next) => {
     });
     await rest.post(Routes.channelMessages(thread.id), {
       body: {
+        content: "When you’ve finished, please close the ticket.",
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
