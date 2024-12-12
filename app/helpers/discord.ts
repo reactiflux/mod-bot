@@ -11,13 +11,15 @@ import type {
   Poll,
   APIEmbed,
   Collection,
+  MessageComponentInteraction,
+  ModalSubmitInteraction,
 } from "discord.js";
 import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
+  InteractionType,
   SlashCommandBuilder,
 } from "discord.js";
-import type { RequestHandler } from "express";
 import prettyBytes from "pretty-bytes";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
@@ -144,13 +146,19 @@ ${poll.answers.map((a) => `> - ${a.text}`).join("\n")}`;
 //
 // Types and type helpers for command configs
 //
+export type AnyCommand =
+  | MessageContextCommand
+  | UserContextCommand
+  | SlashCommand
+  | MessageComponentCommand
+  | ModalCommand;
+
 export type MessageContextCommand = {
   command: ContextMenuCommandBuilder;
   handler: (interaction: MessageContextMenuCommandInteraction) => void;
-  webserver?: RequestHandler;
 };
 export const isMessageContextCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
+  config: AnyCommand,
 ): config is MessageContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.Message;
@@ -158,10 +166,9 @@ export const isMessageContextCommand = (
 export type UserContextCommand = {
   command: ContextMenuCommandBuilder;
   handler: (interaction: UserContextMenuCommandInteraction) => void;
-  webserver?: RequestHandler;
 };
 export const isUserContextCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
+  config: AnyCommand,
 ): config is UserContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.User;
@@ -169,8 +176,24 @@ export const isUserContextCommand = (
 export type SlashCommand = {
   command: SlashCommandBuilder;
   handler: (interaction: ChatInputCommandInteraction) => void;
-  webserver?: RequestHandler;
 };
-export const isSlashCommand = (
-  config: MessageContextCommand | UserContextCommand | SlashCommand,
-): config is SlashCommand => config.command instanceof SlashCommandBuilder;
+export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
+  config.command instanceof SlashCommandBuilder;
+
+export type MessageComponentCommand = {
+  command: { type: InteractionType.MessageComponent; name: string };
+  handler: (interaction: MessageComponentInteraction) => void;
+};
+export const isMessageComponentCommand = (
+  config: AnyCommand,
+): config is MessageComponentCommand =>
+  "type" in config.command &&
+  config.command.type === InteractionType.MessageComponent;
+
+export type ModalCommand = {
+  command: { type: InteractionType.ModalSubmit; name: string };
+  handler: (interaction: ModalSubmitInteraction) => void;
+};
+export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
+  "type" in config.command &&
+  config.command.type === InteractionType.ModalSubmit;

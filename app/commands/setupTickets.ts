@@ -1,246 +1,176 @@
-import type {
-  APIInteraction,
-  APIInteractionResponseChannelMessageWithSource,
-  APIModalSubmitInteraction,
-  ChatInputCommandInteraction,
-} from "discord.js";
+import type { ChatInputCommandInteraction } from "discord.js";
 import {
+  ChannelType,
   ComponentType,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  InteractionResponseType,
   MessageFlags,
+  InteractionType,
+  ModalBuilder,
+  TextInputBuilder,
 } from "discord.js";
-import type { RequestHandler } from "express";
 import { REST } from "@discordjs/rest";
-import type {
-  RESTPostAPIChannelMessageJSONBody,
-  RESTPostAPIChannelThreadsJSONBody,
-  RESTPostAPIChannelThreadsResult,
-} from "discord-api-types/v10";
-import { ChannelType, Routes } from "discord-api-types/v10";
+import { Routes, TextInputStyle } from "discord-api-types/v10";
 
 import { discordToken } from "~/helpers/env";
 import { SETTINGS, fetchSettings } from "~/models/guilds.server";
 import { format } from "date-fns";
-import { MessageComponentTypes, TextStyleTypes } from "discord-interactions";
+import type {
+  AnyCommand,
+  MessageComponentCommand,
+  ModalCommand,
+  SlashCommand,
+} from "~/helpers/discord";
 import { quoteMessageContent } from "~/helpers/discord";
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
 
-const isModalInteraction = (body: any): body is APIModalSubmitInteraction => {
-  return (
-    body.message.interaction_metadata.type === 2 &&
-    body.data.custom_id === "modal-open-ticket"
-  );
-};
+export default [
+  {
+    command: new SlashCommandBuilder()
+      .setName("tickets-channel")
+      .setDescription(
+        "Set up a new button for creating private tickets with moderators",
+      )
+      .setDefaultMemberPermissions(
+        PermissionFlagsBits.Administrator,
+      ) as SlashCommandBuilder,
 
-export const command = new SlashCommandBuilder()
-  .setName("tickets-channel")
-  .setDescription(
-    "Set up a new button for creating private tickets with moderators",
-  )
-  .setDefaultMemberPermissions(
-    PermissionFlagsBits.Administrator,
-  ) as SlashCommandBuilder;
+    handler: async (interaction: ChatInputCommandInteraction) => {
+      if (!interaction.guild) throw new Error("Interaction has no guild");
 
-export const webserver: RequestHandler = async (req, res, next) => {
-  const body = req.body as APIInteraction;
-
-  if (
-    // @ts-expect-error because apparently custom_id types are broken
-    body.data.component_type === 2 &&
-    // @ts-expect-error because apparently custom_id types are broken
-    body.data.custom_id.includes("close-ticket")
-  ) {
-    // @ts-expect-error because apparently custom_id types are broken
-    const [, ticketOpenerUserId] = body.data.custom_id.split("||");
-    const threadId = body.message?.channel_id;
-    if (!body.member) {
-      console.error(
-        "[err]: no member in ticket interaction",
-        JSON.stringify(body),
-      );
-      res.send({
-        type: InteractionResponseType.ChannelMessageWithSource,
-        data: {
-          content: "Something went wrong",
-          flags: MessageFlags.Ephemeral,
-        },
-      });
-      return;
-    }
-
-    const { [SETTINGS.moderator]: mod, [SETTINGS.modLog]: modLog } =
-      await fetchSettings(
-        // @ts-expect-error because this shouldn't have used a Guild instance but
-        // it's a lot to refactor
-        { id: body.guild_id },
-        [SETTINGS.moderator, SETTINGS.modLog],
-      );
-
-    const { roles, user } = body.member;
-    const interactionUserId = user.id;
-
-    if (
-      !threadId ||
-      (!roles?.includes(mod) && ticketOpenerUserId !== interactionUserId)
-    ) {
-      res.send({
-        type: InteractionResponseType.ChannelMessageWithSource,
-        data: {
-          content: "This isn't your ticket to close!",
-          flags: MessageFlags.Ephemeral,
-        },
-      });
-      return;
-    }
-
-    // TODO: await interaction.channel.setLocked(true);
-    await Promise.all([
-      rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
-      rest.post(Routes.channelMessages(modLog), {
-        body: {
-          content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}> `,
-          mentions: [],
-          flags: MessageFlags.SuppressNotifications,
-        },
-      }),
-      res.send({
-        type: InteractionResponseType.ChannelMessageWithSource,
-        data: {
-          content: `The ticket was closed by <@${ticketOpenerUserId}>`,
-          mentions: [],
-          flags: MessageFlags.SuppressNotifications,
-        },
-      }),
-    ]);
-
-    return;
-  }
-
-  // Handle "open ticket" button pressed
-  // @ts-expect-error because apparently custom_id types are broken
-  if (body.data.component_type === 2 && body.data.custom_id === "open-ticket") {
-    res.send({
-      type: InteractionResponseType.Modal,
-      data: {
-        custom_id: "modal-open-ticket",
-        title: "What do you need from the moderators?",
+      await interaction.reply({
         components: [
           {
-            type: MessageComponentTypes.ACTION_ROW,
+            type: ComponentType.ActionRow,
             components: [
               {
-                type: MessageComponentTypes.INPUT_TEXT,
-                custom_id: "concern",
-                label: "Concern",
-                style: TextStyleTypes.PARAGRAPH,
-                min_length: 30,
-                max_length: 500,
-                required: true,
+                type: ComponentType.Button,
+                label: "Open a private ticket with the moderators",
+                style: ButtonStyle.Primary,
+                customId: "open-ticket",
               },
             ],
           },
         ],
-      },
-    });
-    return;
-  }
+      });
+    },
+  } as SlashCommand,
+  {
+    command: { type: InteractionType.MessageComponent, name: "open-ticket" },
+    handler: async (interaction) => {
+      const modal = new ModalBuilder()
+        .setCustomId("modal-open-ticket")
+        .setTitle("What do you need from the moderators?");
+      const actionRow = new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setLabel("Concern")
+          .setCustomId("concern")
+          .setMinLength(30)
+          .setMaxLength(500)
+          .setRequired(true)
+          .setStyle(TextInputStyle.Paragraph),
+      );
+      // @ts-expect-error busted types
+      modal.addComponents(actionRow);
 
-  // Handle "what's up" modal submission
-  if (isModalInteraction(body)) {
-    if (
-      !body.channel ||
-      !body.message ||
-      !body.message.interaction_metadata?.user ||
-      !body.data?.components[0].components[0].value
-    ) {
-      console.error("ticket creation error", JSON.stringify(req.body));
-      res.send({
-        type: InteractionResponseType.ChannelMessageWithSource,
-        data: {
+      await interaction.showModal(modal);
+    },
+  } as MessageComponentCommand,
+  {
+    command: { type: InteractionType.ModalSubmit, name: "modal-open-ticket" },
+    handler: async (interaction) => {
+      if (
+        !interaction.channel ||
+        interaction.channel.type !== ChannelType.GuildText ||
+        !interaction.user ||
+        !interaction.guild
+      ) {
+        await interaction.reply({
           content: "Something went wrong while creating a ticket",
           flags: MessageFlags.Ephemeral,
-        },
-      } as APIInteractionResponseChannelMessageWithSource);
-      return;
-    }
+        });
+        return;
+      }
+      const { channel, fields, user } = interaction;
+      const concern = fields.getField("concern").value;
 
-    const { [SETTINGS.moderator]: mod } = await fetchSettings(
-      // @ts-expect-error because this shouldn't have used a Guild instance but
-      // it's a lot to refactor
-      { id: body.guild_id },
-      [SETTINGS.moderator, SETTINGS.modLog],
-    );
-    const thread = (await rest.post(Routes.threads(body.channel.id), {
-      body: {
-        name: `${body.message.interaction_metadata.user.username} – ${format(
-          new Date(),
-          "PP kk:mmX",
-        )}`,
-        auto_archive_duration: 60 * 24 * 7,
+      const { [SETTINGS.moderator]: mod } = await fetchSettings(
+        interaction.guild,
+        [SETTINGS.moderator, SETTINGS.modLog],
+      );
+      const thread = await channel.threads.create({
+        name: `${user.username} – ${format(new Date(), "PP kk:mmX")}`,
+        autoArchiveDuration: 60 * 24 * 7,
         type: ChannelType.PrivateThread,
-      } as RESTPostAPIChannelThreadsJSONBody,
-    })) as RESTPostAPIChannelThreadsResult;
-    await rest.post(Routes.channelMessages(thread.id), {
-      body: {
-        content: `<@${body.message.interaction_metadata.user.id}>, this is a private space only visible to you and the <@&${mod}> role.`,
-      } as RESTPostAPIChannelMessageJSONBody,
-    });
-    await rest.post(Routes.channelMessages(thread.id), {
-      body: {
-        content: `${quoteMessageContent(
-          body.data?.components[0].components[0].value,
-        )}`,
-      },
-    });
-    await rest.post(Routes.channelMessages(thread.id), {
-      body: {
+      });
+      await thread.send({
+        content: `<@${user.id}>, this is a private space only visible to you and the <@&${mod}> role.`,
+      });
+      await thread.send(quoteMessageContent(concern));
+      await thread.send({
         content: "When you’ve finished, please close the ticket.",
         components: [
+          // @ts-ignore
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-              .setCustomId(
-                `close-ticket||${body.message.interaction_metadata.user.id}`,
-              )
+              .setCustomId(`close-ticket||${user.id}`)
               .setLabel("Close ticket")
               .setStyle(ButtonStyle.Danger),
           ),
         ],
-      },
-    });
+      });
 
-    res.send({
-      type: InteractionResponseType.ChannelMessageWithSource,
-      data: {
+      interaction.reply({
         content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
-        flags: MessageFlags.Ephemeral,
-      },
-    } as APIInteractionResponseChannelMessageWithSource);
-    return;
-  }
-};
+        ephemeral: true,
+      });
+      return;
+    },
+  } as ModalCommand,
+  {
+    command: { type: InteractionType.MessageComponent, name: "close-ticket" },
+    handler: async (interaction) => {
+      const [, ticketOpenerUserId] = interaction.customId.split("||");
+      const threadId = interaction.channelId;
+      if (!interaction.member || !interaction.guild) {
+        console.error(
+          "[err]: no member in ticket interaction",
+          JSON.stringify(interaction),
+        );
+        await interaction.reply({
+          content: "Something went wrong",
+          ephemeral: true,
+        });
+        return;
+      }
 
-export const handler = async (interaction: ChatInputCommandInteraction) => {
-  if (!interaction.guild) throw new Error("Interaction has no guild");
+      const { [SETTINGS.modLog]: modLog } = await fetchSettings(
+        interaction.guild,
+        [SETTINGS.modLog],
+      );
 
-  await interaction.reply({
-    components: [
-      {
-        type: ComponentType.ActionRow,
-        components: [
-          {
-            type: ComponentType.Button,
-            label: "Open a private ticket with the moderators",
-            style: ButtonStyle.Primary,
-            customId: "open-ticket",
+      const { user } = interaction.member;
+      const interactionUserId = user.id;
+
+      await Promise.all([
+        rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
+        rest.post(Routes.channelMessages(modLog), {
+          body: {
+            content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}> `,
+            allowedMentions: { users: [], roles: [] },
           },
-        ],
-      },
-    ],
-  });
-};
+        }),
+        interaction.reply({
+          content: `The ticket was closed by <@${ticketOpenerUserId}>`,
+          allowedMentions: { users: [], roles: [] },
+        }),
+      ]);
+
+      return;
+    },
+  } as MessageComponentCommand,
+] as Array<AnyCommand>;
