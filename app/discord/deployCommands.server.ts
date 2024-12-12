@@ -25,7 +25,12 @@ import { calculateChangedCommands } from "~/helpers/discordCommands";
  */
 export const deployCommands = async (client: Client) => {
   const localCommands = [...commands.values()]
-    .filter((c) => isSlashCommand(c) || isUserContextCommand(c))
+    .filter(
+      (c) =>
+        isSlashCommand(c) ||
+        isUserContextCommand(c) ||
+        isMessageContextCommand(c),
+    )
     .map(({ command }) => command);
 
   await (isProd()
@@ -187,7 +192,7 @@ export const deployTestCommands = async (
 
       const changes = calculateChangedCommands(localCommands, guildCommands);
       console.log(
-        `${guild.name}: ${
+        `${guild.name} (${localCommands.length} local): ${
           changes.didCommandsChange
             ? `Upserting ${localCommands.length} commands.`
             : "No command updates."
