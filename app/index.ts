@@ -4,18 +4,18 @@ import { createRequestHandler } from "@remix-run/express";
 import path from "path";
 import * as build from "@remix-run/dev/server-build";
 import { verifyKey } from "discord-interactions";
+import bodyParser from "body-parser";
 
 import Sentry from "~/helpers/sentry.server";
+import { applicationKey } from "~/helpers/env";
 import discordBot from "~/discord/gateway";
-import { applicationKey } from "./helpers/env";
-import bodyParser from "body-parser";
+import { registerCommand } from "~/discord/deployCommands.server";
 
 import * as convene from "~/commands/convene";
 import * as setup from "~/commands/setup";
 import * as report from "~/commands/report";
 import * as track from "~/commands/track";
-import * as setupTicket from "~/commands/setupTickets";
-import { registerCommand } from "./discord/deployCommands.server";
+import setupTicket from "~/commands/setupTickets";
 
 const app = express();
 
@@ -61,11 +61,11 @@ discordBot();
  * Register Discord commands. These may add arbitrary express routes, because
  * abstracting Discord interaction handling is weird and complex.
  */
-registerCommand(convene, app);
-registerCommand(setup, app);
-registerCommand(report, app);
-registerCommand(track, app);
-registerCommand(setupTicket, app);
+registerCommand(convene);
+registerCommand(setup);
+registerCommand(report);
+registerCommand(track);
+registerCommand(setupTicket);
 
 // needs to handle all verbs (GET, POST, etc.)
 app.all(

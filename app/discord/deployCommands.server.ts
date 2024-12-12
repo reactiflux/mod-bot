@@ -5,16 +5,13 @@ import type {
   SlashCommandBuilder,
 } from "discord.js";
 import { InteractionType, Routes } from "discord.js";
-import type { Application } from "express";
 
 import { rest } from "~/discord/api";
-import type {
-  MessageContextCommand,
-  SlashCommand,
-  UserContextCommand,
-} from "~/helpers/discord";
+import type { AnyCommand } from "~/helpers/discord";
 import {
+  isMessageComponentCommand,
   isMessageContextCommand,
+  isModalCommand,
   isSlashCommand,
   isUserContextCommand,
 } from "~/helpers/discord";
@@ -27,39 +24,55 @@ import { calculateChangedCommands } from "~/helpers/discordCommands";
  * @param client A discord.js client
  */
 export const deployCommands = async (client: Client) => {
-  const localCommands = [...commands.values()].map(({ command }) => command);
+  const localCommands = [...commands.values()]
+    .filter((c) => isSlashCommand(c) || isUserContextCommand(c))
+    .map(({ command }) => command);
 
   await (isProd()
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
 
   client.on("interactionCreate", (interaction) => {
-    if (
-      !interaction ||
-      interaction.type !== InteractionType.ApplicationCommand
-    ) {
-      return;
-    }
-    const config = commands.get(
-      interaction.commandName || "null interaction.command",
-    );
-    if (!config) {
-      throw new Error(`No command found for ${interaction.commandName}`);
-    }
-    if (
-      isMessageContextCommand(config) &&
-      interaction.isMessageContextMenuCommand()
-    ) {
-      config.handler(interaction);
-    } else if (
-      isUserContextCommand(config) &&
-      interaction.isUserContextMenuCommand()
-    ) {
-      config.handler(interaction);
-    } else if (isSlashCommand(config) && interaction.isChatInputCommand()) {
-      config.handler(interaction);
-    } else {
-      throw new Error("Didn't find a handler for an interaction");
+    console.log("info", "interaction received", interaction.id);
+    switch (interaction.type) {
+      case InteractionType.ApplicationCommand: {
+        const config = matchCommand(interaction.commandName);
+
+        if (
+          isMessageContextCommand(config) &&
+          interaction.isMessageContextMenuCommand()
+        ) {
+          config.handler(interaction);
+          return;
+        }
+        if (
+          isUserContextCommand(config) &&
+          interaction.isUserContextMenuCommand()
+        ) {
+          config.handler(interaction);
+          return;
+        }
+        if (isSlashCommand(config) && interaction.isChatInputCommand()) {
+          config.handler(interaction);
+        }
+        throw new Error("Didn't find a handler for an interaction");
+      }
+
+      case InteractionType.MessageComponent: {
+        const config = matchCommand(interaction.customId);
+        if (
+          isMessageComponentCommand(config) &&
+          interaction.isMessageComponent()
+        ) {
+          config.handler(interaction);
+        }
+      }
+      case InteractionType.ModalSubmit: {
+        const config = matchCommand(interaction.customId);
+        if (isModalCommand(config) && interaction.isModalSubmit()) {
+          config.handler(interaction);
+        }
+      }
     }
   });
 };
@@ -197,12 +210,26 @@ export const deployTestCommands = async (
   );
 };
 
-type Command = MessageContextCommand | UserContextCommand | SlashCommand;
-
-const commands = new Map<string, Command>();
-export const registerCommand = (config: Command, express: Application) => {
-  if (config.webserver) {
-    express.post("/webhooks/discord", config.webserver);
+const commands = new Map<string, AnyCommand>();
+export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
+  if (Array.isArray(config)) {
+    config.forEach((c) => {
+      commands.set(c.command.name, c);
+    });
+    return;
   }
   commands.set(config.command.name, config);
+};
+const matchCommand = (customId: string) => {
+  let config = commands.get(customId);
+  if (config) {
+    return config;
+  }
+  const key = [...commands.keys()].find((k) => customId.startsWith(`${k}|`));
+  config = commands.get(key || "??");
+  if (config) {
+    return config;
+  }
+  console.error([...commands.keys()].join(" "));
+  throw new Error(`No command found for ${customId}`);
 };
