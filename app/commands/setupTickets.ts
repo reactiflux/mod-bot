@@ -108,7 +108,7 @@ export default [
         type: ChannelType.PrivateThread,
       });
       await thread.send({
-        content: `<@${user.id}>, this is a private space only visible to you and the <@& ${mod}> role.`,
+        content: `<@${user.id}>, this is a private space only visible to you and the <@&${mod}> role.`,
       });
       await thread.send(quoteMessageContent(concern));
       await thread.send({
