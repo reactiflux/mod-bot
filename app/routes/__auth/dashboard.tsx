@@ -11,11 +11,8 @@ export const loader = async ({ request, context, params }: LoaderArgs) => {
   const end = url.searchParams.get("end");
 
   if (!start || !end) {
-    return json({});
+    return json(null, { status: 400 });
   }
-
-  // convert times to unix stamps (tz? utc i guess)
-  // query DB
 
   const REACTIFLUX_GUILD_ID = "102860784329052160";
   const output = await getTopParticipants(
@@ -25,7 +22,6 @@ export const loader = async ({ request, context, params }: LoaderArgs) => {
     [],
     ["Need Help", "React General", "Advanced Topics"],
   );
-  console.log(output);
 
   return json(output);
 };
