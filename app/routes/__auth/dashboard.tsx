@@ -2,6 +2,11 @@ import type { LoaderArgs, ActionFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import type { LabelHTMLAttributes } from "react";
+import {
+  Sparklines,
+  SparklinesBars,
+  SparklinesReferenceLine,
+} from "react-sparklines";
 import { getTopParticipants } from "~/models/activity.server";
 
 export const loader = async ({ request, context, params }: LoaderArgs) => {
@@ -57,8 +62,8 @@ export default function DashboardPage() {
         </form>
       </div>
       <div>
-        <ShittyTable data={data.topMembers} />
-        <ShittyTable data={data.dailyParticipation} />
+        <ShittyTable data={data} />
+        {/* <ShittyTable data={data.dailyParticipation} /> */}
       </div>
     </div>
   );
@@ -70,18 +75,41 @@ const ShittyTable = ({ data }) => {
     <div>
       <p>{data.length} entries</p>
       <table>
-        <tr>
-          {keys.map((k) => (
-            <th key={k}>{k}</th>
-          ))}
-        </tr>
-        {data.map((d) => (
-          <tr key={keys.reduce((o, k) => o + d[k], "")}>
+        <thead>
+          <tr>
             {keys.map((k) => (
-              <td key={d[k]}>{d[k]}</td>
+              <th key={k}>{k}</th>
             ))}
           </tr>
-        ))}
+        </thead>
+        <tbody>
+          {data.map((d) => (
+            <tr key={keys.reduce((o, k) => o + d[k], "")}>
+              {keys.map((k) => (
+                <td key={d[k].toString() + k}>
+                  {Array.isArray(d[k]) ? (
+                    <Sparklines
+                      svgHeight={26}
+                      svgWidth={240}
+                      data={d[k].map(({ word_count }) => word_count)}
+                    >
+                      <SparklinesBars barWidth={5} />
+                      <SparklinesReferenceLine
+                        type="median"
+                        style={{ strokeWidth: 3 }}
+                      />
+                    </Sparklines>
+                  ) : (
+                    // <pre className="max-w-xs  overflow-scroll">
+                    //   <code>{JSON.stringify(d[k])}</code>
+                    // </pre>
+                    d[k]
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   );
