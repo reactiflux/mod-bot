@@ -92,5 +92,5 @@ export async function reportByGuild(guildId: string) {
     .where("guild_id", "=", guildId)
     .groupBy("author_id")
     .execute();
-  return result
+  return result;
 }
