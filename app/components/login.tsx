@@ -8,7 +8,7 @@ interface LoginProps extends ButtonHTMLAttributes<Element> {
 
 export function Login({
   children = "Log in with Discord",
-  errors,
+  // errors,
   redirectTo,
   ...props
 }: LoginProps) {

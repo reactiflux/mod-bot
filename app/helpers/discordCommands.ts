@@ -29,9 +29,8 @@ export const compareCommands = (
     return result;
   }
   if (json.type === ApplicationCommandType.ChatInput || !json.type) {
-    const hasRemoteOptions =
-      "options" in remoteCommand && remoteCommand.options!.length > 0;
-    const hasLocalOptions = "options" in json && json.options!.length > 0;
+    const remoteOptions = remoteCommand.options;
+    const localOptions = json.options;
 
     const typeMatches = !json.type || json.type === remoteCommand.type;
     if (!typeMatches) {
@@ -44,29 +43,29 @@ export const compareCommands = (
     if (!descriptionMatches) {
       return false;
     }
-    const remoteOptionsMatch = hasRemoteOptions
-      ? remoteCommand.options!.every((o) =>
+    const remoteOptionsMatch = !remoteOptions
+      ? true
+      : remoteOptions.every((o) =>
           json.options?.some(
             (o2) =>
               o.name === o2.name &&
               o.description === o2.description &&
               o.type === o2.type,
           ),
-        )
-      : true;
+        );
     if (!remoteOptionsMatch) {
       return false;
     }
-    const localOptionsMatch = hasLocalOptions
-      ? json.options!.every((o) =>
+    const localOptionsMatch = !localOptions
+      ? true
+      : localOptions.every((o) =>
           remoteCommand.options?.some(
             (o2) =>
               o.name === o2.name &&
               o.description === o2.description &&
               o.type === o2.type,
           ),
-        )
-      : true;
+        );
     if (!localOptionsMatch) {
       return false;
     }
