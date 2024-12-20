@@ -10,7 +10,7 @@
     "build": "run-s build:*",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "format": "prettier --write .",
-    "validate": "run-p \"test -- run\" lint typecheck test:e2e:run",
+    "validate": "run-p \"test -- run\" lint typecheck",
     "kysely": "kysely",
     "": "",
     "start:migrate": "kysely migrate:list; kysely migrate:latest",
@@ -25,10 +25,7 @@
     "kysely:seed": "kysely seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts; prettier --write ./app/db.d.ts",
-    "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build",
-    "test:e2e:dev": "start-server-and-test dev http://localhost:3000 \"cypress open\"",
-    "test:e2e:run": "exit; echo 'these tests are disabled because theyre broken'; cross-env PORT=8811 start-server-and-test start:mocks http://localhost:8811 \"cypress run\"",
-    "pretest:e2e:run": "exit; npm run build"
+    "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build"
   },
   "license": "AGPL-3.0",
   "dependencies": {
@@ -76,7 +73,6 @@
     "@faker-js/faker": "^6.3.1",
     "@remix-run/dev": "^2.15.1",
     "@remix-run/eslint-config": "^2.15.1",
-    "@testing-library/cypress": "^8.0.2",
     "@testing-library/dom": "^8.12.0",
     "@testing-library/jest-dom": "^5.16.3",
     "@testing-library/react": "^13.2.0",
@@ -100,7 +96,6 @@
     "binode": "^1.0.5",
     "c8": "^7.11.0",
     "cross-env": "^7.0.3",
-    "cypress": "^9.7.0",
     "eslint": "^8.12.0",
     "eslint-config-prettier": "^8.5.0",
     "happy-dom": "^2.55.0",
