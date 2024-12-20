@@ -16,7 +16,7 @@ import {
   isSlashCommand,
   isUserContextCommand,
 } from "~/helpers/discord";
-import { applicationId, isProd } from "~/helpers/env";
+import { applicationId, isProd } from "~/helpers/env.server";
 import { calculateChangedCommands } from "~/helpers/discordCommands";
 
 /**

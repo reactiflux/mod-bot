@@ -16,7 +16,11 @@ import {
   getUserById,
 } from "~/models/user.server";
 import { fetchUser } from "~/models/discord.server";
-import { applicationId, discordSecret, sessionSecret } from "~/helpers/env";
+import {
+  applicationId,
+  discordSecret,
+  sessionSecret,
+} from "~/helpers/env.server";
 
 export type Sessions = DB["sessions"];
 
