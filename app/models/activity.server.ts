@@ -20,14 +20,14 @@ export async function getTopParticipants(
     .selectFrom("message_stats")
     .selectAll()
     .select(({ fn, val, eb }) => [
-      fn("date", [eb("sent_at", "/", 1000), val("unixepoch")]).as("date"),
+      fn("date", [eb("sent_at", "/", "1000"), val("unixepoch")]).as("date"),
     ])
     .where(({ between, and, or, eb }) =>
       and([
         between(
           "sent_at",
-          new Date(intervalStart).getTime(),
-          new Date(intervalEnd).getTime(),
+          new Date(intervalStart).getTime().toString(),
+          new Date(intervalEnd).getTime().toString(),
         ),
         or([
           eb("channel_id", "in", channels),

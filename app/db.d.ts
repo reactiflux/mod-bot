@@ -18,7 +18,7 @@ export interface MessageStats {
   message_id: string | null;
   react_count: Generated<number>;
   recipient_id: string | null;
-  sent_at: number;
+  sent_at: string;
   word_count: number;
 }
 
