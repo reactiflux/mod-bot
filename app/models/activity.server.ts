@@ -214,7 +214,7 @@ function groupByAuthor(records: RawParticipationData[]): GroupedResult {
 
 const generateDateRange = (start: string, end: string): string[] => {
   const dates: string[] = [];
-  let currentDate = new Date(start);
+  const currentDate = new Date(start);
 
   while (currentDate <= new Date(end)) {
     dates.push(currentDate.toISOString().split("T")[0]);

@@ -114,7 +114,7 @@ export default [
       await thread.send({
         content: "When you’ve finished, please close the ticket.",
         components: [
-          // @ts-ignore
+          // @ts-expect-error Types for this are super busted
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId(`close-ticket||${user.id}`)
