@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "run-p dev:*",
+    "dev": "npm run dev:init; run-p dev:css dev:remix",
     "start": "npm run start:migrate; npm run start:bot",
     "test": "vitest",
     "build": "run-s build:*",
@@ -24,7 +24,7 @@
     "dev:remix": "remix dev -c 'node ./build/index.js'",
     "kysely:seed": "kysely seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
-    "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts",
+    "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts; prettier --write ./app/db.d.ts",
     "start:mocks": "binode --require ./mocks -- @remix-run/serve:remix-serve build"
   },
   "license": "AGPL-3.0",
