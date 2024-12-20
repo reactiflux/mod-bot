@@ -2,11 +2,6 @@ import type { LoaderArgs, ActionFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import type { LabelHTMLAttributes } from "react";
-import {
-  Sparklines,
-  SparklinesBars,
-  SparklinesReferenceLine,
-} from "react-sparklines";
 import { getTopParticipants } from "~/models/activity.server";
 
 export const loader = async ({ request, context, params }: LoaderArgs) => {
@@ -41,10 +36,18 @@ const Label = (props: LabelHTMLAttributes<Element>) => (
   </label>
 );
 
+const formatter = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
 export default function DashboardPage() {
   const data = useLoaderData<typeof loader>();
 
-  console.log(data);
+  if (!data) {
+    return "loading…";
+  }
+
   return (
     <div>
       <div className="flex min-h-full justify-center">
@@ -62,55 +65,50 @@ export default function DashboardPage() {
         </form>
       </div>
       <div>
-        <ShittyTable data={data} />
-        {/* <ShittyTable data={data.dailyParticipation} /> */}
+        <textarea>
+          {`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
+${data
+  .map(
+    (d) =>
+      `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
+  )
+  .join("\n")}`}
+        </textarea>
+        <table>
+          <thead>
+            <tr>
+              <th>Author ID</th>
+              <th>Percent Zero Days</th>
+              <th>Word Count</th>
+              <th>Message Count</th>
+              <th>Channel Count</th>
+              <th>Category Count</th>
+              <th>Reaction Count</th>
+              <th>Word Score</th>
+              <th>Message Score</th>
+              <th>Channel Score</th>
+              <th>Consistency Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d) => (
+              <tr key={d.data.member.author_id}>
+                <td>{d.data.member.author_id}</td>
+                <td>{formatter.format(d.metadata.percentZeroDays)}</td>
+                <td>{d.data.member.total_word_count}</td>
+                <td>{d.data.member.message_count}</td>
+                <td>{d.data.member.channel_count}</td>
+                <td>{d.data.member.category_count}</td>
+                <td>{d.data.member.total_reaction_count}</td>
+                <td>{d.score.wordScore}</td>
+                <td>{d.score.messageScore}</td>
+                <td>{d.score.channelScore}</td>
+                <td>{d.score.consistencyScore}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const ShittyTable = ({ data }) => {
-  const keys = Object.keys(data[0]);
-  return (
-    <div>
-      <p>{data.length} entries</p>
-      <table>
-        <thead>
-          <tr>
-            {keys.map((k) => (
-              <th key={k}>{k}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((d) => (
-            <tr key={keys.reduce((o, k) => o + d[k], "")}>
-              {keys.map((k) => (
-                <td key={d[k].toString() + k}>
-                  {Array.isArray(d[k]) ? (
-                    <Sparklines
-                      svgHeight={26}
-                      svgWidth={240}
-                      data={d[k].map(({ word_count }) => word_count)}
-                    >
-                      <SparklinesBars barWidth={5} />
-                      <SparklinesReferenceLine
-                        type="median"
-                        style={{ strokeWidth: 3 }}
-                      />
-                    </Sparklines>
-                  ) : (
-                    // <pre className="max-w-xs  overflow-scroll">
-                    //   <code>{JSON.stringify(d[k])}</code>
-                    // </pre>
-                    d[k]
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
