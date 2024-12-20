@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "@remix-run/react";
 
 import { Login } from "~/components/login";
+import { isProd } from "~/helpers/env";
 import { getUser } from "~/models/session.server";
 import { useOptionalUser } from "~/utils";
 
@@ -11,6 +12,10 @@ export function loader({ request }: { request: Request }) {
 export default function Auth() {
   const user = useOptionalUser();
   const location = useLocation();
+
+  if (isProd()) {
+    return <div>nope</div>;
+  }
 
   if (!user) {
     return (
