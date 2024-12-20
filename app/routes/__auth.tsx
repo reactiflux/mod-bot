@@ -13,7 +13,7 @@ export default function Auth() {
   const user = useOptionalUser();
   const location = useLocation();
 
-  if (!isProd()) {
+  if (isProd()) {
     return <div>nope</div>;
   }
 
