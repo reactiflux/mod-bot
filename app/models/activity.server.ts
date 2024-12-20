@@ -236,7 +236,7 @@ function fillDateGaps(
 
   for (const authorId in groupedResult) {
     const authorData = groupedResult[authorId];
-    const dateToEntryMap: Record<string, typeof authorData[number]> = {};
+    const dateToEntryMap: Record<string, (typeof authorData)[number]> = {};
 
     // Map existing entries by date
     authorData.forEach((entry) => {
