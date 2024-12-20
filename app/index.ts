@@ -95,7 +95,8 @@ app.use(Sentry.Handlers.errorHandler());
 
 /** Init app */
 app.listen(process.env.PORT || "3000", async () => {
-  broadcastDevReady(await import(path.resolve(BUILD_DIR, "index.js")));
+  const build = await import(path.resolve(BUILD_DIR, "index.js"));
+  if (build && build.assets) broadcastDevReady(build);
 });
 
 const errorHandler = (error: unknown) => {
