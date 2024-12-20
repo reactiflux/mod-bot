@@ -1,10 +1,14 @@
-import type { LoaderArgs, ActionFunction } from "@remix-run/node";
+import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import type { LabelHTMLAttributes } from "react";
 import { getTopParticipants } from "~/models/activity.server";
 
-export const loader = async ({ request, context, params }: LoaderArgs) => {
+export const loader = async ({
+  request,
+  context,
+  params,
+}: Parameters<LoaderFunction>[0]) => {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
