@@ -86,13 +86,98 @@ export async function getTopParticipants(
     intervalEnd,
   );
 
-  return topMembers.map((m) => ({
-    ...m,
-    participation: dailyParticipation[m.author_id],
-  }));
+  return topMembers.map((m) => scoreMember(m, dailyParticipation[m.author_id]));
 }
 
-type ParticipationData = {
+// copy-pasted out of TopMembers query result
+type MemberData = {
+  author_id: string;
+  total_word_count: number;
+  message_count: number;
+  total_reaction_count: number;
+  category_count: number;
+  channel_count: number;
+};
+function isBetween(test: number, a: number, b: number) {
+  return test >= a && test < b;
+}
+function scoreValue(test: number, lookup: [number, number][], x?: string) {
+  return lookup.reduce((score, _, i, list) => {
+    const check = isBetween(
+      test,
+      list[i][0] ?? Infinity,
+      list[i + 1]?.[0] ?? Infinity,
+    );
+    if (check && x)
+      console.log(
+        test,
+        "is between",
+        list[i][0],
+        "and",
+        list[i + 1]?.[0] ?? Infinity,
+        "scoring",
+        list[i][1],
+      );
+    return check ? list[i][1] : score;
+  }, 0);
+}
+function median(list: number[]) {
+  const mid = list.length / 2;
+  return list.length % 2 === 1
+    ? (list[Math.floor(mid)] + list[Math.ceil(mid)]) / 2
+    : list[mid];
+}
+const scoreLookups = {
+  words: [
+    [0, 0],
+    [2000, 1],
+    [5000, 2],
+    [7500, 3],
+    [20000, 4],
+  ],
+  messages: [
+    [0, 0],
+    [150, 1],
+    [350, 2],
+    [800, 3],
+    [1500, 4],
+  ],
+  channels: [
+    [0, 0],
+    [3, 1],
+    [7, 2],
+    [9, 3],
+  ],
+} as Record<string, [number, number][]>;
+function scoreMember(member: MemberData, participation: ParticipationData[]) {
+  return {
+    score: {
+      channelScore: scoreValue(member.channel_count, scoreLookups.channels),
+      messageScore: scoreValue(member.message_count, scoreLookups.messages),
+      wordScore: scoreValue(
+        member.total_word_count,
+        scoreLookups.words,
+        "words",
+      ),
+      consistencyScore: Math.ceil(
+        median(participation.map((p) => p.category_count)),
+      ),
+    },
+    metadata: {
+      percentZeroDays:
+        participation.reduce(
+          (count, val) => (val.message_count === 0 ? count + 1 : count),
+          0,
+        ) / participation.length,
+    },
+    data: {
+      participation,
+      member,
+    },
+  };
+}
+
+type RawParticipationData = {
   author_id: string;
   // hack fix for weird types coming out of query
   date: string | unknown;
@@ -102,16 +187,17 @@ type ParticipationData = {
   category_count: number;
 };
 
-type GroupedResult = {
-  [authorId: string]: {
-    date: string;
-    message_count: number;
-    word_count: number;
-    channel_count: number;
-    category_count: number;
-  }[];
+type ParticipationData = {
+  date: string;
+  message_count: number;
+  word_count: number;
+  channel_count: number;
+  category_count: number;
 };
-function groupByAuthor(records: ParticipationData[]): GroupedResult {
+
+type GroupedResult = Record<string, ParticipationData[]>;
+
+function groupByAuthor(records: RawParticipationData[]): GroupedResult {
   return records.reduce((acc, record) => {
     const { author_id, date } = record;
 
