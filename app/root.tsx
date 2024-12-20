@@ -20,11 +20,13 @@ export const links: LinksFunction = () => {
   return [{ rel: "stylesheet", href: tailwindStylesheetUrl }];
 };
 
-export const meta: MetaFunction = () => ({
-  charset: "utf-8",
-  title: "Remix Notes",
-  viewport: "width=device-width,initial-scale=1",
-});
+export const meta: MetaFunction = () => [
+  {
+    charset: "utf-8",
+    title: "Remix Notes",
+    viewport: "width=device-width,initial-scale=1",
+  },
+];
 
 type LoaderData = {
   user: Awaited<ReturnType<typeof getUser>>;
