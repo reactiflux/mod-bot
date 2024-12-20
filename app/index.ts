@@ -7,7 +7,7 @@ import { verifyKey } from "discord-interactions";
 import bodyParser from "body-parser";
 
 import Sentry from "~/helpers/sentry.server";
-import { applicationKey } from "~/helpers/env";
+import { applicationKey } from "~/helpers/env.server";
 import discordBot from "~/discord/gateway";
 import { registerCommand } from "~/discord/deployCommands.server";
 
