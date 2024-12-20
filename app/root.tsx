@@ -1,24 +1,19 @@
-import type {
-  LinksFunction,
-  LoaderFunction,
-  MetaFunction,
-} from "@remix-run/node";
+import type { LoaderFunction, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
   Links,
-  LiveReload,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
 
-import tailwindStylesheetUrl from "./styles/tailwind.css";
+import "./styles/tailwind.css";
 import { getUser } from "./models/session.server";
 
-export const links: LinksFunction = () => {
-  return [{ rel: "stylesheet", href: tailwindStylesheetUrl }];
-};
+// export const links: LinksFunction = () => {
+//   return [{ rel: "stylesheet", href: tailwindStylesheetUrl }];
+// };
 
 export const meta: MetaFunction = () => [
   {
@@ -49,7 +44,6 @@ export default function App() {
         <Outlet />
         <ScrollRestoration />
         <Scripts />
-        <LiveReload />
       </body>
     </html>
   );
