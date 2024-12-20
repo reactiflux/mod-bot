@@ -15,7 +15,7 @@ import {
 import { REST } from "@discordjs/rest";
 import { Routes, TextInputStyle } from "discord-api-types/v10";
 
-import { discordToken } from "~/helpers/env";
+import { discordToken } from "~/helpers/env.server";
 import { SETTINGS, fetchSettings } from "~/models/guilds.server";
 import { format } from "date-fns";
 import type {
