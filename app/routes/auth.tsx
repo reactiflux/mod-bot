@@ -4,7 +4,7 @@ import { redirect } from "@remix-run/node";
 import { initOauthLogin } from "~/models/session.server";
 import { Login } from "~/components/login";
 
-export const loader: LoaderFunction = async ({ request }) => {
+export const loader: LoaderFunction = async () => {
   return redirect("/");
 };
 
