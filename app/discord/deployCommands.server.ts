@@ -2,6 +2,7 @@ import type {
   APIApplicationCommand,
   Client,
   ContextMenuCommandBuilder,
+  OAuth2Guild,
   SlashCommandBuilder,
 } from "discord.js";
 import { InteractionType, Routes } from "discord.js";
@@ -71,12 +72,14 @@ export const deployCommands = async (client: Client) => {
         ) {
           config.handler(interaction);
         }
+        return;
       }
       case InteractionType.ModalSubmit: {
         const config = matchCommand(interaction.customId);
         if (isModalCommand(config) && interaction.isModalSubmit()) {
           config.handler(interaction);
         }
+        return;
       }
     }
   });
@@ -111,9 +114,16 @@ export const deployProdCommands = async (
   // This should only one once as a migration, but maybe stuff will get into
   // weird states.
   const guilds = await client.guilds.fetch();
-  const randomGuild = guilds.at(Math.floor(Math.random() * guilds.size));
+  const randomGuild = ((): OAuth2Guild => {
+    let g: OAuth2Guild | undefined;
+    // This is really just to appease TS
+    while (!g) {
+      g = guilds.at(Math.floor(Math.random() * guilds.size));
+    }
+    return g;
+  })();
   const randomGuildCommands = (await rest.get(
-    Routes.applicationGuildCommands(applicationId, randomGuild!.id),
+    Routes.applicationGuildCommands(applicationId, randomGuild.id),
   )) as APIApplicationCommand[];
   if (randomGuildCommands.length > 0) {
     await Promise.allSettled(

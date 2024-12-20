@@ -6,8 +6,8 @@ import { getTopParticipants } from "~/models/activity.server";
 
 export const loader = async ({
   request,
-  context,
-  params,
+  // context,
+  // params,
 }: Parameters<LoaderFunction>[0]) => {
   // const user = await getUser(request);
   const url = new URL(request.url);

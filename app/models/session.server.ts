@@ -76,15 +76,20 @@ const {
       })
       .returning("id")
       .executeTakeFirstOrThrow();
-    return result.id!;
+    if (!result.id) {
+      console.error({ result, data, expires });
+      throw new Error("Failed to create session data");
+    }
+    return result.id;
   },
   async readData(id) {
-    const result = (await db
+    const result = await db
       .selectFrom("sessions")
       .where("id", "=", id)
       .selectAll()
-      .executeTakeFirst()) ?? { data: {} as any, expires: undefined };
-    return result.data;
+      .executeTakeFirst();
+
+    return result ?? null;
   },
   async updateData(id, data, expires) {
     await db
@@ -105,56 +110,6 @@ async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getCookieSession(request.headers.get("Cookie"));
   const userId = session.get(USER_SESSION_KEY);
   return userId;
-}
-
-export async function createTestingUserSession({
-  request,
-  userId,
-  remember,
-  redirectTo,
-}: {
-  request: Request;
-  userId: string;
-  remember: boolean;
-  redirectTo: string;
-}) {
-  const state = randomUUID();
-  const url = authorization.authorizeURL({
-    redirect_uri: OAUTH_REDIRECT,
-    state,
-    scope: SCOPE,
-    // @ts-ignore This is valid per Discord, but nonstandard
-    prompt: "none",
-  });
-
-  const res = await fetch(url);
-  console.log({ res, text: await res.text() });
-
-  // const [cookieSession, dbSession] = await Promise.all([
-  //   getCookieSession(request.headers.get("Cookie")),
-  //   getDbSession(request.headers.get("Cookie")),
-  // ]);
-
-  // // 401 if the state arg doesn't match
-  // const state = url.searchParams.get("state");
-  // console.log({ state, dbState: dbSession.get("state") });
-  // if (dbSession.get("state") !== state) {
-  //   throw redirect("/login", 401);
-  // }
-
-  // cookieSession.set(USER_SESSION_KEY, userId);
-  // dbSession.unset("state");
-  // dbSession.set("discordToken", JSON.stringify(token));
-  // const [cookie, dbCookie] = await Promise.all([
-  //   commitCookieSession(cookieSession, {
-  //     maxAge: 60 * 60 * 24 * 7, // 7 days
-  //   }),
-  //   commitDbSession(dbSession),
-  // ]);
-  // const headers = new Headers();
-  // headers.append("Set-Cookie", cookie);
-
-  return res;
 }
 
 export async function getUser(request: Request) {
@@ -239,7 +194,7 @@ export async function completeOauthLogin(
     if (user) {
       userId = user.id;
     }
-  } catch (e: any) {
+  } catch (e) {
     // Do nothing
     // TODO: bail out if there's a network/etc error
   }

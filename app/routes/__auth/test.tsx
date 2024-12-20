@@ -1,1 +1,3 @@
-export default () => <div>butts lol</div>;
+export default function Test() {
+  return <div>butts lol</div>;
+}

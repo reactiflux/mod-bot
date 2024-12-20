@@ -38,8 +38,8 @@ app.use(express.static(path.join(process.cwd(), "public")));
 app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
   const isValidRequest = await verifyKey(
     JSON.stringify(req.body),
-    req.header("X-Signature-Ed25519")!,
-    req.header("X-Signature-Timestamp")!,
+    req.header("X-Signature-Ed25519") || "bum signature",
+    req.header("X-Signature-Timestamp") || "bum timestamp",
     applicationKey,
   );
   console.log("WEBHOOK", "isValidRequest:", isValidRequest);
@@ -81,6 +81,7 @@ app.all(
     // return anything you want here to be available as `context` in your
     // loaders and actions. This is where you can bridge the gap between Remix
     // and your server
+    // eslint-disable-next-line
     getLoadContext(req, res) {
       return {};
     },
