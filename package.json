@@ -19,7 +19,7 @@
     "build:css": "npm run generate:css --minify",
     "build:remix": "remix build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
-    "dev:css": "npm run generate:css --watch",
+    "dev:css": "npm run generate:css -- --watch",
     "dev:express": "nodemon build/index.js",
     "dev:remix": "cross-env NODE_ENV=development binode --require ./mocks -- @remix-run/dev:remix watch",
     "kysely:seed": "kysely seed:run",
