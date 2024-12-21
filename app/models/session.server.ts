@@ -2,7 +2,7 @@ import {
   createCookieSessionStorage,
   createSessionStorage,
   redirect,
-  json,
+  data,
 } from "@remix-run/node";
 
 import { randomUUID } from "crypto";
@@ -89,7 +89,7 @@ const {
       .selectAll()
       .executeTakeFirst();
 
-    return result ?? null;
+    return (result?.data as unknown) ?? null;
   },
   async updateData(id, data, expires) {
     await db
@@ -202,7 +202,10 @@ export async function completeOauthLogin(
     userId = await createUser(discordUser.email, discordUser.id);
   }
   if (!userId) {
-    throw json({ message: `Couldn't find a user or create a new user` }, 500);
+    throw data(
+      { message: `Couldn't find a user or create a new user` },
+      { status: 500 },
+    );
   }
 
   const [cookieSession, dbSession] = await Promise.all([
