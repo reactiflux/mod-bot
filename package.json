@@ -21,7 +21,7 @@
     "build:remix": "remix vite:build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
     "dev:css": "npm run generate:css -- --watch",
-    "dev:remix": "tsx watch --exclude 'vite.config.js*' ./app/index.js",
+    "dev:remix": "tsx watch --exclude 'vite.config.*' ./app/index.js",
     "kysely:seed": "kysely seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts; prettier --write ./app/db.d.ts",

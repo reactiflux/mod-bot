@@ -1,5 +1,4 @@
 import type { LoaderFunction, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -11,10 +10,6 @@ import {
 import "./styles/tailwind.css";
 import { getUser } from "./models/session.server";
 
-// export const links: LinksFunction = () => {
-//   return [{ rel: "stylesheet", href: tailwindStylesheetUrl }];
-// };
-
 export const meta: MetaFunction = () => [
   {
     charset: "utf-8",
@@ -23,14 +18,12 @@ export const meta: MetaFunction = () => [
   },
 ];
 
-type LoaderData = {
-  user: Awaited<ReturnType<typeof getUser>>;
-};
-
-export const loader: LoaderFunction = async ({ request }) => {
-  return json<LoaderData>({
+export const loader: LoaderFunction = async ({
+  request,
+}: Parameters<LoaderFunction>[0]) => {
+  return {
     user: await getUser(request),
-  });
+  };
 };
 
 export default function App() {

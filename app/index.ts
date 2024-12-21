@@ -18,8 +18,6 @@ import * as report from "~/commands/report";
 import * as track from "~/commands/track";
 import setupTicket from "~/commands/setupTickets";
 
-console.log("shenanigans!!!!");
-
 const BUILD_DIR = path.join(process.cwd(), "build");
 const viteDevServer = isProd()
   ? undefined
@@ -28,8 +26,6 @@ const viteDevServer = isProd()
         server: { origin: "localhost:3000", middlewareMode: true },
       }),
     );
-
-console.log("test butts");
 
 const app = express();
 
@@ -46,8 +42,15 @@ Route handlers and static hosting
 if (viteDevServer) {
   app.use(viteDevServer.middlewares);
 } else {
-  app.use(express.static(path.join(process.cwd(), "public")));
+  app.use(
+    "/assets",
+    express.static("build/client/assets", {
+      immutable: true,
+      maxAge: "1y",
+    }),
+  );
 }
+app.use(express.static("build/client", { maxAge: "1h" }));
 
 // Discord signature verification
 app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
