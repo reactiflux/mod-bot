@@ -24,16 +24,13 @@ export default async (bot: Client) => {
       await retry(5, async (n) => {
         switch (n) {
           case 0:
-            // eslint-disable-next-line
             guild.systemChannel!.send(welcomeMessage);
             return;
           case 1:
-            // eslint-disable-next-line
             guild.publicUpdatesChannel!.send(welcomeMessage);
             return;
           default: {
             if (likelyChannels.size < n - 2) return;
-            // eslint-disable-next-line
             likelyChannels.at(n - 2)!.send(welcomeMessage);
             return;
           }
