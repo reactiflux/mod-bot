@@ -1,6 +1,5 @@
-import type { ActionFunction, LoaderFunction } from "@remix-run/node";
-import { data } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import type { ActionFunction, LoaderFunction } from "react-router";
+import { data, useLoaderData } from "react-router";
 import type { LabelHTMLAttributes } from "react";
 import { getTopParticipants } from "~/models/activity.server";
 

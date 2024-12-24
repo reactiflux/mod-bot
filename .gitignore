@@ -11,3 +11,4 @@ yarn.lock
 k8s-context
 *.sqlite3
 tsconfig.tsbuildinfo
+.react-router

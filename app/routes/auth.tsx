@@ -1,5 +1,5 @@
-import type { ActionFunction, LoaderFunction } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
+import type { ActionFunction, LoaderFunction } from "react-router";
+import { redirect } from "react-router";
 
 import { initOauthLogin } from "~/models/session.server";
 import { Login } from "~/components/login";

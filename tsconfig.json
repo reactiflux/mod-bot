@@ -1,8 +1,9 @@
 {
   "exclude": [],
-  "include": ["remix.env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
   "compilerOptions": {
-    "types": ["@remix-run/node", "vite/client", "vitest/globals"],
+    "types": ["vite/client", "vitest/globals"],
+    "rootDirs": [".", "./.react-router/types"],
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "module": "esnext",
     "moduleResolution": "Bundler",
@@ -19,7 +20,8 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowJs": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true
   },
   "ts-node": {
     "require": ["tsconfig-paths/register"]
