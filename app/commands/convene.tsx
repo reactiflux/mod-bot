@@ -136,7 +136,6 @@ export const handler = async (
               }),
             ]);
             const [{ moderator: modRoleId }] = await Promise.all([
-              // eslint-disable-next-line
               fetchSettings(message.guild!, [SETTINGS.moderator]),
               thread.members.add(message.author),
             ]);

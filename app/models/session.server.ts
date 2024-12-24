@@ -1,4 +1,9 @@
-import { createCookieSessionStorage, createSessionStorage, redirect, data } from "react-router";
+import {
+  createCookieSessionStorage,
+  createSessionStorage,
+  redirect,
+  data,
+} from "react-router";
 
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";

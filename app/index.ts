@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import { createRequestHandler } from "@react-router/express";
 // import { broadcastDevReady } from "react-router";
-import path from "path";
+// import path from "path";
 import { verifyKey } from "discord-interactions";
 import bodyParser from "body-parser";
 
@@ -35,7 +35,7 @@ declare module "react-router" {
   }
 }
 
-const BUILD_DIR = path.join(process.cwd(), "build");
+// const BUILD_DIR = path.join(process.cwd(), "build");
 const viteDevServer = isProd()
   ? undefined
   : await import("vite").then((vite) =>
@@ -107,7 +107,8 @@ registerCommand(setupTicket);
 
 const build = viteDevServer
   ? () => viteDevServer.ssrLoadModule("virtual:react-router/server-build")
-  : await import("../build/server/index.js");
+  : // @ts-ignore This breaks when `build/` doesn't exist, like during CI
+    await import("../build/server/index.js");
 
 // needs to handle all verbs (GET, POST, etc.)
 app.all(
@@ -115,7 +116,6 @@ app.all(
   createRequestHandler({
     // `remix build` and `remix dev` output files to a build directory, you need
     // to pass that build to the request handler
-    // @ts-expect-error Seems to work fine 🤷
     build,
   }),
 );
