@@ -1,5 +1,5 @@
-import type { RouteConfig } from "@remix-run/route-config";
-import { route, layout } from "@remix-run/route-config";
+import type { RouteConfig } from "@react-router/dev/routes";
+import { route, layout } from "@react-router/dev/routes";
 
 export default [
   layout("routes/__auth.tsx", [

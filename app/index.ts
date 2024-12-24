@@ -1,8 +1,8 @@
 import "dotenv/config";
 // started with https://developers.cloudflare.com/workers/get-started/quickstarts/
 import express from "express";
-import { createRequestHandler } from "@remix-run/express";
-import { broadcastDevReady } from "@remix-run/node";
+import { createRequestHandler } from "@react-router/express";
+// import { broadcastDevReady } from "react-router";
 import path from "path";
 import { verifyKey } from "discord-interactions";
 import bodyParser from "body-parser";
@@ -17,6 +17,23 @@ import * as setup from "~/commands/setup";
 import * as report from "~/commands/report";
 import * as track from "~/commands/track";
 import setupTicket from "~/commands/setupTickets";
+
+declare module "react-router" {
+  // Your AppLoadContext used in v2
+  interface AppLoadContext {
+    whatever: string;
+  }
+
+  // TODO: remove this once we've migrated to `Route.LoaderArgs` instead for our loaders
+  interface LoaderFunctionArgs {
+    context: AppLoadContext;
+  }
+
+  // TODO: remove this once we've migrated to `Route.ActionArgs` instead for our actions
+  interface ActionFunctionArgs {
+    context: AppLoadContext;
+  }
+}
 
 const BUILD_DIR = path.join(process.cwd(), "build");
 const viteDevServer = isProd()
@@ -89,7 +106,7 @@ registerCommand(track);
 registerCommand(setupTicket);
 
 const build = viteDevServer
-  ? () => viteDevServer.ssrLoadModule("virtual:remix/server-build")
+  ? () => viteDevServer.ssrLoadModule("virtual:react-router/server-build")
   : await import("../build/server/index.js");
 
 // needs to handle all verbs (GET, POST, etc.)
@@ -110,8 +127,8 @@ app.use(Sentry.Handlers.errorHandler());
 
 /** Init app */
 app.listen(process.env.PORT || "3000", async () => {
-  const build = await import(path.resolve(BUILD_DIR, "server", "index.js"));
-  if (build && build.assets) broadcastDevReady(build);
+  // const build = await import(path.resolve(BUILD_DIR, "server", "index.js"));
+  // if (build && build.assets) broadcastDevReady(build);
 });
 
 const errorHandler = (error: unknown) => {

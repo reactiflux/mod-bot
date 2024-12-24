@@ -1,4 +1,4 @@
-import { Form } from "@remix-run/react";
+import { Form } from "react-router";
 import type { ButtonHTMLAttributes } from "react";
 
 interface LoginProps extends ButtonHTMLAttributes<Element> {

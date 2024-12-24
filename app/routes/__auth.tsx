@@ -1,4 +1,4 @@
-import { Outlet, useLoaderData, useLocation } from "@remix-run/react";
+import { Outlet, useLoaderData, useLocation } from "react-router";
 
 import { Login } from "~/components/login";
 import { isProd } from "~/helpers/env.server";
