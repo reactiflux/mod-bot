@@ -1,7 +1,6 @@
 import "dotenv/config";
 // started with https://developers.cloudflare.com/workers/get-started/quickstarts/
 import express from "express";
-import { createRequestHandler } from "@react-router/express";
 // import { broadcastDevReady } from "react-router";
 // import path from "path";
 import { verifyKey } from "discord-interactions";
@@ -18,31 +17,7 @@ import * as report from "~/commands/report";
 import * as track from "~/commands/track";
 import setupTicket from "~/commands/setupTickets";
 
-declare module "react-router" {
-  // Your AppLoadContext used in v2
-  interface AppLoadContext {
-    whatever: string;
-  }
-
-  // TODO: remove this once we've migrated to `Route.LoaderArgs` instead for our loaders
-  interface LoaderFunctionArgs {
-    context: AppLoadContext;
-  }
-
-  // TODO: remove this once we've migrated to `Route.ActionArgs` instead for our actions
-  interface ActionFunctionArgs {
-    context: AppLoadContext;
-  }
-}
-
 // const BUILD_DIR = path.join(process.cwd(), "build");
-const viteDevServer = isProd()
-  ? undefined
-  : await import("vite").then((vite) =>
-      vite.createServer({
-        server: { origin: "localhost:3000", middlewareMode: true },
-      }),
-    );
 
 const app = express();
 
@@ -56,16 +31,37 @@ app.use(Sentry.Handlers.requestHandler());
 Route handlers and static hosting
 */
 
-if (viteDevServer) {
-  app.use(viteDevServer.middlewares);
-} else {
+if (isProd()) {
+  console.log("Starting production server");
   app.use(
     "/assets",
-    express.static("build/client/assets", {
-      immutable: true,
-      maxAge: "1y",
+    express.static("build/client/assets", { immutable: true, maxAge: "1y" }),
+  );
+  app.use(express.static("build/client", { maxAge: "1h" }));
+  // @ts-ignore Because this is a weird circular import that React Router wants
+  // for custom server integrations, and will fail in CI because the build isn't
+  // run for typechecking.
+  // https://github.com/remix-run/react-router-templates/blob/f1a43a647de66d811b85d7f96d3b57b7e29ce0e7/node-custom-server/server.js#L41
+  app.use(await import("build/server/index.js").then((mod) => mod.app));
+} else {
+  console.log("Starting development server");
+  const viteDevServer = await import("vite").then((vite) =>
+    vite.createServer({
+      server: { middlewareMode: true },
     }),
   );
+  app.use(viteDevServer.middlewares);
+  viteDevServer
+    .ssrLoadModule("./app/server.ts")
+    .then((source) => {
+      app.use(source.app);
+    })
+    .catch((error) => {
+      if (typeof error === "object" && error instanceof Error) {
+        viteDevServer.ssrFixStacktrace(error);
+      }
+      console.log({ error });
+    });
 }
 app.use(express.static("build/client", { maxAge: "1h" }));
 
@@ -104,21 +100,6 @@ registerCommand(setup);
 registerCommand(report);
 registerCommand(track);
 registerCommand(setupTicket);
-
-const build = viteDevServer
-  ? () => viteDevServer.ssrLoadModule("virtual:react-router/server-build")
-  : // @ts-ignore This breaks when `build/` doesn't exist, like during CI
-    await import("../build/server/index.js");
-
-// needs to handle all verbs (GET, POST, etc.)
-app.all(
-  "*",
-  createRequestHandler({
-    // `remix build` and `remix dev` output files to a build directory, you need
-    // to pass that build to the request handler
-    build,
-  }),
-);
 
 /** ERROR TRACKING
   Must go after route handlers
