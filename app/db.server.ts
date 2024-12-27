@@ -1,7 +1,7 @@
 import SQLite from "better-sqlite3";
 import { Kysely, ParseJSONResultsPlugin, SqliteDialect } from "kysely";
 import type { DB } from "./db";
-import { databaseUrl } from "./helpers/env";
+import { databaseUrl } from "./helpers/env.server";
 
 export { SqliteError } from "better-sqlite3";
 

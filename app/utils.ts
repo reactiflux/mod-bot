@@ -1,4 +1,4 @@
-import { useMatches } from "@remix-run/react";
+import { useMatches } from "react-router";
 import { useMemo } from "react";
 
 import type { User } from "~/models/user.server";
@@ -41,11 +41,11 @@ export function useMatchesData(
     () => matchingRoutes.find((route) => route.id === id),
     [matchingRoutes, id],
   );
-  return route?.data;
+  return route?.data as Record<string, unknown> | undefined;
 }
 
-function isUser(user: any): user is User {
-  return user && typeof user === "object" && typeof user.email === "string";
+function isUser(user: unknown): user is User {
+  return Boolean(user) && typeof (user as User).email === "string";
 }
 
 export function useOptionalUser(): User | undefined {

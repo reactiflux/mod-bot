@@ -1,4 +1,4 @@
-import { redirect, type LoaderFunction } from "@remix-run/node";
+import { redirect, type LoaderFunction } from "react-router";
 import { completeOauthLogin } from "~/models/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {

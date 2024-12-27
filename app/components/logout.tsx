@@ -1,17 +1,9 @@
-import { Form } from "@remix-run/react";
+import { Form } from "react-router";
 import type { ButtonHTMLAttributes } from "react";
 
-interface LoginProps extends ButtonHTMLAttributes<Element> {
-  errors?: { [k: string]: string };
-  redirectTo?: string;
-}
+type LoginProps = ButtonHTMLAttributes<Element>;
 
-export function Logout({
-  children = "Log out",
-  errors,
-  redirectTo,
-  ...props
-}: LoginProps) {
+export function Logout({ children = "Log out", ...props }: LoginProps) {
   return (
     <Form method="post" action="/logout" className="space-y-6">
       <button
