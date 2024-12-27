@@ -17,16 +17,13 @@ export async function startActivityTracking(client: Client) {
   client.on(Events.MessageCreate, async (msg) => {
     const info = await getMessageStats(msg);
     if (!info) return;
-    if (!msg.author || !msg.guildId) {
-      throw Error("Missing author or guild info when tracking message stats");
-    }
     await db
       .insertInto("message_stats")
       .values({
         ...info,
         message_id: msg.id,
-        author_id: msg.author.id,
-        guild_id: msg.guildId,
+        author_id: msg.author!.id,
+        guild_id: msg.guildId!,
         channel_id: msg.channelId,
         recipient_id: msg.mentions?.repliedUser?.id ?? null,
         channel_category: (await getOrFetchChannel(msg))?.parent?.name,
@@ -95,5 +92,5 @@ export async function reportByGuild(guildId: string) {
     .where("guild_id", "=", guildId)
     .groupBy("author_id")
     .execute();
-  return result;
+  return result
 }

@@ -1,4 +1,4 @@
-import { Form } from "react-router";
+import { Form } from "@remix-run/react";
 import type { ButtonHTMLAttributes } from "react";
 
 interface LoginProps extends ButtonHTMLAttributes<Element> {
@@ -8,7 +8,7 @@ interface LoginProps extends ButtonHTMLAttributes<Element> {
 
 export function Login({
   children = "Log in with Discord",
-  // errors,
+  errors,
   redirectTo,
   ...props
 }: LoginProps) {

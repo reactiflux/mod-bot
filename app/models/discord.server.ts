@@ -43,13 +43,8 @@ export async function fetchUser(access: AccessToken): Promise<DiscordUserInfo> {
   };
 }
 
-export const applyRestriction = async (member: GuildMember | null) => {
-  if (!member) {
-    console.log("Tried to apply restriction to a null member");
-    return;
-  }
-
-  const { restricted } = await fetchSettings(member.guild, [
+export const applyRestriction = async (member: GuildMember) => {
+  const { restricted } = await fetchSettings(member.guild!, [
     SETTINGS.restricted,
   ]);
   if (!restricted) {
@@ -57,34 +52,18 @@ export const applyRestriction = async (member: GuildMember | null) => {
       "Tried to restrict with no restricted role configured. This is likely a development error.",
     );
   }
-  const restrictedRole = await member.guild.roles.fetch(restricted);
-  if (!restrictedRole) {
-    throw new Error("Couldn’t find restricted role");
-  }
-  return member.roles.add(restrictedRole);
+  return member.roles.add((await member.guild!.roles.fetch(restricted))!);
 };
 
-export const kick = async (member: GuildMember | null) => {
-  if (!member) {
-    console.log("Tried to kick a null member");
-    return;
-  }
+export const kick = async (member: GuildMember) => {
   return member.kick();
 };
 
-export const ban = async (member: GuildMember | null) => {
-  if (!member) {
-    console.log("Tried to ban a null member");
-    return;
-  }
+export const ban = async (member: GuildMember) => {
   return member.ban();
 };
 
 const OVERNIGHT = 1000 * 60 * 60 * 20;
-export const timeout = async (member: GuildMember | null) => {
-  if (!member) {
-    console.log("Tried to timeout a null member");
-    return;
-  }
+export const timeout = async (member: GuildMember) => {
   return member.timeout(OVERNIGHT);
 };

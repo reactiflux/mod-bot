@@ -1,20 +1,17 @@
-import type { ActionFunction, LoaderFunction } from "react-router";
-import { data, useLoaderData } from "react-router";
+import type { LoaderArgs, ActionFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import type { LabelHTMLAttributes } from "react";
 import { getTopParticipants } from "~/models/activity.server";
 
-export const loader = async ({
-  request,
-  // context,
-  // params,
-}: Parameters<LoaderFunction>[0]) => {
+export const loader = async ({ request, context, params }: LoaderArgs) => {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
 
   if (!start || !end) {
-    return data(null, { status: 400 });
+    return json(null, { status: 400 });
   }
 
   const REACTIFLUX_GUILD_ID = "102860784329052160";
@@ -26,7 +23,7 @@ export const loader = async ({
     ["Need Help", "React General", "Advanced Topics"],
   );
 
-  return output;
+  return json(output);
 };
 
 export const action: ActionFunction = async ({ request }) => {
@@ -68,15 +65,15 @@ export default function DashboardPage() {
         </form>
       </div>
       <div>
-        <textarea
-          defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
+        <textarea>
+          {`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
 ${data
   .map(
     (d) =>
       `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
   )
   .join("\n")}`}
-        ></textarea>
+        </textarea>
         <table>
           <thead>
             <tr>

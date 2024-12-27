@@ -1,17 +1,16 @@
 {
-  "exclude": [],
-  "include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+  "exclude": ["./cypress"],
+  "include": ["remix.env.d.ts", "**/*.ts", "**/*.tsx"],
   "compilerOptions": {
-    "types": ["vite/client", "vitest/globals"],
-    "rootDirs": [".", "./.react-router/types"],
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "module": "esnext",
-    "moduleResolution": "Bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2019"],
+    "types": ["vitest/globals"],
     "isolatedModules": true,
-    // "esModuleInterop": true,
+    "esModuleInterop": true,
     "jsx": "react-jsx",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
-    "target": "ES2022",
+    "target": "ES2019",
     "strict": true,
     "baseUrl": ".",
     "paths": {
@@ -20,8 +19,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowJs": true,
-    "forceConsistentCasingInFileNames": true,
-    "verbatimModuleSyntax": true
+    "forceConsistentCasingInFileNames": true
   },
   "ts-node": {
     "require": ["tsconfig-paths/register"]

@@ -10,5 +10,6 @@ yarn.lock
 *.log
 k8s-context
 *.sqlite3
+/cypress/screenshots
+/cypress/videos
 tsconfig.tsbuildinfo
-.react-router

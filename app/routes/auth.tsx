@@ -1,10 +1,10 @@
-import type { ActionFunction, LoaderFunction } from "react-router";
-import { redirect } from "react-router";
+import type { ActionFunction, LoaderFunction } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 
 import { initOauthLogin } from "~/models/session.server";
 import { Login } from "~/components/login";
 
-export const loader: LoaderFunction = async () => {
+export const loader: LoaderFunction = async ({ request }) => {
   return redirect("/");
 };
 

@@ -1,4 +1,4 @@
-import { uniq } from "lodash-es";
+import { uniq } from "lodash";
 import { useCallback, useMemo, useState } from "react";
 
 export const resolutions = {
@@ -19,7 +19,7 @@ export const humanReadableResolutions = {
   [resolutions.kick]: "Kick",
   [resolutions.ban]: "Ban",
 } as const;
-export type Resolution = (typeof resolutions)[keyof typeof resolutions];
+export type Resolution = typeof resolutions[keyof typeof resolutions];
 
 export const useVotes = () => {
   const [votes, setVotes] = useState({} as Record<Resolution, string[]>);

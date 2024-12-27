@@ -1,20 +1,19 @@
-import { Outlet, useLoaderData, useLocation } from "react-router";
+import { Outlet, useLocation } from "@remix-run/react";
 
 import { Login } from "~/components/login";
-import { isProd } from "~/helpers/env.server";
+import { isProd } from "~/helpers/env";
 import { getUser } from "~/models/session.server";
 import { useOptionalUser } from "~/utils";
 
-export async function loader({ request }: { request: Request }) {
-  return { user: await getUser(request), isProd: isProd() };
+export function loader({ request }: { request: Request }) {
+  return getUser(request);
 }
 
 export default function Auth() {
-  const { isProd } = useLoaderData<typeof loader>();
   const user = useOptionalUser();
   const location = useLocation();
 
-  if (isProd) {
+  if (isProd()) {
     return <div>nope</div>;
   }
 

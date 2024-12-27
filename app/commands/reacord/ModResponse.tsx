@@ -1,4 +1,4 @@
-import type { ComponentEventUser } from "reacord";
+import type { UserInfo } from "reacord";
 import { Button } from "reacord";
 
 import type { Resolution } from "~/helpers/modResponse";
@@ -17,7 +17,7 @@ export const ModResponse = ({
   modRoleId,
 }: {
   votesRequired?: number;
-  onVote: (result: { vote: Resolution; user: ComponentEventUser }) => void;
+  onVote: (result: { vote: Resolution; user: UserInfo }) => void;
   onResolve: (result: Resolution) => Promise<void>;
   modRoleId: string;
 }) => {
