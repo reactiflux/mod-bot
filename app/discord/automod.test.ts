@@ -1,5 +1,7 @@
 import { isSpam } from "./automod";
 
+vi.mock("~/helpers/env.server");
+
 test("isSpam has a reasonable threshold", () => {
   expect(isSpam("Hello @everyone")).toBe(true);
   expect(isSpam("@everyone https://discord.gg/garbage join now")).toBe(true);

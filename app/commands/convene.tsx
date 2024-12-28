@@ -82,7 +82,7 @@ export const handler = async (
                 staff,
                 extra: "✅ Restricted",
               }),
-              applyRestriction(message.member!),
+              applyRestriction(message.member),
               message.reply(
                 "After a vote by the mods, this member has had restrictions applied to them",
               ),
@@ -96,7 +96,7 @@ export const handler = async (
                 staff,
                 extra: "✅ Kicked",
               }),
-              kick(message.member!),
+              kick(message.member),
               message.reply(
                 "After a vote by the mods, this member has been kicked from the server to cool off",
               ),
@@ -110,13 +110,13 @@ export const handler = async (
                 staff,
                 extra: "✅ Banned",
               }),
-              ban(message.member!),
+              ban(message.member),
               message.reply(
                 "After a vote by the mods, this member has been permanently banned",
               ),
             ]);
             return;
-          case resolutions.nudge:
+          case resolutions.nudge: {
             const [thread] = await Promise.all([
               originalChannel.threads.create({
                 name: message.author.username,
@@ -145,6 +145,7 @@ This isn't a formal warning, but your message concerned the moderators enough th
 
   ${quoteAndEscape(message.content)}`);
             return;
+          }
           case resolutions.warning:
             reportUser({
               reason: ReportReasons.mod,
@@ -172,7 +173,7 @@ This isn't a formal warning, but your message concerned the moderators enough th
               staff,
               extra: "✅ Timed out overnight",
             });
-            timeout(message.member!);
+            timeout(message.member);
 
             return;
         }
