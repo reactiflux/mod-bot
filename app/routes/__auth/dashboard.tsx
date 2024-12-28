@@ -1,7 +1,7 @@
 import type { ActionFunction, LoaderFunction } from "react-router";
 import { data, useLoaderData } from "react-router";
 import type { LabelHTMLAttributes } from "react";
-import { getTopParticipants } from "~/models/activity.server";
+import { getTopParticipants } from "#~/models/activity.server";
 
 export const loader = async ({
   request,

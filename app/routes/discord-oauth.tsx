@@ -1,5 +1,5 @@
 import { redirect, type LoaderFunction } from "react-router";
-import { completeOauthLogin } from "~/models/session.server";
+import { completeOauthLogin } from "#~/models/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const url = new URL(request.url);

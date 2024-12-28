@@ -2,9 +2,9 @@ import type { MessageContextMenuCommandInteraction } from "discord.js";
 import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
 import { Button } from "reacord";
-import { reacord } from "~/discord/client.server";
+import { reacord } from "#~/discord/client.server";
 
-import { ReportReasons, reportUser } from "~/helpers/modLog";
+import { ReportReasons, reportUser } from "#~/helpers/modLog";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Track")

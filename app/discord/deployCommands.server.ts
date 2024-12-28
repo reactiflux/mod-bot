@@ -7,17 +7,17 @@ import type {
 } from "discord.js";
 import { InteractionType, Routes } from "discord.js";
 
-import { rest } from "~/discord/api";
-import type { AnyCommand } from "~/helpers/discord";
+import { rest } from "#~/discord/api";
+import type { AnyCommand } from "#~/helpers/discord";
 import {
   isMessageComponentCommand,
   isMessageContextCommand,
   isModalCommand,
   isSlashCommand,
   isUserContextCommand,
-} from "~/helpers/discord";
-import { applicationId, isProd } from "~/helpers/env.server";
-import { calculateChangedCommands } from "~/helpers/discordCommands";
+} from "#~/helpers/discord";
+import { applicationId, isProd } from "#~/helpers/env.server";
+import { calculateChangedCommands } from "#~/helpers/discordCommands";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers

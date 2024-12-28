@@ -9,14 +9,14 @@ import type {
 } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
 
-import { reacord } from "~/discord/client.server";
-import { quoteAndEscape } from "~/helpers/discord";
-import { ReportReasons, reportUser } from "~/helpers/modLog";
-import { resolutions } from "~/helpers/modResponse";
+import { reacord } from "#~/discord/client.server";
+import { quoteAndEscape } from "#~/helpers/discord";
+import { ReportReasons, reportUser } from "#~/helpers/modLog";
+import { resolutions } from "#~/helpers/modResponse";
 
-import { fetchSettings, SETTINGS } from "~/models/guilds.server";
-import { applyRestriction, ban, kick, timeout } from "~/models/discord.server";
-import { ModResponse } from "~/commands/reacord/ModResponse";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
+import { ModResponse } from "#~/commands/reacord/ModResponse";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Convene mods")

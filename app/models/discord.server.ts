@@ -1,6 +1,6 @@
 import type { GuildMember } from "discord.js";
 import type { AccessToken } from "simple-oauth2";
-import { fetchSettings, SETTINGS } from "~/models/guilds.server";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 export interface DiscordUserInfo {
   id: string;

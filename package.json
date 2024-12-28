@@ -3,6 +3,9 @@
   "description": "Package root for Reactiflux's jobs bot",
   "private": true,
   "type": "module",
+  "imports": {
+    "#~/*": "./app/*"
+  },
   "scripts": {
     "dev": "npm run dev:init; run-p dev:css dev:bot",
     "start": "npm run start:migrate; npm run start:bot",

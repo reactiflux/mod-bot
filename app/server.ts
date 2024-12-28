@@ -4,16 +4,16 @@ import { createRequestHandler } from "@react-router/express";
 import express from "express";
 import bodyParser from "body-parser";
 
-import { applicationKey } from "~/helpers/env.server";
+import { applicationKey } from "#~/helpers/env.server";
 
-import discordBot from "~/discord/gateway";
-import { registerCommand } from "~/discord/deployCommands.server";
+import discordBot from "#~/discord/gateway";
+import { registerCommand } from "#~/discord/deployCommands.server";
 
-import * as convene from "~/commands/convene";
-import * as setup from "~/commands/setup";
-import * as report from "~/commands/report";
-import * as track from "~/commands/track";
-import setupTicket from "~/commands/setupTickets";
+import * as convene from "#~/commands/convene";
+import * as setup from "#~/commands/setup";
+import * as report from "#~/commands/report";
+import * as track from "#~/commands/track";
+import setupTicket from "#~/commands/setupTickets";
 
 export const app = express();
 app.use(

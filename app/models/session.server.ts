@@ -8,19 +8,19 @@ import {
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
-import db from "~/db.server";
-import type { DB } from "~/db.server";
+import db from "#~/db.server";
+import type { DB } from "#~/db.server";
 import {
   createUser,
   getUserByExternalId,
   getUserById,
-} from "~/models/user.server";
-import { fetchUser } from "~/models/discord.server";
+} from "#~/models/user.server";
+import { fetchUser } from "#~/models/discord.server";
 import {
   applicationId,
   discordSecret,
   sessionSecret,
-} from "~/helpers/env.server";
+} from "#~/helpers/env.server";
 
 export type Sessions = DB["sessions"];
 

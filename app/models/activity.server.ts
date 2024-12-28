@@ -1,5 +1,5 @@
-import type { DB } from "~/db.server";
-import db from "~/db.server";
+import type { DB } from "#~/db.server";
+import db from "#~/db.server";
 
 type MessageStats = DB["message_stats"];
 

@@ -9,15 +9,15 @@ import { MessageType, ChannelType } from "discord.js";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import TTLCache from "@isaacs/ttlcache";
 
-import { fetchSettings, SETTINGS } from "~/models/guilds.server";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
   constructDiscordLink,
   describeAttachments,
   describeReactions,
   quoteAndEscape,
   quoteAndEscapePoll,
-} from "~/helpers/discord";
-import { simplifyString, truncateMessage } from "~/helpers/string";
+} from "#~/helpers/discord";
+import { simplifyString, truncateMessage } from "#~/helpers/string";
 
 export const enum ReportReasons {
   anonReport = "anonReport",

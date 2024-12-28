@@ -1,12 +1,12 @@
 import type { ComponentEventUser } from "reacord";
 import { Button } from "reacord";
 
-import type { Resolution } from "~/helpers/modResponse";
+import type { Resolution } from "#~/helpers/modResponse";
 import {
   humanReadableResolutions,
   resolutions,
   useVotes,
-} from "~/helpers/modResponse";
+} from "#~/helpers/modResponse";
 
 const VOTES_TO_APPROVE = 3;
 
