@@ -21,7 +21,7 @@
     "build:app": "react-router build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
     "dev:css": "npm run generate:css -- --watch",
-    "dev:bot": "tsx watch --exclude 'vite.config.*' ./app/index.js",
+    "dev:bot": "node --watch --watch-path='./index.dev.js' index.dev.js",
     "kysely:seed": "kysely seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts; prettier --write ./app/db.d.ts"
