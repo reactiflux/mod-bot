@@ -1,6 +1,6 @@
 import type { Guild as DiscordGuild } from "discord.js";
-import db, { SqliteError } from "~/db.server";
-import type { DB } from "~/db.server";
+import db, { SqliteError } from "#~/db.server";
+import type { DB } from "#~/db.server";
 
 export type Guild = DB["guilds"];
 

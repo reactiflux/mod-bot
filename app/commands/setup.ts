@@ -1,7 +1,7 @@
 import type { ChatInputCommandInteraction } from "discord.js";
 import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
-import { SETTINGS, setSettings, registerGuild } from "~/models/guilds.server";
+import { SETTINGS, setSettings, registerGuild } from "#~/models/guilds.server";
 
 export const command = new SlashCommandBuilder()
   .setName("setup")

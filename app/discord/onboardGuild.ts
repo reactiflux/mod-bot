@@ -1,8 +1,8 @@
 import type { Client, TextChannel } from "discord.js";
 import { ChannelType } from "discord.js";
-import { retry } from "~/helpers/misc";
+import { retry } from "#~/helpers/misc";
 
-import { fetchGuild } from "~/models/guilds.server";
+import { fetchGuild } from "#~/models/guilds.server";
 
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes

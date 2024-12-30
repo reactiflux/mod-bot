@@ -4,7 +4,7 @@
 import "dotenv/config";
 import express from "express";
 
-import Sentry from "~/helpers/sentry.server";
+import Sentry from "#~/helpers/sentry.server";
 
 // This only exists after a production build, when this file is copied into Docker
 import { app as rrApp } from "./server/index";

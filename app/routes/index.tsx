@@ -1,7 +1,7 @@
-import { Login } from "~/components/login";
-import { Logout } from "~/components/logout";
+import { Login } from "#~/components/login";
+import { Logout } from "#~/components/logout";
 
-import { useOptionalUser } from "~/utils";
+import { useOptionalUser } from "#~/utils";
 
 export default function Index() {
   const user = useOptionalUser();

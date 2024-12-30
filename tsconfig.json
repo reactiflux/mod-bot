@@ -1,6 +1,12 @@
 {
   "exclude": [],
-  "include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".react-router/types/**/*",
+    "index.dev.js",
+    "index.prod.js"
+  ],
   "compilerOptions": {
     "types": ["vite/client", "vitest/globals"],
     "rootDirs": [".", "./.react-router/types"],
@@ -15,7 +21,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./app/*"]
+      // Must match package.json `"imports"`
+      "#~/*": ["./app/*"]
     },
     "skipLibCheck": true,
     "noEmit": true,

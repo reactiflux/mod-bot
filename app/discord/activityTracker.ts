@@ -1,6 +1,6 @@
 import { Events, ChannelType } from "discord.js";
 import type { Client, Message, PartialMessage, TextChannel } from "discord.js";
-import db from "~/db.server";
+import db from "#~/db.server";
 
 export async function startActivityTracking(client: Client) {
   const channelCache = new Map<string, TextChannel>();

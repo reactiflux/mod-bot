@@ -15,16 +15,16 @@ import {
 import { REST } from "@discordjs/rest";
 import { Routes, TextInputStyle } from "discord-api-types/v10";
 
-import { discordToken } from "~/helpers/env.server";
-import { SETTINGS, fetchSettings } from "~/models/guilds.server";
+import { discordToken } from "#~/helpers/env.server";
+import { SETTINGS, fetchSettings } from "#~/models/guilds.server";
 import { format } from "date-fns";
 import type {
   AnyCommand,
   MessageComponentCommand,
   ModalCommand,
   SlashCommand,
-} from "~/helpers/discord";
-import { quoteMessageContent } from "~/helpers/discord";
+} from "#~/helpers/discord";
+import { quoteMessageContent } from "#~/helpers/discord";
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
 

@@ -5,7 +5,7 @@ import type {
 } from "discord.js";
 import { ApplicationCommandType } from "discord.js";
 
-import { difference } from "~/helpers/sets";
+import { difference } from "#~/helpers/sets";
 
 export const compareCommands = (
   localCommand: ContextMenuCommandBuilder | SlashCommandBuilder,

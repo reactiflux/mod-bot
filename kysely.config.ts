@@ -2,7 +2,7 @@ import SQLite from "better-sqlite3";
 import { defineConfig, getKnexTimestampPrefix } from "kysely-ctl";
 import { SqliteDialect } from "kysely";
 
-if (!process.env.DATABASE_URL) {
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL === "DATABASE_URL") {
   throw new Error(
     "Please provide a DATABASE_URL! probably './mod-bot.sqlite3'",
   );

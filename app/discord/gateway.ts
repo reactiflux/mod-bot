@@ -1,11 +1,11 @@
-import Sentry from "~/helpers/sentry.server";
+import Sentry from "#~/helpers/sentry.server";
 
-import { client, login } from "~/discord/client.server";
-import { deployCommands } from "~/discord/deployCommands.server";
+import { client, login } from "#~/discord/client.server";
+import { deployCommands } from "#~/discord/deployCommands.server";
 
-import automod from "~/discord/automod";
-import onboardGuild from "~/discord/onboardGuild";
-import { startActivityTracking } from "~/discord/activityTracker";
+import automod from "#~/discord/automod";
+import onboardGuild from "#~/discord/onboardGuild";
+import { startActivityTracking } from "#~/discord/activityTracker";
 
 export default function init() {
   login();
