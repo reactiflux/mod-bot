@@ -1,6 +1,6 @@
 export const isProd = () => false;
 
-export const databaseUrl = "DATABASE_URL";
+export const databaseUrl = undefined;
 export const sessionSecret = "SESSION_SECRET";
 
 export const applicationKey = "DISCORD_PUBLIC_KEY";
