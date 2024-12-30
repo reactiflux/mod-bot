@@ -117,8 +117,16 @@ export default [
           // @ts-expect-error Types for this are super busted
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-              .setCustomId(`close-ticket||${user.id}`)
+              .setCustomId(`close-ticket||${user.id}|| `)
               .setLabel("Close ticket")
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId(`close-ticket||${user.id}||👍`)
+              .setLabel("Close (👍)")
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId(`close-ticket||${user.id}||👎`)
+              .setLabel("Close (👎)")
               .setStyle(ButtonStyle.Danger),
           ),
         ],
@@ -134,7 +142,8 @@ export default [
   {
     command: { type: InteractionType.MessageComponent, name: "close-ticket" },
     handler: async (interaction) => {
-      const [, ticketOpenerUserId] = interaction.customId.split("||");
+      const [, ticketOpenerUserId, feedback] = interaction.customId.split("||");
+      console.log(ticketOpenerUserId, feedback, interaction.customId);
       const threadId = interaction.channelId;
       if (!interaction.member || !interaction.guild) {
         console.error(
@@ -160,7 +169,7 @@ export default [
         rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
         rest.post(Routes.channelMessages(modLog), {
           body: {
-            content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}> `,
+            content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}>${feedback ? `. feedback: ${feedback}` : ""}`,
             allowedMentions: { users: [], roles: [] },
           },
         }),
