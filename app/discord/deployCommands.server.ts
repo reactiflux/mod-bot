@@ -43,6 +43,7 @@ export const deployCommands = async (client: Client) => {
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
         const config = matchCommand(interaction.commandName);
+        if (!config) return;
 
         if (
           isMessageContextCommand(config) &&
@@ -66,6 +67,8 @@ export const deployCommands = async (client: Client) => {
 
       case InteractionType.MessageComponent: {
         const config = matchCommand(interaction.customId);
+        if (!config) return;
+
         if (
           isMessageComponentCommand(config) &&
           interaction.isMessageComponent()
@@ -76,6 +79,8 @@ export const deployCommands = async (client: Client) => {
       }
       case InteractionType.ModalSubmit: {
         const config = matchCommand(interaction.customId);
+        if (!config) return;
+
         if (isModalCommand(config) && interaction.isModalSubmit()) {
           config.handler(interaction);
         }
@@ -236,15 +241,10 @@ export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
   commands.set(config.command.name, config);
 };
 const matchCommand = (customId: string) => {
-  let config = commands.get(customId);
+  const config = commands.get(customId);
   if (config) {
     return config;
   }
   const key = [...commands.keys()].find((k) => customId.startsWith(`${k}|`));
-  config = commands.get(key || "??");
-  if (config) {
-    return config;
-  }
-  console.error([...commands.keys()].join(" "));
-  throw new Error(`No command found for ${customId}`);
+  return commands.get(key || "??");
 };
