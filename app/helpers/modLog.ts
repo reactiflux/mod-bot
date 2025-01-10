@@ -205,7 +205,7 @@ const constructLog = async ({
     lastReport.message.author.username
   }) warned ${previousWarnings.size + 1} times recently, posted in ${
     logs.length
-  } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} ago`;
+  } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   // If it has the data for a poll, use a specialized formatting function
@@ -217,7 +217,7 @@ const constructLog = async ({
     warnings.push(
       `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(
         logMessage,
-      )}) (<t:${logMessage.createdAt}:R>)`,
+      )}) (<t:${Math.floor(logMessage.createdAt.getTime() / 1000)}:R>)`,
     );
   }
 
