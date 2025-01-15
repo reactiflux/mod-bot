@@ -3,6 +3,7 @@ import { verifyKey } from "discord-interactions";
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
 import bodyParser from "body-parser";
+import pinoHttp from "pino-http";
 
 import { applicationKey } from "#~/helpers/env.server";
 
@@ -16,6 +17,10 @@ import * as track from "#~/commands/track";
 import setupTicket from "#~/commands/setupTickets";
 
 export const app = express();
+
+const logger = pinoHttp();
+app.use(logger);
+
 app.use(
   createRequestHandler({
     // @ts-expect-error - virtual module provided by React Router at build time
