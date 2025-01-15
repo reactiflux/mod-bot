@@ -25,4 +25,7 @@ viteDevServer
     console.log({ error });
   });
 
-app.listen(process.env.PORT || "3000", async () => {});
+const PORT = process.env.PORT || "3000";
+app.listen(PORT, async () => {
+  console.log("INI", "Now listening on port", PORT);
+});

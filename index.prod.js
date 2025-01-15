@@ -37,4 +37,7 @@ const errorHandler = (error) => {
 process.on("uncaughtException", errorHandler);
 process.on("unhandledRejection", errorHandler);
 
-app.listen(process.env.PORT || "3000", async () => {});
+const PORT = process.env.PORT || "3000";
+app.listen(PORT, async () => {
+  console.log("INI", "Now listening on port", PORT);
+});
