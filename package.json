@@ -17,7 +17,7 @@
     "kysely": "kysely",
     "": "",
     "start:migrate": "kysely migrate:list; kysely migrate:latest",
-    "start:bot": "node build/server/index.js",
+    "start:bot": "node ./index.prod.js",
     "prepare": "husky || true",
     "typecheck": "react-router typegen && tsc -b",
     "build:css": "npm run generate:css --minify",
