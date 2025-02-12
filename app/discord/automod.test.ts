@@ -18,4 +18,7 @@ test("isSpam has a reasonable threshold", () => {
     ),
   ).toBe(false);
   expect(isSpam("free free free free free")).toBe(false);
+  expect(isSpam(`https://example.com//w1280$%7Btrend.backdrop_path`)).toBe(
+    false,
+  );
 });
