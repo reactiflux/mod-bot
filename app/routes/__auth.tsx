@@ -1,6 +1,6 @@
 import { Outlet, useLoaderData, useLocation } from "react-router";
 
-import { Login } from "#~/components/login";
+import { Login } from "#~/basics/login";
 import { isProd } from "#~/helpers/env.server";
 import { getUser } from "#~/models/session.server";
 import { useOptionalUser } from "#~/utils";
@@ -22,7 +22,7 @@ export default function Auth() {
     return (
       <div className="flex min-h-full flex-col justify-center">
         <div className="mx-auto w-full max-w-md px-8">
-          <Login redirectTo={location.pathname} />;
+          <Login redirectTo={location.pathname} />
         </div>
       </div>
     );

@@ -2,7 +2,7 @@ import type { ActionFunction, LoaderFunction } from "react-router";
 import { redirect } from "react-router";
 
 import { initOauthLogin } from "#~/models/session.server";
-import { Login } from "#~/components/login";
+import { Login } from "#~/basics/login";
 
 export const loader: LoaderFunction = async () => {
   return redirect("/");
