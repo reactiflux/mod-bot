@@ -15,6 +15,7 @@ export const loader: LoaderFunction = async ({ request }) => {
   }
 
   return await completeOauthLogin(
+    url.origin,
     code,
     cookie,
     url.searchParams.get("state") ?? undefined,

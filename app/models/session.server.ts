@@ -104,11 +104,20 @@ const {
   },
 });
 
-const USER_SESSION_KEY = "userId";
+export const CookieSessionKeys = {
+  userId: "userId",
+  discordToken: "discordToken",
+  discordRefresh: "discordRefresh",
+} as const;
+
+export const DbSessionKeys = {
+  authState: "state",
+  authRedirect: "redirectTo",
+} as const;
 
 async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getCookieSession(request.headers.get("Cookie"));
-  const userId = session.get(USER_SESSION_KEY);
+  const userId = session.get(CookieSessionKeys.userId);
   return userId;
 }
 
@@ -142,7 +151,7 @@ export async function requireUser(request: Request) {
   throw await logout(request);
 }
 
-const OAUTH_REDIRECT = "http://localhost:3000/discord-oauth";
+const OAUTH_REDIRECT_ROUTE = "discord-oauth";
 
 export async function initOauthLogin({
   request,
@@ -151,31 +160,30 @@ export async function initOauthLogin({
   request: Request;
   redirectTo?: string;
 }) {
+  const { origin } = new URL(request.url);
   const dbSession = await getDbSession(request.headers.get("Cookie"));
 
   const state = randomUUID();
-  dbSession.set("state", state);
+  console.log({ state });
+  dbSession.set(DbSessionKeys.authState, state);
   if (redirectTo) {
-    dbSession.set("redirectTo", redirectTo);
+    dbSession.set(DbSessionKeys.authRedirect, redirectTo);
   }
   const cookie = await commitDbSession(dbSession, {
     maxAge: 60 * 60 * 1, // 1 hour
   });
   return redirect(
     authorization.authorizeURL({
-      redirect_uri: OAUTH_REDIRECT,
+      redirect_uri: `${origin}/${OAUTH_REDIRECT_ROUTE}`,
       state,
       scope: SCOPE,
     }),
-    {
-      headers: {
-        "Set-Cookie": cookie,
-      },
-    },
+    { headers: { "Set-Cookie": cookie } },
   );
 }
 
 export async function completeOauthLogin(
+  origin: string,
   code: string,
   reqCookie: string,
   state?: string,
@@ -183,7 +191,7 @@ export async function completeOauthLogin(
   const token = await authorization.getToken({
     scope: SCOPE,
     code,
-    redirect_uri: OAUTH_REDIRECT,
+    redirect_uri: `${origin}/${OAUTH_REDIRECT_ROUTE}`,
   });
   const discordUser = await fetchUser(token);
 
@@ -213,15 +221,17 @@ export async function completeOauthLogin(
     getDbSession(reqCookie),
   ]);
 
+  const dbState = dbSession.get(DbSessionKeys.authState);
   // Redirect to login if the state arg doesn't match
-  if (dbSession.get("state") !== state) {
+  if (dbState !== state) {
     console.error("DB state didn’t match cookie state");
     throw redirect("/login");
   }
 
-  cookieSession.set(USER_SESSION_KEY, userId);
-  dbSession.unset("state");
-  dbSession.set("discordToken", JSON.stringify(token));
+  cookieSession.set(CookieSessionKeys.userId, userId);
+  // @ts-expect-error token.toJSON() isn't in the types but it works
+  cookieSession.set(CookieSessionKeys.discordToken, token.toJSON());
+  dbSession.unset(DbSessionKeys.authState);
   const [cookie, dbCookie] = await Promise.all([
     commitCookieSession(cookieSession, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -232,18 +242,20 @@ export async function completeOauthLogin(
   headers.append("Set-Cookie", cookie);
   headers.append("Set-Cookie", dbCookie);
 
-  return redirect(dbSession.get("redirectTo") ?? "/", { headers });
+  return redirect(dbSession.get(DbSessionKeys.authRedirect) ?? "/", {
+    headers,
+  });
 }
 
 export async function refreshSession(request: Request) {
-  const dbSession = await getDbSession(request.headers.get("Cookie"));
+  const session = await getCookieSession(request.headers.get("Cookie"));
 
-  const storedToken = await dbSession.get("discordToken");
+  const storedToken = await session.get(CookieSessionKeys.discordToken);
   const token = authorization.createToken(JSON.parse(storedToken));
   const newToken = await token.refresh();
-  dbSession.set("discordToken", JSON.stringify(newToken));
+  session.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
   return new Response("OK", {
-    headers: { "Set-Cookie": await commitDbSession(dbSession) },
+    headers: { "Set-Cookie": await commitCookieSession(session) },
   });
 }
 
