@@ -14,3 +14,8 @@ export const partition = <Data>(predicate: (d: Data) => boolean, xs: Data[]) =>
     },
     [[], []] as [Data[], Data[]],
   );
+
+/**
+ * ElementType is a helper type to turn `Array<T>` into `T`
+ */
+export type ElementType<T> = T extends (infer U)[] ? U : T;
