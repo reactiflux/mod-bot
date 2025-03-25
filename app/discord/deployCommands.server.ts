@@ -61,6 +61,7 @@ export const deployCommands = async (client: Client) => {
         }
         if (isSlashCommand(config) && interaction.isChatInputCommand()) {
           config.handler(interaction);
+          return;
         }
         throw new Error("Didn't find a handler for an interaction");
       }
