@@ -29,6 +29,12 @@ export interface Sessions {
   id: string | null;
 }
 
+export interface TicketsConfig {
+  channel_id: string | null;
+  message_id: string;
+  role_id: string;
+}
+
 export interface Users {
   authProvider: Generated<string | null>;
   email: string | null;
@@ -40,5 +46,6 @@ export interface DB {
   guilds: Guilds;
   message_stats: MessageStats;
   sessions: Sessions;
+  tickets_config: TicketsConfig;
   users: Users;
 }
