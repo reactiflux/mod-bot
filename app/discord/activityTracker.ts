@@ -76,7 +76,7 @@ async function getMessageStats(msg: Message | PartialMessage) {
     char_count: content?.length ?? 0,
     word_count: content?.split(/\s+/).length ?? 0,
     react_count: msg.reactions.cache.size,
-    sent_at: String(msg.createdTimestamp),
+    sent_at: msg.createdTimestamp,
   };
 }
 
