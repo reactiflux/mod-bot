@@ -20,7 +20,7 @@
     "start:bot": "node ./index.prod.js",
     "prepare": "husky || true",
     "typecheck": "react-router typegen && tsc -b",
-    "build:css": "npm run generate:css --minify",
+    "build:css": "npm run generate:css -- --minify",
     "build:app": "react-router build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
     "dev:css": "npm run generate:css -- --watch",
