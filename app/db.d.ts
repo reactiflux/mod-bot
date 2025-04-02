@@ -19,7 +19,7 @@ export interface MessageStats {
   message_id: string | null;
   react_count: Generated<number>;
   recipient_id: string | null;
-  sent_at: string;
+  sent_at: number;
   word_count: number;
 }
 

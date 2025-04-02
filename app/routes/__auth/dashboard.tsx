@@ -1,6 +1,6 @@
-import type { ActionFunction, LoaderFunction } from "react-router";
-import { data, useLoaderData } from "react-router";
-import type { LabelHTMLAttributes } from "react";
+import type { LoaderFunction } from "react-router";
+import { data, useLoaderData, useNavigation } from "react-router";
+import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
 export const loader = async ({
@@ -18,6 +18,7 @@ export const loader = async ({
   }
 
   const REACTIFLUX_GUILD_ID = "102860784329052160";
+
   const output = await getTopParticipants(
     REACTIFLUX_GUILD_ID,
     start,
@@ -29,43 +30,64 @@ export const loader = async ({
   return output;
 };
 
-export const action: ActionFunction = async ({ request }) => {
-  console.log({ request });
-};
-
 const Label = (props: LabelHTMLAttributes<Element>) => (
   <label {...props} className={`${props.className ?? ""} m-4`}>
     {props.children}
   </label>
 );
 
-const formatter = new Intl.NumberFormat("en-US", {
+const percent = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 0,
-});
+}).format;
+
+function RangeForm() {
+  return (
+    <form method="GET">
+      <Label>
+        Start date
+        <input name="start" type="date" />
+      </Label>
+      <Label>
+        End date
+        <input name="end" type="date" />
+      </Label>
+      <input type="submit" value="Submit" />
+    </form>
+  );
+}
+
+const DataHeading = ({ children }: PropsWithChildren) => {
+  return (
+    <th className="relative origin-bottom-left -rotate-45 max-w-8 text-nowrap">
+      {children}
+    </th>
+  );
+};
 
 export default function DashboardPage() {
+  const nav = useNavigation();
   const data = useLoaderData<typeof loader>();
 
-  if (!data) {
+  if (nav.state === "loading") {
     return "loading…";
+  }
+
+  if (!data) {
+    return (
+      <div>
+        <div className="flex min-h-full justify-center">
+          <RangeForm />
+        </div>
+        <div></div>
+      </div>
+    );
   }
 
   return (
     <div>
       <div className="flex min-h-full justify-center">
-        <div>test butts</div>
-        <form method="GET">
-          <Label>
-            Start date
-            <input name="start" type="date" />
-          </Label>
-          <Label>
-            End date
-            <input name="end" type="date" />
-          </Label>
-          <input type="submit" value="Submit" />
-        </form>
+        <RangeForm />
       </div>
       <div>
         <textarea
@@ -77,27 +99,27 @@ ${data
   )
   .join("\n")}`}
         ></textarea>
-        <table>
+        <table className="mt-24">
           <thead>
             <tr>
-              <th>Author ID</th>
-              <th>Percent Zero Days</th>
-              <th>Word Count</th>
-              <th>Message Count</th>
-              <th>Channel Count</th>
-              <th>Category Count</th>
-              <th>Reaction Count</th>
-              <th>Word Score</th>
-              <th>Message Score</th>
-              <th>Channel Score</th>
-              <th>Consistency Score</th>
+              <DataHeading>Author ID</DataHeading>
+              <DataHeading>Percent Zero Days</DataHeading>
+              <DataHeading>Word Count</DataHeading>
+              <DataHeading>Message Count</DataHeading>
+              <DataHeading>Channel Count</DataHeading>
+              <DataHeading>Category Count</DataHeading>
+              <DataHeading>Reaction Count</DataHeading>
+              <DataHeading>Word Score</DataHeading>
+              <DataHeading>Message Score</DataHeading>
+              <DataHeading>Channel Score</DataHeading>
+              <DataHeading>Consistency Score</DataHeading>
             </tr>
           </thead>
           <tbody>
             {data.map((d) => (
               <tr key={d.data.member.author_id}>
                 <td>{d.data.member.author_id}</td>
-                <td>{formatter.format(d.metadata.percentZeroDays)}</td>
+                <td>{percent(d.metadata.percentZeroDays)}</td>
                 <td>{d.data.member.total_word_count}</td>
                 <td>{d.data.member.message_count}</td>
                 <td>{d.data.member.channel_count}</td>

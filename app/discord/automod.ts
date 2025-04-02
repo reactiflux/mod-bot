@@ -13,7 +13,6 @@ const spamKeywords = [
   "deepfake",
   "poki",
   "gift",
-  "\\d\\$",
   "18+",
   "nudes",
 ].map((x) => new RegExp(x));
