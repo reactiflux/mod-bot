@@ -1,4 +1,4 @@
-import type { ChatInputCommandInteraction } from "discord.js";
+import { TextChannel, type ChatInputCommandInteraction } from "discord.js";
 import {
   ChannelType,
   ComponentType,
@@ -25,13 +25,38 @@ import type {
   SlashCommand,
 } from "#~/helpers/discord";
 import { quoteMessageContent } from "#~/helpers/discord";
+import db from "#~/db.server.js";
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
+
+const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
 export default [
   {
     command: new SlashCommandBuilder()
       .setName("tickets-channel")
+      .addRoleOption((o) => {
+        o.setName("role");
+        o.setDescription(
+          "Which role (if any) should be pinged when a ticket is created?",
+        );
+        o.setRequired(false);
+        return o;
+      })
+      .addStringOption((o) => {
+        o.setName("button-text");
+        o.setDescription(
+          `What should the button say? If left blank, it will say "${DEFAULT_BUTTON_TEXT}"`,
+        );
+        return o;
+      })
+      .addChannelOption((o) => {
+        o.setName("channel");
+        o.setDescription(
+          "Which channel (if not this one) should tickets be created in?",
+        );
+        return o;
+      })
       .setDescription(
         "Set up a new button for creating private tickets with moderators",
       )
@@ -42,21 +67,56 @@ export default [
     handler: async (interaction: ChatInputCommandInteraction) => {
       if (!interaction.guild) throw new Error("Interaction has no guild");
 
-      await interaction.reply({
-        components: [
-          {
-            type: ComponentType.ActionRow,
-            components: [
-              {
-                type: ComponentType.Button,
-                label: "Open a private ticket with the moderators",
-                style: ButtonStyle.Primary,
-                customId: "open-ticket",
-              },
-            ],
-          },
-        ],
-      });
+      const pingableRole = interaction.options.getRole("role");
+      const ticketChannel = interaction.options.getChannel("channel");
+      const buttonText =
+        interaction.options.getString("button-text") || DEFAULT_BUTTON_TEXT;
+
+      if (ticketChannel && ticketChannel.type !== ChannelType.GuildText) {
+        await interaction.reply({
+          content: `The channel configured must be a text channel! Tickets will be created as private threads.`,
+        });
+        return;
+      }
+
+      try {
+        const interactionResponse = await interaction.reply({
+          components: [
+            {
+              type: ComponentType.ActionRow,
+              components: [
+                {
+                  type: ComponentType.Button,
+                  label: buttonText,
+                  style: ButtonStyle.Primary,
+                  customId: "open-ticket",
+                },
+              ],
+            },
+          ],
+        });
+        const producedMessage = await interactionResponse.fetch();
+
+        let roleId = pingableRole?.id;
+        if (!roleId) {
+          const { [SETTINGS.moderator]: mod } = await fetchSettings(
+            interaction.guild,
+            [SETTINGS.moderator, SETTINGS.modLog],
+          );
+          roleId = mod;
+        }
+
+        await db
+          .insertInto("tickets_config")
+          .values({
+            message_id: producedMessage.id,
+            channel_id: ticketChannel?.id,
+            role_id: roleId,
+          })
+          .execute();
+      } catch (e) {
+        console.error(`error:`, e);
+      }
     },
   } as SlashCommand,
   {
@@ -87,7 +147,8 @@ export default [
         !interaction.channel ||
         interaction.channel.type !== ChannelType.GuildText ||
         !interaction.user ||
-        !interaction.guild
+        !interaction.guild ||
+        !interaction.message
       ) {
         await interaction.reply({
           content: "Something went wrong while creating a ticket",
@@ -98,19 +159,43 @@ export default [
       const { channel, fields, user } = interaction;
       const concern = fields.getField("concern").value;
 
-      const { [SETTINGS.moderator]: mod } = await fetchSettings(
-        interaction.guild,
-        [SETTINGS.moderator, SETTINGS.modLog],
-      );
-      const thread = await channel.threads.create({
+      let config = await db
+        .selectFrom("tickets_config")
+        .selectAll()
+        .where("message_id", "==", interaction.message.id)
+        .executeTakeFirst();
+      // If there's no config, that means that the button was set up before the db was set up. Add one with default values
+      if (!config) {
+        const { [SETTINGS.moderator]: mod } = await fetchSettings(
+          interaction.guild,
+          [SETTINGS.moderator, SETTINGS.modLog],
+        );
+        config = await db
+          .insertInto("tickets_config")
+          .returningAll()
+          .values({ message_id: interaction.message.id, role_id: mod })
+          .executeTakeFirst();
+        if (!config) {
+          throw new Error("Something went wrong while fixing tickets config");
+        }
+      }
+
+      const ticketsChannel = config.channel_id
+        ? ((await interaction.guild.channels.fetch(
+            config.channel_id,
+          )) as TextChannel) || channel
+        : channel;
+
+      const thread = await ticketsChannel.threads.create({
         name: `${user.username} – ${format(new Date(), "PP kk:mmX")}`,
         autoArchiveDuration: 60 * 24 * 7,
         type: ChannelType.PrivateThread,
       });
       await thread.send({
-        content: `<@${user.id}>, this is a private space only visible to you and the <@&${mod}> role.`,
+        content: `<@${user.id}>, this is a private space only visible to you and the <@&${config.role_id}> role.`,
       });
-      await thread.send(quoteMessageContent(concern));
+      await thread.send(`${user.displayName} said:
+${quoteMessageContent(concern)}`);
       await thread.send({
         content: "When you’ve finished, please close the ticket.",
         components: [
@@ -143,7 +228,6 @@ export default [
     command: { type: InteractionType.MessageComponent, name: "close-ticket" },
     handler: async (interaction) => {
       const [, ticketOpenerUserId, feedback] = interaction.customId.split("||");
-      console.log(ticketOpenerUserId, feedback, interaction.customId);
       const threadId = interaction.channelId;
       if (!interaction.member || !interaction.guild) {
         console.error(
