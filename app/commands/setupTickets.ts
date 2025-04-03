@@ -162,7 +162,7 @@ export default [
       let config = await db
         .selectFrom("tickets_config")
         .selectAll()
-        .where("message_id", "==", interaction.message.id)
+        .where("message_id", "=", interaction.message.id)
         .executeTakeFirst();
       // If there's no config, that means that the button was set up before the db was set up. Add one with default values
       if (!config) {
