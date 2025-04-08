@@ -6,7 +6,7 @@ import type {
   APIEmbed,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
 import TTLCache from "@isaacs/ttlcache";
 
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
@@ -215,7 +215,7 @@ const constructLog = async ({
   const warnings = [];
   for (const { logMessage } of previousWarnings.values()) {
     warnings.push(
-      `[${format(logMessage.createdAt, "PP kk:mmX")}](${constructDiscordLink(
+      `[${format(logMessage.createdAt, differenceInHours(logMessage.createdAt, new Date()) > 24 ? "PP kk:mmX" : "kk:mmX")}](${constructDiscordLink(
         logMessage,
       )}) (<t:${Math.floor(logMessage.createdAt.getTime() / 1000)}:R>)`,
     );

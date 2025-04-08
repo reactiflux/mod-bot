@@ -258,7 +258,7 @@ ${quoteMessageContent(concern)}`);
           },
         }),
         interaction.reply({
-          content: `The ticket was closed by <@${ticketOpenerUserId}>`,
+          content: `The ticket was closed by <@${interactionUserId}>`,
           allowedMentions: { users: [], roles: [] },
         }),
       ]);
