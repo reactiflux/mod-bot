@@ -11,6 +11,7 @@ import discordBot from "#~/discord/gateway";
 import { registerCommand } from "#~/discord/deployCommands.server";
 
 import * as convene from "#~/commands/convene";
+import * as forceBan from "#~/commands/force-ban";
 import * as setup from "#~/commands/setup";
 import * as report from "#~/commands/report";
 import * as track from "#~/commands/track";
@@ -60,5 +61,6 @@ discordBot();
 registerCommand(convene);
 registerCommand(setup);
 registerCommand(report);
+registerCommand(forceBan);
 registerCommand(track);
 registerCommand(setupTicket);
