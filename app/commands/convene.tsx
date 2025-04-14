@@ -64,8 +64,7 @@ export const handler = async (
 
   const staff = interaction.user;
   const originalChannel = (await message.channel.fetch()) as TextChannel;
-  const pollInstance = reacord.send(
-    thread.id,
+  const pollInstance = reacord.createChannelMessage(thread.id).render(
     <ModResponse
       modRoleId={moderator}
       onVote={async (newVote) => {
