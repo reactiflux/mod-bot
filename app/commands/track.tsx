@@ -22,8 +22,11 @@ export const handler = async (
     staff: user,
   });
 
-  const instance = await reacord.ephemeralReply(
-    interaction,
+  const instance = reacord.createInteractionReply(interaction, {
+    content: "Tracked",
+    ephemeral: true,
+  });
+  instance.render(
     <>
       Tracked
       <Button

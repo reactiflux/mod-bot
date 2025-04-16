@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from "react";
 
 export const resolutions = {
   track: "track",
-  nudge: "informalWarning",
   warning: "formalWarning",
   timeout: "timeout",
   restrict: "restrict",
@@ -11,8 +10,7 @@ export const resolutions = {
   ban: "ban",
 } as const;
 export const humanReadableResolutions = {
-  [resolutions.track]: "Track",
-  [resolutions.nudge]: "Informal Warning",
+  [resolutions.track]: "No action",
   [resolutions.warning]: "Formal Warning",
   [resolutions.timeout]: "Timeout Overnight",
   [resolutions.restrict]: "Restrict",

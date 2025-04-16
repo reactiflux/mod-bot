@@ -1,5 +1,5 @@
-import type { ComponentEventUser } from "reacord";
-import { Button } from "reacord";
+import type { ComponentEventUser, ComponentEvent } from "reacord";
+import { Button, ActionRow } from "reacord";
 
 import type { Resolution } from "#~/helpers/modResponse";
 import {
@@ -18,7 +18,7 @@ export const ModResponse = ({
 }: {
   votesRequired?: number;
   onVote: (result: { vote: Resolution; user: ComponentEventUser }) => void;
-  onResolve: (result: Resolution) => Promise<void>;
+  onResolve: (result: Resolution, event: ComponentEvent) => Promise<void>;
   modRoleId: string;
 }) => {
   const { votes, recordVote } = useVotes();
@@ -49,7 +49,7 @@ export const ModResponse = ({
         );
 
         if (leader && voteCount >= votesRequired) {
-          await onResolve(leader);
+          await onResolve(leader, event);
         }
       }}
     />
@@ -59,44 +59,43 @@ export const ModResponse = ({
     <>
       {`After ${votesRequired} or more votes, the leading resolution will be automatically enforced. <@&${modRoleId}> please respond.`}
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
-      {renderButton(
-        votes,
-        resolutions.track,
-        humanReadableResolutions[resolutions.track],
-        "success",
-      )}
-      {renderButton(
-        votes,
-        resolutions.timeout,
-        humanReadableResolutions[resolutions.timeout],
-      )}
-      {renderButton(
-        votes,
-        resolutions.nudge,
-        humanReadableResolutions[resolutions.nudge],
-        "primary",
-      )}
-      {renderButton(
-        votes,
-        resolutions.warning,
-        humanReadableResolutions[resolutions.warning],
-      )}
-      {renderButton(
-        votes,
-        resolutions.restrict,
-        humanReadableResolutions[resolutions.restrict],
-      )}
-      {renderButton(
-        votes,
-        resolutions.kick,
-        humanReadableResolutions[resolutions.kick],
-      )}
-      {renderButton(
-        votes,
-        resolutions.ban,
-        humanReadableResolutions[resolutions.ban],
-        "danger",
-      )}
+      <ActionRow>
+        {renderButton(
+          votes,
+          resolutions.track,
+          humanReadableResolutions[resolutions.track],
+          "success",
+        )}
+        {renderButton(
+          votes,
+          resolutions.warning,
+          humanReadableResolutions[resolutions.warning],
+          "primary",
+        )}
+        {renderButton(
+          votes,
+          resolutions.ban,
+          humanReadableResolutions[resolutions.ban],
+          "danger",
+        )}
+      </ActionRow>
+      <ActionRow>
+        {renderButton(
+          votes,
+          resolutions.kick,
+          humanReadableResolutions[resolutions.kick],
+        )}
+        {renderButton(
+          votes,
+          resolutions.restrict,
+          humanReadableResolutions[resolutions.restrict],
+        )}
+        {renderButton(
+          votes,
+          resolutions.timeout,
+          humanReadableResolutions[resolutions.timeout],
+        )}
+      </ActionRow>
     </>
   );
 };
