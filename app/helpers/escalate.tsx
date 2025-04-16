@@ -1,0 +1,187 @@
+import { ChannelType } from "discord.js";
+import type { Message, TextChannel, ThreadChannel, User } from "discord.js";
+
+import { reacord } from "#~/discord/client.server";
+import { quoteAndEscape } from "#~/helpers/discord";
+import { ReportReasons, reportUser } from "#~/helpers/modLog";
+import { resolutions } from "#~/helpers/modResponse";
+
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
+import { ModResponse } from "#~/commands/reacord/ModResponse";
+import { Button } from "reacord";
+
+export async function escalationControls(
+  reportedMessage: Message,
+  thread: ThreadChannel,
+  modRoleId: string,
+) {
+  reacord.createChannelMessage(thread.id).render(
+    <>
+      <Button
+        label="Delete"
+        style="danger"
+        onClick={async (e) => {
+          await Promise.allSettled([
+            reportedMessage.delete(),
+            e.reply(`deleted by ${e.user.username}`),
+          ]);
+        }}
+      />
+      <Button
+        onClick={async (e) => {
+          const member = await thread.guild.members.fetch(e.user.id);
+          escalate(member.user, reportedMessage, thread, modRoleId);
+        }}
+        style="primary"
+        label="Escalate"
+      />
+      <Button
+        onClick={async (e) => {
+          console.log("kick()");
+
+          await Promise.allSettled([
+            // reportedMessage.member?.kick(),
+            e.reply(`deleted by ${e.user.username}`),
+          ]);
+        }}
+        style="secondary"
+        label="Kick"
+      />
+      <Button
+        onClick={async (e) => {
+          console.log("ban()");
+          await Promise.allSettled([
+            // reportedMessage.member?.ban(),
+            e.reply(`deleted by ${e.user.username}`),
+          ]);
+        }}
+        style="secondary"
+        label="Ban"
+      />
+    </>,
+  );
+}
+
+export async function escalate(
+  staff: User | false,
+  reportedMessage: Message,
+  thread: ThreadChannel,
+  modRoleId: string,
+) {
+  thread.setName(`‼️ ${thread.name}`);
+  const originalChannel =
+    (await reportedMessage.channel.fetch()) as TextChannel;
+  const pollInstance = reacord.createChannelMessage(thread.id).render(
+    <ModResponse
+      modRoleId={modRoleId}
+      onVote={async (newVote) => {
+        await thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
+      }}
+      onResolve={async (resolution) => {
+        pollInstance.deactivate();
+        thread.setName(thread.name.replace("‼️", "✅"));
+        switch (resolution) {
+          case resolutions.restrict:
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.modResolution,
+                message: reportedMessage,
+                staff,
+                extra: "✅ Restricted",
+              }),
+              applyRestriction(reportedMessage.member),
+              reportedMessage.reply(
+                "After a vote by the mods, this member has had restrictions applied to them",
+              ),
+            ]);
+            return;
+          case resolutions.kick:
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.modResolution,
+                message: reportedMessage,
+                staff,
+                extra: "✅ Kicked",
+              }),
+              kick(reportedMessage.member),
+              reportedMessage.reply(
+                "After a vote by the mods, this member has been kicked from the server to cool off",
+              ),
+            ]);
+            return;
+          case resolutions.ban:
+            await Promise.all([
+              reportUser({
+                reason: ReportReasons.modResolution,
+                message: reportedMessage,
+                staff,
+                extra: "✅ Banned",
+              }),
+              ban(reportedMessage.member),
+              reportedMessage.reply(
+                "After a vote by the mods, this member has been permanently banned",
+              ),
+            ]);
+            return;
+          case resolutions.warning: {
+            reportUser({
+              reason: ReportReasons.modResolution,
+              message: reportedMessage,
+              staff,
+              extra: "✅ Warning",
+            });
+
+            const [thread] = await Promise.all([
+              originalChannel.threads.create({
+                name: reportedMessage.author.username,
+                autoArchiveDuration: 60,
+                type: ChannelType.PrivateThread,
+                reason: "Private moderation thread",
+              }),
+              reportUser({
+                reason: ReportReasons.modResolution,
+                message: reportedMessage,
+                staff,
+                extra: "✅ Nudge",
+              }),
+            ]);
+            const [{ moderator: modRoleId }] = await Promise.all([
+              fetchSettings(reportedMessage.guild!, [SETTINGS.moderator]),
+              thread.members.add(reportedMessage.author),
+            ]);
+            await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.
+
+Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.
+
+  ${quoteAndEscape(reportedMessage.content)}`);
+
+            reportedMessage.reply(
+              `This message resulted in a formal warning from the moderators. Please review the community rules.`,
+            );
+            return;
+          }
+
+          case resolutions.track:
+            reportUser({
+              reason: ReportReasons.track,
+              message: reportedMessage,
+              staff,
+            });
+            return;
+
+          case resolutions.timeout:
+            reportUser({
+              reason: ReportReasons.modResolution,
+              message: reportedMessage,
+              staff,
+              extra: "✅ Timed out overnight",
+            });
+            timeout(reportedMessage.member);
+
+            return;
+        }
+      }}
+    />,
+  );
+}
