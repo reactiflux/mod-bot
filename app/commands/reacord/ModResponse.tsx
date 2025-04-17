@@ -39,7 +39,7 @@ export const ModResponse = ({
         try {
           onVote({ vote: resolution, user: event.user });
         } catch (e) {
-          // do nothing
+          console.error("onVote", e);
         }
 
         const { leader, voteCount } = recordVote(
@@ -47,9 +47,16 @@ export const ModResponse = ({
           resolution,
           event.user.id,
         );
+        console.log(
+          `recording vote for ${resolution} from ${event.user.username}. ${leader} leads with ${voteCount} (needs ${votesRequired})`,
+        );
 
         if (leader && voteCount >= votesRequired) {
-          await onResolve(leader, event);
+          try {
+            await onResolve(leader, event);
+          } catch (e) {
+            console.error("onResolve", e);
+          }
         }
       }}
     />

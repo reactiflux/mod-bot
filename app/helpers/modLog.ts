@@ -76,6 +76,11 @@ export const reportUser = async ({
   const cached = cachedWarnings.get(simplifiedContent);
   const newReport: Report = { message, reason, staff };
 
+  console.log(
+    "reportUser",
+    `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
+  );
+
   const { modLog: modLogId, moderator: modRoleId } = await fetchSettings(
     guild,
     [SETTINGS.modLog, SETTINGS.moderator],
