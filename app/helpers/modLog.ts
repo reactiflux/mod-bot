@@ -2,8 +2,8 @@ import type {
   Message,
   MessageCreateOptions,
   User,
-  ClientUser,
   APIEmbed,
+  AnyThreadChannel,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
 import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
@@ -18,24 +18,25 @@ import {
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
 import { simplifyString, truncateMessage } from "#~/helpers/string";
+import { escalationControls } from "#~/helpers/escalate";
 
 export const enum ReportReasons {
   anonReport = "anonReport",
   track = "track",
-  mod = "mod",
+  modResolution = "modResolution",
   spam = "spam",
 }
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
   [ReportReasons.track]: "tracked",
-  [ReportReasons.mod]: "convened mods",
+  [ReportReasons.modResolution]: "Mod vote resolved",
   [ReportReasons.spam]: "detected as spam",
 };
 interface Report {
   reason: ReportReasons;
   message: Message;
   extra?: string;
-  staff: User | ClientUser | false;
+  staff: User | false;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -61,13 +62,20 @@ const makeLogThread = (message: Message, user: User) => {
   });
 };
 
+interface Reported {
+  message: Message;
+  warnings: number;
+  thread: AnyThreadChannel;
+  latestReport?: Message;
+}
+
 // const warningMessages = new ();
 export const reportUser = async ({
   reason,
   message,
   extra,
   staff,
-}: Omit<Report, "date">) => {
+}: Omit<Report, "date">): Promise<Reported> => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
   const cacheKey = `${message.guildId}${message.author.id}`;
@@ -75,17 +83,21 @@ export const reportUser = async ({
 
   let cachedWarnings = cache.get(cacheKey);
   if (!cachedWarnings) {
-    cachedWarnings = new Map<
-      string,
-      {
-        logMessage: Message;
-        logs: Report[];
-      }
-    >();
+    cachedWarnings = new Map<string, { logMessage: Message; logs: Report[] }>();
     cache.set(cacheKey, cachedWarnings);
   }
   const cached = cachedWarnings.get(simplifiedContent);
   const newReport: Report = { message, reason, staff };
+
+  console.log(
+    "reportUser",
+    `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
+  );
+
+  const { modLog: modLogId, moderator: modRoleId } = await fetchSettings(
+    guild,
+    [SETTINGS.modLog, SETTINGS.moderator],
+  );
 
   if (cached) {
     // If we already logged for ~ this message, post to the existing thread
@@ -94,12 +106,16 @@ export const reportUser = async ({
     let thread = cachedMessage.thread;
     if (!thread || !cachedMessage.hasThread) {
       thread = await makeLogThread(cachedMessage, message.author);
+      await escalationControls(message, thread, modRoleId);
     }
 
     if (cached.logs.some((l) => l.message.id === message.id)) {
       // If we've already logged exactly this message, don't log it again as a
       // separate report.
-      const latestReport = await thread.send(makeReportMessage(newReport));
+      const latestReport = // Don't reply in thread if this is a resolved vote
+        reason === ReportReasons.modResolution
+          ? undefined
+          : await thread.send(makeReportMessage(newReport));
       return {
         warnings: logs.length,
         message: cachedMessage,
@@ -117,7 +133,10 @@ export const reportUser = async ({
     const warnings = newLogs.length;
 
     const [latestReport] = await Promise.all([
-      thread.send(makeReportMessage(newReport)),
+      // Don't reply in thread if this is a resolved vote
+      reason === ReportReasons.modResolution
+        ? Promise.resolve(undefined)
+        : thread.send(makeReportMessage(newReport)),
       cachedMessage.edit(
         cachedMessage.content
           ?.replace(/warned \d times/, `warned ${cachedWarnings.size} times`)
@@ -128,7 +147,6 @@ export const reportUser = async ({
   }
 
   // If this is new, send a new message
-  const { modLog: modLogId } = await fetchSettings(guild, [SETTINGS.modLog]);
   const modLog = await guild.channels.fetch(modLogId);
   if (!modLog) {
     throw new Error("Channel configured for use as mod log not found");
@@ -149,7 +167,11 @@ export const reportUser = async ({
 
   const warningMessage = await modLog.send(logBody);
   const thread = await makeLogThread(warningMessage, message.author);
-  const latestReport = await thread.send(makeReportMessage(newReport));
+  await escalationControls(message, thread, modRoleId);
+
+  const firstReportMessage = makeReportMessage(newReport);
+
+  const latestReport = await thread.send(firstReportMessage);
 
   cachedWarnings.set(simplifiedContent, {
     logMessage: warningMessage,

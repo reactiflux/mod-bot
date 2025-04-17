@@ -10,7 +10,6 @@ import { applicationKey } from "#~/helpers/env.server";
 import discordBot from "#~/discord/gateway";
 import { registerCommand } from "#~/discord/deployCommands.server";
 
-import * as convene from "#~/commands/convene";
 import * as forceBan from "#~/commands/force-ban";
 import * as setup from "#~/commands/setup";
 import * as report from "#~/commands/report";
@@ -58,7 +57,6 @@ discordBot();
 /**
  * Register Discord commands.
  */
-registerCommand(convene);
 registerCommand(setup);
 registerCommand(report);
 registerCommand(forceBan);
