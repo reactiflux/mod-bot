@@ -162,7 +162,7 @@ ${quoteAndEscape(reportedMessage.content)}`);
 
           case resolutions.track:
             reportUser({
-              reason: ReportReasons.track,
+              reason: ReportReasons.modResolution,
               message: reportedMessage,
               staff,
             });

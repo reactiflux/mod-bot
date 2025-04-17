@@ -16,14 +16,21 @@ export const handler = async (
 ) => {
   const { targetMessage: message, user } = interaction;
 
-  const reportPromise = reportUser({
+  const { thread, latestReport } = await reportUser({
     reason: ReportReasons.track,
     message,
     staff: user,
   });
 
+  if (!latestReport) {
+    console.log(
+      "handler (track)",
+      `Something strange happened: no 'latestReport' found`,
+    );
+  }
+
   const instance = reacord.createInteractionReply(interaction, {
-    content: "Tracked",
+    content: `Tracked: <#${thread.id}>`,
     ephemeral: true,
   });
   instance.render(
@@ -36,10 +43,9 @@ export const handler = async (
           // Need to ensure that we've finished reporting before we try to
           // respond to a click event.
           // Initiating at the top level and waiting here is a big UX win.
-          const { latestReport } = await reportPromise;
           await Promise.allSettled([
             message.delete(),
-            latestReport.reply({
+            latestReport?.reply({
               allowedMentions: { users: [] },
               content: `deleted by ${user.username}`,
             }),

@@ -1,4 +1,10 @@
-import type { Message, MessageCreateOptions, User, APIEmbed } from "discord.js";
+import type {
+  Message,
+  MessageCreateOptions,
+  User,
+  APIEmbed,
+  AnyThreadChannel,
+} from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
 import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
 import TTLCache from "@isaacs/ttlcache";
@@ -56,13 +62,20 @@ const makeLogThread = (message: Message, user: User) => {
   });
 };
 
+interface Reported {
+  message: Message;
+  warnings: number;
+  thread: AnyThreadChannel;
+  latestReport?: Message;
+}
+
 // const warningMessages = new ();
 export const reportUser = async ({
   reason,
   message,
   extra,
   staff,
-}: Omit<Report, "date">) => {
+}: Omit<Report, "date">): Promise<Reported> => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
   const cacheKey = `${message.guildId}${message.author.id}`;
@@ -99,7 +112,10 @@ export const reportUser = async ({
     if (cached.logs.some((l) => l.message.id === message.id)) {
       // If we've already logged exactly this message, don't log it again as a
       // separate report.
-      const latestReport = await thread.send(makeReportMessage(newReport));
+      const latestReport = // Don't reply in thread if this is a resolved vote
+        reason === ReportReasons.modResolution
+          ? undefined
+          : await thread.send(makeReportMessage(newReport));
       return {
         warnings: logs.length,
         message: cachedMessage,
@@ -119,7 +135,7 @@ export const reportUser = async ({
     const [latestReport] = await Promise.all([
       // Don't reply in thread if this is a resolved vote
       reason === ReportReasons.modResolution
-        ? Promise.resolve()
+        ? Promise.resolve(undefined)
         : thread.send(makeReportMessage(newReport)),
       cachedMessage.edit(
         cachedMessage.content
