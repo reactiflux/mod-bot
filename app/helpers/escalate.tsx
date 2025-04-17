@@ -152,7 +152,7 @@ export async function escalate(
 
 Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.
 
-  ${quoteAndEscape(reportedMessage.content)}`);
+${quoteAndEscape(reportedMessage.content)}`);
 
             reportedMessage.reply(
               `This message resulted in a formal warning from the moderators. Please review the community rules.`,
