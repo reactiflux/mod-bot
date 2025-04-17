@@ -69,7 +69,6 @@ export async function escalate(
   thread: ThreadChannel,
   modRoleId: string,
 ) {
-  thread.setName(`‼️ ${thread.name}`);
   const originalChannel =
     (await reportedMessage.channel.fetch()) as TextChannel;
   const pollInstance = reacord.createChannelMessage(thread.id).render(
@@ -80,7 +79,6 @@ export async function escalate(
       }}
       onResolve={async (resolution) => {
         pollInstance.deactivate();
-        thread.setName(thread.name.replace("‼️", "✅"));
         switch (resolution) {
           case resolutions.restrict:
             await Promise.all([
@@ -143,7 +141,7 @@ export async function escalate(
                 reason: ReportReasons.modResolution,
                 message: reportedMessage,
                 staff,
-                extra: "✅ Nudge",
+                extra: "✅ Warned",
               }),
             ]);
             const [{ moderator: modRoleId }] = await Promise.all([
