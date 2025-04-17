@@ -18,7 +18,7 @@ import {
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
 import { simplifyString, truncateMessage } from "#~/helpers/string";
-import { escalationControls } from "./escalate";
+import { escalationControls } from "#~/helpers/escalate";
 
 export const enum ReportReasons {
   anonReport = "anonReport",
