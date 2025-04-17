@@ -38,11 +38,15 @@ export async function escalationControls(
       />
       <Button
         onClick={async (e) => {
-          console.log("kick()");
-
+          console.log(
+            "escalationControls",
+            `${reportedMessage.author.username} kicked by ${e.user.username}`,
+          );
           await Promise.allSettled([
-            // reportedMessage.member?.kick(),
-            e.reply(`deleted by ${e.user.username}`),
+            reportedMessage.member?.kick(),
+            e.reply(
+              `<@${reportedMessage.author.id}> (${reportedMessage.author.username}) kicked by ${e.user.username}`,
+            ),
           ]);
         }}
         style="secondary"
@@ -50,10 +54,15 @@ export async function escalationControls(
       />
       <Button
         onClick={async (e) => {
-          console.log("ban()");
+          console.log(
+            "escalationControls",
+            `${reportedMessage.author.username} banned by ${e.user.username}`,
+          );
           await Promise.allSettled([
-            // reportedMessage.member?.ban(),
-            e.reply(`deleted by ${e.user.username}`),
+            reportedMessage.guild?.bans.create(reportedMessage.author),
+            e.reply(
+              `<@${reportedMessage.author.id}> (${reportedMessage.author.username}) banned by ${e.user.username}`,
+            ),
           ]);
         }}
         style="secondary"
