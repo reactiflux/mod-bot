@@ -1,4 +1,4 @@
-import { ChannelType } from "discord.js";
+import { ChannelType, PermissionsBitField } from "discord.js";
 import type { Message, TextChannel, ThreadChannel, User } from "discord.js";
 
 import { reacord } from "#~/discord/client.server";
@@ -18,10 +18,18 @@ export async function escalationControls(
 ) {
   reacord.createChannelMessage(thread.id).render(
     <>
+      Moderator controls
       <Button
         label="Delete"
         style="danger"
         onClick={async (e) => {
+          const { guild } = reportedMessage;
+          const actor = await guild?.members.fetch(e.user.id);
+          if (
+            !actor?.permissions.has(PermissionsBitField.Flags.ManageMessages)
+          ) {
+            return;
+          }
           await Promise.allSettled([
             reportedMessage.delete(),
             e.reply(`deleted by ${e.user.username}`),
@@ -30,14 +38,9 @@ export async function escalationControls(
       />
       <Button
         onClick={async (e) => {
-          const member = await thread.guild.members.fetch(e.user.id);
-          escalate(member.user, reportedMessage, thread, modRoleId);
-        }}
-        style="primary"
-        label="Escalate"
-      />
-      <Button
-        onClick={async (e) => {
+          if (!e.guild?.member.roles?.includes(modRoleId)) {
+            return;
+          }
           console.log(
             "escalationControls",
             `${reportedMessage.author.username} kicked by ${e.user.username}`,
@@ -54,6 +57,9 @@ export async function escalationControls(
       />
       <Button
         onClick={async (e) => {
+          if (!e.guild?.member.roles?.includes(modRoleId)) {
+            return;
+          }
           console.log(
             "escalationControls",
             `${reportedMessage.author.username} banned by ${e.user.username}`,
@@ -67,6 +73,20 @@ export async function escalationControls(
         }}
         style="secondary"
         label="Ban"
+      />
+    </>,
+  );
+  reacord.createChannelMessage(thread.id).render(
+    <>
+      Anyone can escalate, which will notify moderators and call for a vote on
+      how to respond.
+      <Button
+        onClick={async (e) => {
+          const member = await thread.guild.members.fetch(e.user.id);
+          escalate(member.user, reportedMessage, thread, modRoleId);
+        }}
+        style="primary"
+        label="Escalate"
       />
     </>,
   );
