@@ -10,13 +10,13 @@ import { app as rrApp } from "./build/server/index.js";
 const app = express();
 
 console.log("Starting production webserver");
-app.use(rrApp);
 
 app.use(
   "/assets",
   express.static("build/client/assets", { immutable: true, maxAge: "1y" }),
 );
 app.use(express.static("build/client", { maxAge: "1h" }));
+app.use(rrApp);
 
 /** ERROR TRACKING
   Must go after route handlers
