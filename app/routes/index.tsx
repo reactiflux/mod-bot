@@ -1,7 +1,28 @@
-import { Login } from "#~/basics/login";
-import { ServerOverview } from "#~/features/ServerOverview";
+import type { PropsWithChildren } from "react";
+import { REST } from "@discordjs/rest";
 
+import type { Route } from "./+types/index";
+
+import { retrieveDiscordToken } from "#~/models/session.server.js";
 import { useOptionalUser } from "#~/utils";
+
+import { ServerOverview } from "#~/features/ServerOverview";
+import { Login } from "#~/basics/login";
+import { Logout } from "#~/basics/logout.js";
+
+const userDiscord = new REST({ authPrefix: "Bearer" });
+
+export const loader = async ({ request }: Route.LoaderArgs) => {
+  let token;
+  try {
+    token = await retrieveDiscordToken(request);
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+
+  userDiscord.setToken(token.token.access_token as string);
+};
 
 const EmojiBackdrop = () => {
   return (
@@ -40,10 +61,24 @@ const EmojiBackdrop = () => {
   );
 };
 
-export default function Index() {
+const Layout = ({ children }: PropsWithChildren) => {
+  return (
+    <>
+      <nav className="flex justify-end">
+        <div>
+          <Logout />
+        </div>
+      </nav>
+      <main className="">{children}</main>
+      <footer></footer>
+    </>
+  );
+};
+
+export default function Index({ loaderData }: Route.ComponentProps) {
   const user = useOptionalUser();
 
-  if (!user) {
+  if (!user || !loaderData) {
     return (
       <main className="relative min-h-screen bg-white flex items-center justify-center overflow-hidden">
         <EmojiBackdrop />
@@ -67,5 +102,10 @@ export default function Index() {
       </main>
     );
   }
-  return <ServerOverview />;
+
+  return (
+    <Layout>
+      <ServerOverview />
+    </Layout>
+  );
 }
