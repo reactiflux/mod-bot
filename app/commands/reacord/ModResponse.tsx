@@ -7,15 +7,18 @@ import {
   resolutions,
   useVotes,
 } from "#~/helpers/modResponse";
+import type { User } from "discord.js";
 
 const VOTES_TO_APPROVE = 3;
 
 export const ModResponse = ({
+  initiator,
   votesRequired = VOTES_TO_APPROVE,
   onVote,
   onResolve,
   modRoleId,
 }: {
+  initiator: User;
   votesRequired?: number;
   onVote: (result: { vote: Resolution; user: ComponentEventUser }) => void;
   onResolve: (result: Resolution, event: ComponentEvent) => Promise<void>;
@@ -64,7 +67,7 @@ export const ModResponse = ({
 
   return (
     <>
-      {`After ${votesRequired} or more votes, the leading resolution will be automatically enforced. <@&${modRoleId}> please respond.`}
+      {`Report escalated by <@${initiator.id}>, <@&${modRoleId}> please respond. After ${votesRequired} or more votes, the leading resolution will be automatically enforced.`}
       {/* TODO: show vote in progress, reveal votes and unvoted mods */}
       <ActionRow>
         {renderButton(
