@@ -128,7 +128,7 @@ export async function escalate(
               }),
               applyRestriction(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has had restrictions applied to them",
+                "After a vote by the mods, this member has had restrictions applied to them.",
               ),
             ]);
             return;
@@ -142,7 +142,7 @@ export async function escalate(
               }),
               kick(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has been kicked from the server to cool off",
+                "After a vote by the mods, this member has been kicked from the server.",
               ),
             ]);
             return;
@@ -156,7 +156,7 @@ export async function escalate(
               }),
               ban(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has been permanently banned",
+                "After a vote by the mods, this member has been banned.",
               ),
             ]);
             return;
