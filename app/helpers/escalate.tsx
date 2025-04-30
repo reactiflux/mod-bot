@@ -9,7 +9,11 @@ import { resolutions } from "#~/helpers/modResponse";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { ModResponse } from "#~/commands/reacord/ModResponse";
-import { Button } from "reacord";
+import {
+  Button,
+  type ComponentEventReplyOptions,
+  type ReacordInstance,
+} from "reacord";
 
 export async function escalationControls(
   reportedMessage: Message,
@@ -83,7 +87,7 @@ export async function escalationControls(
       <Button
         onClick={async (e) => {
           const member = await thread.guild.members.fetch(e.user.id);
-          escalate(member.user, reportedMessage, thread, modRoleId);
+          escalate(e.reply, member.user, reportedMessage, thread, modRoleId);
         }}
         style="primary"
         label="Escalate"
@@ -93,15 +97,20 @@ export async function escalationControls(
 }
 
 export async function escalate(
-  staff: User | false,
+  reply: (
+    content?: React.ReactNode,
+    options?: ComponentEventReplyOptions,
+  ) => ReacordInstance,
+  staff: User,
   reportedMessage: Message,
   thread: ThreadChannel,
   modRoleId: string,
 ) {
   const originalChannel =
     (await reportedMessage.channel.fetch()) as TextChannel;
-  const pollInstance = reacord.createChannelMessage(thread.id).render(
+  const pollInstance = reply(
     <ModResponse
+      initiator={staff}
       modRoleId={modRoleId}
       onVote={async (newVote) => {
         await thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
@@ -119,7 +128,7 @@ export async function escalate(
               }),
               applyRestriction(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has had restrictions applied to them",
+                "After a vote by the mods, this member has had restrictions applied to them.",
               ),
             ]);
             return;
@@ -133,7 +142,7 @@ export async function escalate(
               }),
               kick(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has been kicked from the server to cool off",
+                "After a vote by the mods, this member has been kicked from the server.",
               ),
             ]);
             return;
@@ -147,7 +156,7 @@ export async function escalate(
               }),
               ban(reportedMessage.member),
               reportedMessage.reply(
-                "After a vote by the mods, this member has been permanently banned",
+                "After a vote by the mods, this member has been banned.",
               ),
             ]);
             return;
