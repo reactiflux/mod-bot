@@ -87,7 +87,12 @@ export async function escalationControls(
       <Button
         onClick={async (e) => {
           const member = await thread.guild.members.fetch(e.user.id);
-          escalate(e.reply, member.user, reportedMessage, thread, modRoleId);
+          await Promise.all([
+            thread.send(
+              `Report escalated by <@${member.id}>, <@& ${modRoleId}> please respond.`,
+            ),
+            escalate(e.reply, member.user, reportedMessage, thread, modRoleId),
+          ]);
         }}
         style="primary"
         label="Escalate"
@@ -106,11 +111,11 @@ export async function escalate(
   thread: ThreadChannel,
   modRoleId: string,
 ) {
-  const originalChannel =
-    (await reportedMessage.channel.fetch()) as TextChannel;
+  const [originalChannel] = await Promise.all([
+    reportedMessage.channel.fetch() as Promise<TextChannel>,
+  ]);
   const pollInstance = reply(
     <ModResponse
-      initiator={staff}
       modRoleId={modRoleId}
       onVote={async (newVote) => {
         await thread.send(`<@${newVote.user.id}> voted to ${newVote.vote}`);
