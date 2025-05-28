@@ -3,20 +3,19 @@ import { data, useNavigation, useSearchParams } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
+  const guildId = params.guildId;
 
-  if (!start || !end) {
+  if (!(guildId && start && end)) {
     return data(null, { status: 400 });
   }
 
-  const REACTIFLUX_GUILD_ID = "102860784329052160";
-
   const output = await getTopParticipants(
-    REACTIFLUX_GUILD_ID,
+    guildId,
     start,
     end,
     [],
@@ -94,11 +93,11 @@ export default function DashboardPage({
         <textarea
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
 ${data
-  .map(
-    (d) =>
-      `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
-  )
-  .join("\n")}`}
+              .map(
+                (d) =>
+                  `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
+              )
+              .join("\n")}`}
         ></textarea>
         <table className="mt-24">
           <thead>
