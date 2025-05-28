@@ -11,21 +11,20 @@ import { getTopParticipants } from "#~/models/activity.server";
 export const loader = async ({
   request,
   // context,
-  // params,
+  params,
 }: Parameters<LoaderFunction>[0]) => {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
+  const guildId = params.guildId;
 
-  if (!start || !end) {
+  if (!(guildId && start && end)) {
     return data(null, { status: 400 });
   }
 
-  const REACTIFLUX_GUILD_ID = "102860784329052160";
-
   const output = await getTopParticipants(
-    REACTIFLUX_GUILD_ID,
+    guildId,
     start,
     end,
     [],
