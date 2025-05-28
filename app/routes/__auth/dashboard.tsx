@@ -1,5 +1,10 @@
 import type { Route } from "./+types/dashboard";
-import { data, useNavigation, useSearchParams } from "react-router";
+import {
+  data,
+  useNavigation,
+  useSearchParams,
+  Link,
+} from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
@@ -118,7 +123,16 @@ ${data
           <tbody>
             {data.map((d) => (
               <tr key={d.data.member.author_id}>
-                <td>{d.data.member.author_id}</td>
+                <td>
+                  <Link
+                    to={{
+                      pathname: d.data.member.author_id,
+                      search: `?start=${start}&end=${end}`,
+                    }}
+                  >
+                    {d.data.member.author_id}
+                  </Link>
+                </td>
                 <td>{percent(d.metadata.percentZeroDays)}</td>
                 <td>{d.data.member.total_word_count}</td>
                 <td>{d.data.member.message_count}</td>
