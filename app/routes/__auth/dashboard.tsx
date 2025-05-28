@@ -1,5 +1,10 @@
 import type { LoaderFunction } from "react-router";
-import { data, useLoaderData, useNavigation } from "react-router";
+import {
+  data,
+  useLoaderData,
+  useNavigation,
+  useSearchParams,
+} from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
@@ -41,16 +46,16 @@ const percent = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 }).format;
 
-function RangeForm() {
+function RangeForm({ values }: { values: { start?: string; end?: string } }) {
   return (
     <form method="GET">
       <Label>
         Start date
-        <input name="start" type="date" />
+        <input name="start" type="date" defaultValue={values.start} />
       </Label>
       <Label>
         End date
-        <input name="end" type="date" />
+        <input name="end" type="date" defaultValue={values.end} />
       </Label>
       <input type="submit" value="Submit" />
     </form>
@@ -68,16 +73,20 @@ const DataHeading = ({ children }: PropsWithChildren) => {
 export default function DashboardPage() {
   const nav = useNavigation();
   const data = useLoaderData<typeof loader>();
+  const [qs] = useSearchParams();
 
   if (nav.state === "loading") {
     return "loading…";
   }
 
+  const start = qs.get("start") ?? undefined;
+  const end = qs.get("end") ?? undefined;
+
   if (!data) {
     return (
       <div>
         <div className="flex min-h-full justify-center">
-          <RangeForm />
+          <RangeForm values={{ start, end }} />
         </div>
         <div></div>
       </div>
@@ -87,7 +96,7 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="flex min-h-full justify-center">
-        <RangeForm />
+        <RangeForm values={{ start, end }} />
       </div>
       <div>
         <textarea
