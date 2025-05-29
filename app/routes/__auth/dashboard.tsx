@@ -1,13 +1,9 @@
-import type { LoaderFunction } from "react-router";
-import { data, useLoaderData, useNavigation } from "react-router";
+import type { Route } from "./+types/dashboard";
+import { data, type LoaderFunctionArgs, useNavigation } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
-export const loader = async ({
-  request,
-  // context,
-  // params,
-}: Parameters<LoaderFunction>[0]) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
@@ -28,7 +24,7 @@ export const loader = async ({
   );
 
   return output;
-};
+}
 
 const Label = (props: LabelHTMLAttributes<Element>) => (
   <label {...props} className={`${props.className ?? ""} m-4`}>
@@ -65,9 +61,10 @@ const DataHeading = ({ children }: PropsWithChildren) => {
   );
 };
 
-export default function DashboardPage() {
+export default function DashboardPage({
+  loaderData: data,
+}: Route.ComponentProps) {
   const nav = useNavigation();
-  const data = useLoaderData<typeof loader>();
 
   if (nav.state === "loading") {
     return "loading…";

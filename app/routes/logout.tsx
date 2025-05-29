@@ -1,10 +1,10 @@
-import type { ActionFunction } from "react-router";
+import type { ActionFunctionArgs } from "react-router";
 
 import { logout } from "#~/models/session.server";
 
-export const action: ActionFunction = async ({ request }) => {
+export async function action({ request }: ActionFunctionArgs) {
   return await logout(request);
-};
+}
 
 export default function Logout() {
   return (
