@@ -61,7 +61,7 @@ export async function up(db: Kysely<any>): Promise<void> {
       .where("name", "=", "knex_migrations_lock")
       .execute();
   } catch {
-    /* fallthrough */
+    /* The above operations are expected to fail on a fresh repository clone */
   }
 }
 
