@@ -1,6 +1,19 @@
 import type { Route } from "./+types/sh-user";
 import db from "#~/db.server";
 import { type LoaderFunctionArgs, Link, useSearchParams } from "react-router";
+import {
+  ComposedChart,
+  // Line,
+  // Area,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Scatter,
+  ResponsiveContainer,
+} from "recharts";
 
 export function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
@@ -34,7 +47,10 @@ export function loader({ request, params }: LoaderFunctionArgs) {
   return query.execute();
 }
 
-export default function ({ params, loaderData: data }: Route.ComponentProps) {
+export default function UserProfile({
+  params,
+  loaderData: data,
+}: Route.ComponentProps) {
   const [qs] = useSearchParams();
   const start = qs.get("start");
   const end = qs.get("end");
@@ -56,6 +72,31 @@ export default function ({ params, loaderData: data }: Route.ComponentProps) {
         readOnly
         defaultValue={JSON.stringify(data, null, 2)}
       />
+      <ResponsiveContainer width="100%" height={300}>
+        <ComposedChart
+          width={500}
+          height={200}
+          data={data}
+          margin={{
+            top: 20,
+            right: 20,
+            bottom: 20,
+            left: 20,
+          }}
+        >
+          <CartesianGrid stroke="#f5f5f5" />
+          <XAxis dataKey="date" scale="band" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="message_count" barSize={20} fill="#413ea0" />
+          {
+            // <Area type="monotone" dataKey="amt" fill="#8884d8" stroke="#8884d8" />
+            // <Line type="monotone" dataKey="uv" stroke="#ff7300" />
+          }
+          <Scatter dataKey="react_count" fill="red" />
+        </ComposedChart>
+      </ResponsiveContainer>
     </>
   );
 }
