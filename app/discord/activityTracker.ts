@@ -3,15 +3,29 @@ import type { Client, Message, PartialMessage, TextChannel } from "discord.js";
 import db from "#~/db.server";
 
 export async function startActivityTracking(client: Client) {
-  const channelCache = new Map<string, TextChannel>();
-
   async function getOrFetchChannel(msg: Message) {
     // TODO: cache eviction?
-    return channelCache.has(msg.channelId)
-      ? channelCache.get(msg.channelId)
-      : channelCache
-          .set(msg.channelId, (await msg.channel.fetch()) as TextChannel)
-          .get(msg.channelId);
+    const channelInfo = await db
+      .selectFrom("channel_info")
+      .selectAll()
+      .where("id", "=", msg.channelId)
+      .executeTakeFirst();
+    if (channelInfo) return channelInfo;
+    const data = (await msg.channel.fetch()) as TextChannel;
+    const values = {
+      id: msg.channelId,
+      category: data?.parent?.name,
+      name: data,
+    };
+    await db
+      .insertInto("channel_info")
+      .values({
+        id: msg.channelId,
+        name: data.name,
+        category: data?.parent?.name ?? null,
+      })
+      .execute();
+    return values;
   }
 
   client.on(Events.MessageCreate, async (msg) => {
@@ -29,7 +43,7 @@ export async function startActivityTracking(client: Client) {
         guild_id: msg.guildId,
         channel_id: msg.channelId,
         recipient_id: msg.mentions?.repliedUser?.id ?? null,
-        channel_category: (await getOrFetchChannel(msg))?.parent?.name,
+        channel_category: (await getOrFetchChannel(msg)).category,
       })
       .execute();
   });
