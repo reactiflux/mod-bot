@@ -73,8 +73,8 @@ async function getMessageStats(msg: Message | PartialMessage) {
   }
   const { content } = await msg.fetch();
   return {
-    char_count: content?.length ?? 0,
-    word_count: content?.split(/\s+/).length ?? 0,
+    char_count: getChars(content).length,
+    word_count: getWords(content).length,
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };
@@ -96,4 +96,20 @@ export async function reportByGuild(guildId: string) {
     .groupBy("author_id")
     .execute();
   return result;
+}
+
+// this is better than string.split(/\s+/) because it counts emojis as 1 word
+// and we can easily filter them, works much better in other languages too
+function getWords(content: string) {
+  return Array.from(
+    new Intl.Segmenter("en-us", { granularity: "word" }).segment(content),
+  ).filter((seg) => seg.isWordLike);
+}
+
+// string.split(/\s+/) will count most emojis as 2+ chars
+// this will count them as 1
+function getChars(content: string) {
+  return Array.from(
+    new Intl.Segmenter("en-us", { granularity: "grapheme" }).segment(content),
+  );
 }
