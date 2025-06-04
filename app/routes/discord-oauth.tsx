@@ -1,7 +1,7 @@
-import { redirect, type LoaderFunction } from "react-router";
+import { redirect, type LoaderFunctionArgs } from "react-router";
 import { completeOauthLogin } from "#~/models/session.server";
 
-export const loader: LoaderFunction = async ({ request }) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const cookie = request.headers.get("Cookie");
@@ -19,4 +19,4 @@ export const loader: LoaderFunction = async ({ request }) => {
     cookie,
     url.searchParams.get("state") ?? undefined,
   );
-};
+}

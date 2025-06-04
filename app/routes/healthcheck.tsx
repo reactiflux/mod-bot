@@ -1,8 +1,8 @@
 // learn more: https://fly.io/docs/reference/configuration/#services-http_checks
-import type { LoaderFunction } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
 import db from "#~/db.server";
 
-export const loader: LoaderFunction = async ({ request }) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   const host =
     request.headers.get("X-Forwarded-Host") ?? request.headers.get("host");
 
@@ -22,4 +22,4 @@ export const loader: LoaderFunction = async ({ request }) => {
     console.log("healthcheck ❌", { error });
     return new Response("ERROR", { status: 500 });
   }
-};
+}
