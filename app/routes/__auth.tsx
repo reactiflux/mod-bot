@@ -22,7 +22,7 @@ export default function Auth() {
     return (
       <div className="flex min-h-full flex-col justify-center">
         <div className="mx-auto w-full max-w-md px-8">
-          <Login redirectTo={location.pathname} />;
+          <Login redirectTo={location.pathname} />
         </div>
       </div>
     );
