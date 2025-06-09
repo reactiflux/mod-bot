@@ -72,9 +72,47 @@ async function getMessageStats(msg: Message | PartialMessage) {
     return;
   }
   const { content } = await msg.fetch();
+
+  const blocks = parseMarkdownBlocks(content);
+  const wordCount = blocks
+    .filter((b) => b.type === "text")
+    .reduce((acc, block) => acc + getWords(block.content).length, 0);
+
+  const charCount = blocks
+    .filter((b) => b.type === "text")
+    .reduce((acc, block) => acc + getChars(block.content).length, 0);
+
+  const codeWords = blocks
+    .filter((b) => b.type !== "text")
+    // .flatMap(b => getWords(Array.isArray(b.content) ? b.content.join('\n') : b.content))
+    .reduce(
+      (acc, block) =>
+        acc +
+        getWords(
+          Array.isArray(block.content)
+            ? block.content.join("\n")
+            : block.content,
+        ).length,
+      0,
+    );
+
+  const codeChars = blocks
+    .filter((b) => b.type !== "text")
+    .reduce(
+      (acc, block) =>
+        acc +
+        getChars(
+          Array.isArray(block.content)
+            ? block.content.join("\n")
+            : block.content,
+        ).length,
+      0,
+    );
+
   return {
-    char_count: getChars(content).length,
-    word_count: getWords(content).length,
+    char_count: charCount,
+    word_count: wordCount,
+    code_stats: { words: codeWords, chars: codeChars },
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };
@@ -112,4 +150,40 @@ function getChars(content: string) {
   return Array.from(
     new Intl.Segmenter("en-us", { granularity: "grapheme" }).segment(content),
   );
+}
+
+type MarkdownBlocks = Array<
+  | { type: "fenced"; lang: undefined | string; content: string[] }
+  | { type: "inline"; content: string }
+  | { type: "text"; content: string }
+>;
+function parseMarkdownBlocks(content: string): MarkdownBlocks {
+  const blocks: MarkdownBlocks = [];
+  let idx = 0;
+
+  content.replaceAll(/```[\s\S]+?\n^```$|`.+?`/gm, (match, position) => {
+    const prev = content.slice(idx, position - 1);
+    idx = position;
+    if (prev) blocks.push({ type: "text", content: prev.trim() });
+
+    const codeText = content.slice(idx, idx + match.length).split("\n");
+    idx += match.length;
+    if (codeText[0].startsWith("```")) {
+      const lang = codeText[0].slice(3) || undefined;
+      blocks.push({
+        type: "fenced",
+        lang,
+        content: codeText.slice(1, -1),
+      });
+    } else {
+      blocks.push({ type: "inline", content: codeText[0].slice(1, -1) });
+    }
+    return "";
+  });
+
+  if (idx < content.length) {
+    blocks.push({ type: "text", content: content.slice(idx).trim() });
+  }
+
+  return blocks;
 }
