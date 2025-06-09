@@ -52,13 +52,17 @@ export async function up(db: Kysely<any>): Promise<void> {
       .execute();
   }
 
-  await db.schema.dropTable("knex_migrations").ifExists().execute();
-  await db.schema.dropTable("knex_migrations_lock").ifExists().execute();
-  await db
-    .deleteFrom("sqlite_sequence")
-    .where("name", "=", "knex_migrations")
-    .where("name", "=", "knex_migrations_lock")
-    .execute();
+  try {
+    await db.schema.dropTable("knex_migrations").ifExists().execute();
+    await db.schema.dropTable("knex_migrations_lock").ifExists().execute();
+    await db
+      .deleteFrom("sqlite_sequence")
+      .where("name", "=", "knex_migrations")
+      .where("name", "=", "knex_migrations_lock")
+      .execute();
+  } catch {
+    /* The above operations are expected to fail on a fresh repository clone */
+  }
 }
 
 export async function down(db: Kysely<any>): Promise<void> {

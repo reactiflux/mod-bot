@@ -1,4 +1,4 @@
-import type { LoaderFunction, MetaFunction } from "react-router";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 import "./styles/tailwind.css";
@@ -12,13 +12,11 @@ export const meta: MetaFunction = () => [
   },
 ];
 
-export const loader: LoaderFunction = async ({
-  request,
-}: Parameters<LoaderFunction>[0]) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   return {
     user: await getUser(request),
   };
-};
+}
 
 export default function App() {
   return (

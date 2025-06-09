@@ -1,4 +1,4 @@
-import type { ActionFunction, LoaderFunction } from "react-router";
+import type { ActionFunctionArgs, LoaderFunction } from "react-router";
 import { redirect } from "react-router";
 
 import { initOauthLogin } from "#~/models/session.server";
@@ -8,7 +8,7 @@ export const loader: LoaderFunction = async () => {
   return redirect("/");
 };
 
-export const action: ActionFunction = async ({ request }) => {
+export async function action({ request }: ActionFunctionArgs) {
   // fetch user from db
   // if doesn't exist, create it with discord ID + email
   const form = await request.formData();
@@ -17,7 +17,7 @@ export const action: ActionFunction = async ({ request }) => {
     request,
     redirectTo: form.get("redirectTo")?.toString() ?? undefined,
   });
-};
+}
 
 export default function LoginPage() {
   return (
