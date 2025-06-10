@@ -4,7 +4,7 @@ import { route, layout } from "@react-router/dev/routes";
 export default [
   layout("routes/__auth.tsx", [
     route(":guildId/sh", "routes/__auth/dashboard.tsx"),
-    route(":guildId/sh/:userId", "routes/sh-user.tsx"),
+    route(":guildId/sh/:userId", "routes/__auth/sh-user.tsx"),
     route("login", "routes/__auth/login.tsx"),
     route("test", "routes/__auth/test.tsx"),
   ]),
