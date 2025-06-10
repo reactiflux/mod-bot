@@ -114,10 +114,16 @@ async function getMessageStats(msg: Message | PartialMessage) {
       0,
     );
 
+  const codeLines = blocks.reduce((acc, block) => {
+    if (block.type === "fenced") return acc + block.content.length;
+    if (block.type === "inline") return acc + 1;
+    return acc;
+  }, 0);
+
   return {
     char_count: charCount,
     word_count: wordCount,
-    code_stats: { words: codeWords, chars: codeChars },
+    code_stats: { words: codeWords, chars: codeChars, lines: codeLines },
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };
