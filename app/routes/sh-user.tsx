@@ -247,6 +247,7 @@ export default function UserProfile({
           <PolarGrid />
           <PolarAngleAxis dataKey="category" />
           <PolarRadiusAxis />
+          <Tooltip />
           <Radar
             name="Channels"
             dataKey="messages"
