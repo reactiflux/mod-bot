@@ -89,7 +89,6 @@ async function getMessageStats(msg: Message | PartialMessage) {
 
   const codeWords = blocks
     .filter((b) => b.type !== "text")
-    // .flatMap(b => getWords(Array.isArray(b.content) ? b.content.join('\n') : b.content))
     .reduce(
       (acc, block) =>
         acc +
