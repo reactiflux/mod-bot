@@ -1,10 +1,10 @@
-export type MarkdownBlocks =
+export type MarkdownBlock =
   | { type: "fenced"; lang: undefined | string; content: string[] }
   | { type: "inline"; content: string }
   | { type: "text"; content: string };
 
-export function parseMarkdownBlocks(content: string): MarkdownBlocks[] {
-  const blocks: MarkdownBlocks[] = [];
+export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
   // track string position
   let idx = 0;
 
