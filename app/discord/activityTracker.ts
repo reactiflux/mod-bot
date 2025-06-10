@@ -152,37 +152,47 @@ function getChars(content: string) {
   );
 }
 
-type MarkdownBlocks = Array<
+type MarkdownBlocks =
   | { type: "fenced"; lang: undefined | string; content: string[] }
   | { type: "inline"; content: string }
-  | { type: "text"; content: string }
->;
-function parseMarkdownBlocks(content: string): MarkdownBlocks {
-  const blocks: MarkdownBlocks = [];
+  | { type: "text"; content: string };
+
+export function parseMarkdownBlocks(content: string): MarkdownBlocks[] {
+  const blocks: MarkdownBlocks[] = [];
+  // track string position
   let idx = 0;
 
-  content.replaceAll(/```[\s\S]+?\n^```$|`.+?`/gm, (match, position) => {
-    const prev = content.slice(idx, position - 1);
+  // replaceAll gives easy access to the position of the match
+  content.replaceAll(/```[\s\S]+?\n^```|`.+?`/gm, (match, position) => {
+    // code blocks may be preceded by text, add those first
+    const prev = content.slice(idx, position);
     idx = position;
-    if (prev) blocks.push({ type: "text", content: prev.trim() });
+    if (prev) blocks.push({ type: "text", content: prev });
 
+    // split the code block into lines for easier processing
     const codeText = content.slice(idx, idx + match.length).split("\n");
-    idx += match.length;
+    // if first line starts with triple backticks, it's a fenced code block
     if (codeText[0].startsWith("```")) {
+      // everything after backticks is language specifier
       const lang = codeText[0].slice(3) || undefined;
-      blocks.push({
-        type: "fenced",
-        lang,
-        content: codeText.slice(1, -1),
-      });
+      const content = codeText.slice(1, -1); // strip fenced backticks
+      blocks.push({ type: "fenced", lang, content });
     } else {
-      blocks.push({ type: "inline", content: codeText[0].slice(1, -1) });
+      // assume its inline code, return a single string without backticks
+      const content = codeText.join("\n").slice(1, -1);
+      blocks.push({ type: "inline", content });
     }
+
+    // update our index to the end of the match
+    idx += match.length;
+
+    // this is only here to appease TS, value is unused
     return "";
   });
 
+  // after processing all code blocks, there may be text left
   if (idx < content.length) {
-    blocks.push({ type: "text", content: content.slice(idx).trim() });
+    blocks.push({ type: "text", content: content.slice(idx) });
   }
 
   return blocks;
