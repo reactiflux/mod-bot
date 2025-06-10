@@ -5,6 +5,12 @@ export type Generated<T> =
     ? ColumnType<S, I | undefined, U>
     : ColumnType<T, T | undefined, T>;
 
+export interface ChannelInfo {
+  category: string | null;
+  id: string | null;
+  name: string | null;
+}
+
 export interface Guilds {
   id: string | null;
   settings: string | null;
@@ -43,6 +49,7 @@ export interface Users {
 }
 
 export interface DB {
+  channel_info: ChannelInfo;
   guilds: Guilds;
   message_stats: MessageStats;
   sessions: Sessions;
