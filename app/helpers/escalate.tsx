@@ -3,7 +3,7 @@ import type { Message, TextChannel, ThreadChannel, User } from "discord.js";
 
 import { reacord } from "#~/discord/client.server";
 import { quoteAndEscape } from "#~/helpers/discord";
-import { ReportReasons, reportUser } from "#~/helpers/modLog";
+import { reportUser } from "#~/helpers/modLog";
 import { resolutions } from "#~/helpers/modResponse";
 
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
@@ -14,6 +14,10 @@ import {
   type ComponentEventReplyOptions,
   type ReacordInstance,
 } from "reacord";
+import {
+  deleteAllReported,
+  ReportReasons,
+} from "#~/commands/track/reportCache.js";
 
 export async function escalationControls(
   reportedMessage: Message,
@@ -24,7 +28,7 @@ export async function escalationControls(
     <>
       Moderator controls
       <Button
-        label="Delete"
+        label="Delete all reported messages"
         style="danger"
         onClick={async (e) => {
           const { guild } = reportedMessage;
@@ -35,7 +39,8 @@ export async function escalationControls(
             return;
           }
           await Promise.allSettled([
-            reportedMessage.delete(),
+            // ...reportedMessages.map((m) => m.delete()),
+            deleteAllReported(reportedMessage),
             e.reply(`deleted by ${e.user.username}`),
           ]);
         }}
@@ -89,7 +94,7 @@ export async function escalationControls(
           const member = await thread.guild.members.fetch(e.user.id);
           await Promise.all([
             thread.send(
-              `Report escalated by <@${member.id}>, <@& ${modRoleId}> please respond.`,
+              `Report escalated by <@${member.id}>, <@&${modRoleId}> please respond.`,
             ),
             escalate(e.reply, member.user, reportedMessage, thread, modRoleId),
           ]);
