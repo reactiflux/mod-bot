@@ -145,8 +145,9 @@ export const reportUser = async ({
     previousWarnings: queryCacheMetadata(message),
     staff,
   });
-
   const warningMessage = await modLog.send(logBody);
+  trackReport(warningMessage, newReport);
+
   const thread = await makeLogThread(warningMessage, message.author);
   await escalationControls(message, thread, modRoleId);
 
@@ -154,7 +155,6 @@ export const reportUser = async ({
 
   const latestReport = await thread.send(firstReportMessage);
 
-  trackReport(warningMessage, newReport);
   return {
     warnings: 1,
     message: warningMessage,

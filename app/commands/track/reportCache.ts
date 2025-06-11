@@ -95,6 +95,7 @@ export const trackReport = (logMessage: Message, newReport: Report) => {
     logMessage,
     logs: newLogs,
   });
+  cache.set(cacheKey, cachedWarnings);
 };
 
 export const deleteAllReported = async (message: Message) => {
