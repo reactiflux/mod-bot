@@ -23,9 +23,9 @@ app.use(rrApp);
 */
 const errorHandler = (error) => {
   if (error instanceof Error) {
-    console.log("ERROR", error.message, error.stack);
+    console.log("[UNCAUGHT ERROR]", error.message, error.stack);
   } else if (typeof error === "string") {
-    console.log("ERROR", error);
+    console.log("[UNCAUGHT ERROR]", error);
   }
 };
 
