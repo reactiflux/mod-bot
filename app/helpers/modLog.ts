@@ -10,11 +10,9 @@ import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
 
 import {
   queryReportCache,
-  ReportReasons,
-  trackReport,
-} from "#~/commands/track/reportCache.js";
-import {
   queryCacheMetadata,
+  trackReport,
+  ReportReasons,
   type Report,
 } from "#~/commands/track/reportCache.js";
 
@@ -112,8 +110,12 @@ export const reportUser = async ({
         : thread.send(makeReportMessage(newReport)),
       cachedMessage.edit(
         cachedMessage.content
-          ?.replace(/warned \d times/, `warned ${uniqueMessages} times`)
-          .replace(/in \d channels/, `in ${uniqueChannels} channels`) || "",
+          .replace(
+            /for \d different messages/,
+            `for ${uniqueMessages} different messages`,
+          )
+          .replace(/in \d channels/, `in ${uniqueChannels} channels`)
+          .replace(/warned \d times/, `warned ${reportCount} times`) || "",
       ),
     ]);
     return {
@@ -137,7 +139,7 @@ export const reportUser = async ({
   }
   const newLogs: Report[] = [{ message, reason, staff }];
 
-  console.log("reportUser", "new message reported");
+  console.log("[reportUser]", "new message reported");
 
   const logBody = await constructLog({
     extra,
@@ -209,8 +211,8 @@ const constructLog = async ({
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  }) warned ${previousWarnings.reportCount} times recently for ${previousWarnings.uniqueMessages} different messages, posted in ${
-    previousWarnings.uniqueChannels
+  }) warned ${previousWarnings.reportCount + 1} times recently for ${previousWarnings.uniqueMessages + 1} different messages, posted in ${
+    previousWarnings.uniqueChannels + 1
   } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
