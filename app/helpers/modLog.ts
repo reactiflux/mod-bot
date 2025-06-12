@@ -62,7 +62,7 @@ export const reportUser = async ({
   const newReport: Report = { message, reason, staff };
 
   console.log(
-    "reportUser",
+    "[reportUser]",
     `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
   );
 
@@ -88,7 +88,7 @@ export const reportUser = async ({
         reason === ReportReasons.modResolution
           ? undefined
           : await thread.send(makeReportMessage(newReport));
-      console.log("reportUser", "exact message already logged");
+      console.log("[reportUser]", "exact message already logged");
       return {
         warnings: logs.length,
         message: cachedMessage,
@@ -98,7 +98,7 @@ export const reportUser = async ({
       };
     }
 
-    console.log("reportUser", "new message reported");
+    console.log("[reportUser]", "new message reported");
     trackReport(cachedMessage, newReport);
     const { uniqueChannels, uniqueMessages, reportCount } =
       queryCacheMetadata(message);
