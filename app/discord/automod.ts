@@ -1,9 +1,10 @@
 import type { Client } from "discord.js";
 
 import { isStaff } from "#~/helpers/discord";
-import { reportUser, ReportReasons } from "#~/helpers/modLog";
+import { reportUser } from "#~/helpers/modLog";
 import { client } from "./client.server";
 import { isSpam } from "#~/helpers/isSpam";
+import { ReportReasons } from "#~/commands/track/reportCache.js";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
