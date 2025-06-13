@@ -1,6 +1,12 @@
 import { Events, ChannelType } from "discord.js";
 import type { Client, Message, PartialMessage, TextChannel } from "discord.js";
 import db from "#~/db.server";
+import {
+  parseMarkdownBlocks,
+  getChars,
+  getWords,
+} from "#~/helpers/messageParsing";
+import { partition } from "lodash-es";
 
 export async function startActivityTracking(client: Client) {
   async function getOrFetchChannel(msg: Message) {
@@ -86,12 +92,66 @@ async function getMessageStats(msg: Message | PartialMessage) {
     return;
   }
   const { content } = await msg.fetch();
-  return {
-    char_count: getChars(content).length,
-    word_count: getWords(content).length,
+
+  const blocks = parseMarkdownBlocks(content);
+
+  // TODO: groupBy would be better here, but this was easier to keep typesafe
+  const [textblocks, nontextblocks] = partition(
+    blocks,
+    (b) => b.type === "text",
+  );
+  const [links, codeblocks] = partition(
+    nontextblocks,
+    (b) => b.type === "link",
+  );
+
+  const linkStats = links.map((link) => ({ url: link.url }));
+
+  const { wordCount, charCount } = [...links, ...textblocks].reduce(
+    (acc, block) => {
+      const content =
+        block.type === "link" ? (block.label ?? "") : block.content;
+      const words = getWords(content).length;
+      const chars = getChars(content).length;
+      return {
+        wordCount: acc.wordCount + words,
+        charCount: acc.charCount + chars,
+      };
+    },
+    { wordCount: 0, charCount: 0 },
+  );
+
+  const codeStats = codeblocks.map((block) => {
+    switch (block.type) {
+      case "fencedcode": {
+        const content = block.code.join("\n");
+        return {
+          chars: getChars(content).length,
+          words: getWords(content).length,
+          lines: block.code.length,
+          lang: block.lang,
+        };
+      }
+      case "inlinecode": {
+        return {
+          chars: getChars(block.code).length,
+          words: getWords(block.code).length,
+          lines: 1,
+          lang: undefined,
+        };
+      }
+    }
+  });
+
+  const values = {
+    char_count: charCount,
+    word_count: wordCount,
+    code_stats: JSON.stringify(codeStats),
+    link_stats: JSON.stringify(linkStats),
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };
+  return values;
 }
 
 export async function reportByGuild(guildId: string) {
@@ -110,20 +170,4 @@ export async function reportByGuild(guildId: string) {
     .groupBy("author_id")
     .execute();
   return result;
-}
-
-// this is better than string.split(/\s+/) because it counts emojis as 1 word
-// and we can easily filter them, works much better in other languages too
-function getWords(content: string) {
-  return Array.from(
-    new Intl.Segmenter("en-us", { granularity: "word" }).segment(content),
-  ).filter((seg) => seg.isWordLike);
-}
-
-// string.split(/\s+/) will count most emojis as 2+ chars
-// this will count them as 1
-function getChars(content: string) {
-  return Array.from(
-    new Intl.Segmenter("en-us", { granularity: "grapheme" }).segment(content),
-  );
 }
