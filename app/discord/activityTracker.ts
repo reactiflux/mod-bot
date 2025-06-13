@@ -102,12 +102,24 @@ async function getMessageStats(msg: Message | PartialMessage) {
 
   const blocks = parseMarkdownBlocks(content);
 
-  const [textblocks, codeblocks] = partition(blocks, (b) => b.type === "text");
+  // TODO: groupBy would be better here, but this was easier to keep typesafe
+  const [textblocks, nontextblocks] = partition(
+    blocks,
+    (b) => b.type === "text",
+  );
+  const [links, codeblocks] = partition(
+    nontextblocks,
+    (b) => b.type === "link",
+  );
 
-  const { wordCount, charCount } = textblocks.reduce(
+  const linkStats = links.map((link) => link.url);
+
+  const { wordCount, charCount } = [...links, ...textblocks].reduce(
     (acc, block) => {
-      const words = getWords(block.content).length;
-      const chars = getChars(block.content).length;
+      const content =
+        block.type === "link" ? (block.label ?? "") : block.content;
+      const words = getWords(content).length;
+      const chars = getChars(content).length;
       return {
         wordCount: acc.wordCount + words,
         charCount: acc.charCount + chars,
@@ -142,6 +154,7 @@ async function getMessageStats(msg: Message | PartialMessage) {
     char_count: charCount,
     word_count: wordCount,
     code_stats: JSON.stringify(codeStats),
+    link_stats: JSON.stringify(linkStats),
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };

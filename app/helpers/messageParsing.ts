@@ -1,5 +1,6 @@
 export type MarkdownBlock =
   | { type: "text"; content: string }
+  | { type: "link"; url: string; label?: string }
   | { type: "fencedcode"; lang: undefined | string; code: string[] }
   | { type: "inlinecode"; code: string };
 
@@ -11,6 +12,8 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
   const matchers = {
     fencedCode: /```[\s\S]+?\n^```/,
     inlineCode: /`.+?`/,
+    mdlink: /\[([^\]]+)\]\(([^)]+)\)/,
+    link: /https?:\/\/[^\s>)]+/,
   };
 
   // replaceAll gives easy access to the position of the match
@@ -37,6 +40,13 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
         // match is inline code, return a string without backticks
         const code = match.slice(1, -1);
         blocks.push({ type: "inlinecode", code });
+      } else if (match.startsWith("[") || match.startsWith("http")) {
+        // match is a link
+        const label = captured[0] || undefined;
+        let url = captured[1] || match;
+        // links in discord may have angle brackets around them to suppress previews
+        if (url.startsWith("<") && url.endsWith(">")) url = url.slice(1, -1);
+        blocks.push({ type: "link", url, label });
       } else {
         console.error("unknown match", match);
         throw new Error("Unexpected match in markdown parsing");
