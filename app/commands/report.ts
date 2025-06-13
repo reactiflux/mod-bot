@@ -1,7 +1,8 @@
 import type { MessageContextMenuCommandInteraction } from "discord.js";
 import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
-import { ReportReasons, reportUser } from "#~/helpers/modLog";
+import { reportUser } from "#~/helpers/modLog";
+import { ReportReasons } from "./track/reportCache";
 
 export const command = new ContextMenuCommandBuilder()
   .setName("Report")

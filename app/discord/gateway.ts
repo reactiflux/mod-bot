@@ -34,9 +34,9 @@ export default function init() {
   const errorHandler = (error: unknown) => {
     Sentry.captureException(error);
     if (error instanceof Error) {
-      console.log("ERROR", error.message);
+      console.log("[GATEWAY ERROR]", error.message, error.stack);
     } else if (typeof error === "string") {
-      console.log("ERROR", error);
+      console.log("[GATEWAY ERROR]", error);
     }
   };
 
