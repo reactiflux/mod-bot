@@ -16,10 +16,8 @@ for (let i = 0; i < x; i++) {
 \`\`\``;
     const result = parseMarkdownBlocks(message);
     expect(result).toHaveLength(4);
-    expect(result[1].content).toEqual("foo bar");
-    expect(
-      result.findIndex((b) => b.type === "fenced" && b.lang === "js"),
-    ).toBe(3);
+    expect(result[1]).toEqual({ type: "inlinecode", code: "foo bar" });
+    expect(result[3].type).toEqual("fencedcode");
   });
 
   test("matches fenced blocks starting inside a paragraph", () => {
@@ -28,12 +26,11 @@ select 1
 \`\`\` things like this`;
     const result = parseMarkdownBlocks(message);
     expect(result).toHaveLength(3);
-    // expect(result).toBe([]);
     expect(result[0]).toEqual({ type: "text", content: "sometimes i write " });
     expect(result[2]).toEqual({ type: "text", content: " things like this" });
-    const block = result.find((b) => b.type === "fenced");
+    const block = result.find((b) => b.type === "fencedcode");
     expect(block?.lang).toEqual("sql");
-    expect(block?.content).toEqual(["select 1"]);
+    expect(block?.code).toEqual(["select 1"]);
   });
 
   test("handles multiple fenced blocks", () => {
@@ -49,14 +46,14 @@ select 2
     const result = parseMarkdownBlocks(message);
     expect(result).toHaveLength(5);
     expect(result[1]).toEqual({
-      type: "fenced",
+      type: "fencedcode",
       lang: "sql",
-      content: ["select 1"],
+      code: ["select 1"],
     });
     expect(result[3]).toEqual({
-      type: "fenced",
+      type: "fencedcode",
       lang: "sql",
-      content: ["select 2"],
+      code: ["select 2"],
     });
     expect(result[4]).toEqual({ type: "text", content: " like this" });
   });

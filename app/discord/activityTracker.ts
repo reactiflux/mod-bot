@@ -6,6 +6,7 @@ import {
   getChars,
   getWords,
 } from "#~/helpers/messageParsing";
+import { partition } from "lodash-es";
 
 export async function startActivityTracking(client: Client) {
   const channelCache = new Map<string, TextChannel>();
@@ -79,53 +80,51 @@ async function getMessageStats(msg: Message | PartialMessage) {
   const { content } = await msg.fetch();
 
   const blocks = parseMarkdownBlocks(content);
-  const wordCount = blocks
-    .filter((b) => b.type === "text")
-    .reduce((acc, block) => acc + getWords(block.content).length, 0);
 
-  const charCount = blocks
-    .filter((b) => b.type === "text")
-    .reduce((acc, block) => acc + getChars(block.content).length, 0);
+  const [textblocks, codeblocks] = partition(blocks, (b) => b.type === "text");
 
-  const codeWords = blocks
-    .filter((b) => b.type !== "text")
-    .reduce(
-      (acc, block) =>
-        acc +
-        getWords(
-          Array.isArray(block.content)
-            ? block.content.join("\n")
-            : block.content,
-        ).length,
-      0,
-    );
+  const { wordCount, charCount } = textblocks.reduce(
+    (acc, block) => {
+      const words = getWords(block.content).length;
+      const chars = getChars(block.content).length;
+      return {
+        wordCount: acc.wordCount + words,
+        charCount: acc.charCount + chars,
+      };
+    },
+    { wordCount: 0, charCount: 0 },
+  );
 
-  const codeChars = blocks
-    .filter((b) => b.type !== "text")
-    .reduce(
-      (acc, block) =>
-        acc +
-        getChars(
-          Array.isArray(block.content)
-            ? block.content.join("\n")
-            : block.content,
-        ).length,
-      0,
-    );
+  const codeStats = codeblocks.map((block) => {
+    switch (block.type) {
+      case "fencedcode": {
+        const content = block.code.join("\n");
+        return {
+          chars: getChars(content).length,
+          words: getWords(content).length,
+          lines: block.code.length,
+          lang: block.lang,
+        };
+      }
+      case "inlinecode": {
+        return {
+          chars: getChars(block.code).length,
+          words: getWords(block.code).length,
+          lines: 1,
+          lang: undefined,
+        };
+      }
+    }
+  });
 
-  const codeLines = blocks.reduce((acc, block) => {
-    if (block.type === "fenced") return acc + block.content.length;
-    if (block.type === "inline") return acc + 1;
-    return acc;
-  }, 0);
-
-  return {
+  const values = {
     char_count: charCount,
     word_count: wordCount,
-    code_stats: { words: codeWords, chars: codeChars, lines: codeLines },
+    code_stats: JSON.stringify(codeStats),
     react_count: msg.reactions.cache.size,
     sent_at: msg.createdTimestamp,
   };
+  return values;
 }
 
 export async function reportByGuild(guildId: string) {

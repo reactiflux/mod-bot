@@ -5,7 +5,7 @@ const column = "code_stats";
 export async function up(db: Kysely<any>) {
   return await db.schema
     .alterTable("message_stats")
-    .addColumn(column, "text", (c) => c.notNull().defaultTo("{}"))
+    .addColumn(column, "text", (c) => c.notNull().defaultTo("[]"))
     .execute();
 }
 
