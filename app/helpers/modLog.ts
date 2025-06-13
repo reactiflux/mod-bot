@@ -26,7 +26,6 @@ import {
 } from "#~/helpers/discord";
 import { truncateMessage } from "#~/helpers/string";
 import { escalationControls } from "#~/helpers/escalate";
-import type { Prettify } from "./type-helpers";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -54,7 +53,7 @@ export const reportUser = async ({
   extra,
   staff,
 }: Omit<Report, "date">): Promise<
-  Prettify<Reported & { allReportedMessages: Report[] }>
+  Reported & { allReportedMessages: Report[] }
 > => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
