@@ -1,6 +1,33 @@
 import { parseMarkdownBlocks } from "./messageParsing";
 
 describe("markdown parser", () => {
+  test("matches bare links", () => {
+    const message = `bold claim (source https://trustme.bro)`;
+    const result = parseMarkdownBlocks(message);
+    expect(result[1]).toEqual({ type: "link", url: "https://trustme.bro" });
+  });
+
+  test("matches links with labels", () => {
+    const message = `check out this [link](<https://example.com>)`;
+    const result = parseMarkdownBlocks(message);
+    expect(result[1]).toEqual({
+      type: "link",
+      url: "https://example.com",
+      label: "link",
+    });
+  });
+
+  test("matches links in more complex places", () => {
+    const message = `bare link https://asdf.com
+(see also https://links.com)
+* [*bold*](<https://foo.xyz>)
+* [*bold*](<https://bar.xyz>)
+words and things [\`foo()\`](<https://links.xom>) asdfasdf`;
+    const result = parseMarkdownBlocks(message);
+    const links = result.filter((x) => x.type === "link");
+    expect(links).toHaveLength(5);
+  });
+
   test("matches fenced code blocks and inline text", () => {
     const message = `here is some text
 
