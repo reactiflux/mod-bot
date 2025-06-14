@@ -21,7 +21,9 @@ export interface MessageStats {
   channel_category: string | null;
   channel_id: string;
   char_count: number;
+  code_stats: Generated<string>;
   guild_id: string;
+  link_stats: Generated<string>;
   message_id: string | null;
   react_count: Generated<number>;
   recipient_id: string | null;
