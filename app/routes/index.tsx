@@ -1,7 +1,16 @@
-import { Login } from "#~/basics/login";
-import { ServerOverview } from "#~/features/ServerOverview";
+import type { PropsWithChildren } from "react";
 
+// import { REST } from "@discordjs/rest";
+
+import type { Route } from "./+types/index";
+
+// import { retrieveDiscordToken } from "#~/models/session.server.js";
+// import { discordToken } from "#~/helpers/env.server.js";
+import { ServerOverview } from "#~/features/ServerOverview";
 import { useOptionalUser } from "#~/utils";
+
+import { Login } from "#~/basics/login";
+import { Logout } from "#~/basics/logout.js";
 
 const EmojiBackdrop = () => {
   return (
@@ -40,10 +49,48 @@ const EmojiBackdrop = () => {
   );
 };
 
-export default function Index() {
+// const botDiscord = new REST().setToken(discordToken);
+// const userDiscord = new REST({ authPrefix: "Bearer" });
+
+// export const loader = async ({ request }: Route.LoaderArgs) => {
+//   let token;
+//   try {
+//     token = await retrieveDiscordToken(request);
+//   } catch (e) {
+//     console.error(e);
+//     return;
+//   }
+
+//   userDiscord.setToken(token.token.access_token as string);
+
+//   return {
+//     guilds: await fetchGuilds(userDiscord, botDiscord),
+//   };
+// };
+
+interface LayoutProps extends PropsWithChildren {
+  guilds: Exclude<Route.ComponentProps["loaderData"], undefined>["guilds"];
+}
+
+const Layout = ({ /* guilds, */ children }: LayoutProps) => {
+  return (
+    <>
+      <nav className="flex justify-end">
+        <div></div>
+        <div>
+          <Logout />
+        </div>
+      </nav>
+      <main className="">{children}</main>
+      <footer></footer>
+    </>
+  );
+};
+
+export default function Index({ loaderData }: Route.ComponentProps) {
   const user = useOptionalUser();
 
-  if (!user) {
+  if (!user || !loaderData) {
     return (
       <main className="relative min-h-screen bg-white flex items-center justify-center overflow-hidden">
         <EmojiBackdrop />
@@ -67,5 +114,11 @@ export default function Index() {
       </main>
     );
   }
-  return <ServerOverview />;
+
+  const { guilds } = loaderData;
+  return (
+    <Layout guilds={guilds}>
+      <ServerOverview />
+    </Layout>
+  );
 }
