@@ -1,9 +1,9 @@
 import type { Route } from "./+types/dashboard";
-import { data, type LoaderFunctionArgs, useNavigation } from "react-router";
+import { data, useNavigation } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");

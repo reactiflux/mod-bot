@@ -1,22 +1,12 @@
-import type { ActionFunctionArgs, LoaderFunction } from "react-router";
+import type { Route } from "./+types/auth";
 import { redirect } from "react-router";
 
 import { initOauthLogin } from "#~/models/session.server";
 import { Login } from "#~/components/login";
 
-export const loader: LoaderFunction = async () => {
+// eslint-disable-next-line no-empty-pattern
+export async function loader({}: Route.LoaderArgs) {
   return redirect("/");
-};
-
-export async function action({ request }: ActionFunctionArgs) {
-  // fetch user from db
-  // if doesn't exist, create it with discord ID + email
-  const form = await request.formData();
-
-  return initOauthLogin({
-    request,
-    redirectTo: form.get("redirectTo")?.toString() ?? undefined,
-  });
 }
 
 export default function LoginPage() {
@@ -27,4 +17,15 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  // fetch user from db
+  // if doesn't exist, create it with discord ID + email
+  const form = await request.formData();
+
+  return initOauthLogin({
+    request,
+    redirectTo: form.get("redirectTo")?.toString() ?? undefined,
+  });
 }

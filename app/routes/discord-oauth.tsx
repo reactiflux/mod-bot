@@ -1,7 +1,8 @@
-import { redirect, type LoaderFunctionArgs } from "react-router";
+import type { Route } from "./+types/discord-oauth";
+import { redirect } from "react-router";
 import { completeOauthLogin } from "#~/models/session.server";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const cookie = request.headers.get("Cookie");
