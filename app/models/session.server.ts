@@ -260,9 +260,6 @@ export async function refreshDiscordSession(request: Request) {
   cookieSession.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
 
   return cookieSession;
-  // return new Response("OK", {
-  //   headers: { "Set-Cookie": await commitCookieSession(cookieSession) },
-  // });
 }
 
 export async function logout(request: Request) {
