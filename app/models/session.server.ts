@@ -39,7 +39,7 @@ const config = {
 
 const authorization = new AuthorizationCode(config);
 
-const SCOPE = "identify email";
+const SCOPE = "identify email guilds guilds.members.read";
 
 const {
   commitSession: commitCookieSession,
@@ -247,16 +247,22 @@ export async function completeOauthLogin(
   });
 }
 
-export async function refreshSession(request: Request) {
-  const session = await getCookieSession(request.headers.get("Cookie"));
-
-  const storedToken = await session.get(CookieSessionKeys.discordToken);
-  const token = authorization.createToken(JSON.parse(storedToken));
+export async function retrieveDiscordToken(request: Request) {
+  const cookieSession = await getCookieSession(request.headers.get("Cookie"));
+  const storedToken = await cookieSession.get(CookieSessionKeys.discordToken);
+  const token = authorization.createToken(storedToken);
+  return token;
+}
+export async function refreshDiscordSession(request: Request) {
+  const cookieSession = await getCookieSession(request.headers.get("Cookie"));
+  const token = await retrieveDiscordToken(request);
   const newToken = await token.refresh();
-  session.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
-  return new Response("OK", {
-    headers: { "Set-Cookie": await commitCookieSession(session) },
-  });
+  cookieSession.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
+
+  return cookieSession;
+  // return new Response("OK", {
+  //   headers: { "Set-Cookie": await commitCookieSession(cookieSession) },
+  // });
 }
 
 export async function logout(request: Request) {
