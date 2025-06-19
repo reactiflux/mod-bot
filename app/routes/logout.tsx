@@ -1,10 +1,6 @@
-import type { ActionFunctionArgs } from "react-router";
+import type { Route } from "./+types/logout";
 
 import { logout } from "#~/models/session.server";
-
-export async function action({ request }: ActionFunctionArgs) {
-  return await logout(request);
-}
 
 export default function Logout() {
   return (
@@ -14,4 +10,8 @@ export default function Logout() {
       </div>
     </div>
   );
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  return await logout(request);
 }
