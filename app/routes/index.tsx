@@ -1,4 +1,4 @@
-import { Login } from "#~/components/login";
+import { Login } from "#~/basics/login";
 import { ServerOverview } from "#~/features/ServerOverview";
 
 import { useOptionalUser } from "#~/utils";
