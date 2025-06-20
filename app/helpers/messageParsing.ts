@@ -60,18 +60,20 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 
 // this is better than string.split(/\s+/) because it counts emojis as 1 word
 // and we can easily filter them, works much better in other languages too
+const wordSegmenter = new Intl.Segmenter("en-us", { granularity: "word" });
 export function getWords(content: string) {
-  return Array.from(
-    new Intl.Segmenter("en-us", { granularity: "word" }).segment(content),
-  ).filter((seg) => seg.isWordLike);
+  return Array.from(wordSegmenter.segment(content)).filter(
+    (seg) => seg.isWordLike,
+  );
 }
 
 // string.split(/\s+/) will count most emojis as 2+ chars
 // this will count them as 1
+const characterSegmenter = new Intl.Segmenter("en-us", {
+  granularity: "grapheme",
+});
 export function getChars(content: string) {
-  return Array.from(
-    new Intl.Segmenter("en-us", { granularity: "grapheme" }).segment(content),
-  );
+  return Array.from(characterSegmenter.segment(content));
 }
 
 function RegExp_or(res: RegExp[], flags?: string): RegExp {
