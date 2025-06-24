@@ -1,4 +1,14 @@
-import type { GuildMember } from "discord.js";
+import {
+  Routes,
+  type APIGuild,
+  PermissionFlagsBits,
+} from "discord-api-types/v10";
+
+import type { REST } from "@discordjs/rest";
+import { type GuildMember } from "discord.js";
+
+import { complement, intersection } from "#~/helpers/sets.js";
+
 import type { AccessToken } from "simple-oauth2";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
@@ -87,4 +97,102 @@ export const timeout = async (member: GuildMember | null) => {
     return;
   }
   return member.timeout(OVERNIGHT);
+};
+
+const authzRoles = {
+  mod: "MOD",
+  admin: "ADMIN",
+  manager: "MANAGER",
+  manageChannels: "MANAGE_CHANNELS",
+  manageGuild: "MANAGE_GUILD",
+  manageRoles: "MANAGE_ROLES",
+} as const;
+
+const isUndefined = (x: unknown): x is undefined => typeof x === "undefined";
+
+const processGuild = (g: APIGuild) => {
+  const perms = BigInt(g.permissions || 0);
+  const authz = new Set<(typeof authzRoles)[keyof typeof authzRoles]>();
+
+  if (perms & PermissionFlagsBits.Administrator) {
+    authz.add(authzRoles.admin);
+  }
+  if (perms & PermissionFlagsBits.ModerateMembers) {
+    authz.add(authzRoles.mod);
+  }
+  if (perms & PermissionFlagsBits.ManageChannels) {
+    authz.add(authzRoles.manageChannels);
+    authz.add(authzRoles.manager);
+  }
+  if (perms & PermissionFlagsBits.ManageGuild) {
+    authz.add(authzRoles.manageGuild);
+    authz.add(authzRoles.manager);
+  }
+  if (perms & PermissionFlagsBits.ManageRoles) {
+    authz.add(authzRoles.manageRoles);
+    authz.add(authzRoles.manager);
+  }
+
+  return {
+    id: g.id as string,
+    icon: g.icon,
+    name: g.name as string,
+    authz: [...authz.values()],
+  };
+};
+
+export interface Guild extends ReturnType<typeof processGuild> {
+  hasBot: boolean;
+}
+
+export const fetchGuilds = async (
+  userRest: REST,
+  botRest: REST,
+): Promise<Guild[]> => {
+  const [rawUserGuilds, rawBotGuilds] = (await Promise.all([
+    userRest.get(Routes.userGuilds()),
+    botRest.get(Routes.userGuilds()),
+  ])) as [APIGuild[], APIGuild[]];
+
+  const botGuilds = new Map(
+    rawBotGuilds.reduce(
+      (accum, val) => {
+        const guild = processGuild(val);
+        if (guild.authz.length > 0) {
+          accum.push([val.id, guild]);
+        }
+        return accum;
+      },
+      [] as [string, Omit<Guild, "hasBot">][],
+    ),
+  );
+  const userGuilds = new Map(
+    rawUserGuilds.reduce(
+      (accum, val) => {
+        const guild = processGuild(val);
+        if (guild.authz.includes("MANAGER")) {
+          accum.push([val.id, guild]);
+        }
+        return accum;
+      },
+      [] as [string, Omit<Guild, "hasBot">][],
+    ),
+  );
+
+  const botGuildIds = new Set(botGuilds.keys());
+  const userGuildIds = new Set(userGuilds.keys());
+
+  const manageableGuilds = intersection(botGuildIds, userGuildIds);
+  const invitableGuilds = complement(userGuildIds, botGuildIds);
+
+  return [
+    ...[...manageableGuilds].map((gId) => {
+      const guild = botGuilds.get(gId);
+      return guild ? { ...guild, hasBot: true } : undefined;
+    }),
+    ...[...invitableGuilds].map((gId) => {
+      const guild = botGuilds.get(gId);
+      return guild ? { ...guild, hasBot: false } : undefined;
+    }),
+  ].filter((g) => !isUndefined(g));
 };

@@ -107,18 +107,18 @@ const {
 export type DbSession = Awaited<ReturnType<typeof getDbSession>>;
 
 export const CookieSessionKeys = {
-  userId: "userId",
   discordToken: "discordToken",
-} as const;
-
-export const DbSessionKeys = {
   authState: "state",
   authRedirect: "redirectTo",
 } as const;
 
+export const DbSessionKeys = {
+  userId: "userId",
+} as const;
+
 async function getUserId(request: Request): Promise<string | undefined> {
-  const session = await getCookieSession(request.headers.get("Cookie"));
-  const userId = session.get(CookieSessionKeys.userId);
+  const session = await getDbSession(request.headers.get("Cookie"));
+  const userId = session.get(DbSessionKeys.userId);
   return userId;
 }
 
@@ -162,14 +162,14 @@ export async function initOauthLogin({
   redirectTo?: string;
 }) {
   const { origin } = new URL(request.url);
-  const dbSession = await getDbSession(request.headers.get("Cookie"));
+  const cookieSession = await getCookieSession(request.headers.get("Cookie"));
 
   const state = randomUUID();
-  dbSession.set(DbSessionKeys.authState, state);
+  cookieSession.set(CookieSessionKeys.authState, state);
   if (redirectTo) {
-    dbSession.set(DbSessionKeys.authRedirect, redirectTo);
+    cookieSession.set(CookieSessionKeys.authRedirect, redirectTo);
   }
-  const cookie = await commitDbSession(dbSession, {
+  const cookie = await commitCookieSession(cookieSession, {
     maxAge: 60 * 60 * 1, // 1 hour
   });
   return redirect(
@@ -221,17 +221,16 @@ export async function completeOauthLogin(
     getDbSession(reqCookie),
   ]);
 
-  const dbState = dbSession.get(DbSessionKeys.authState);
+  const dbState = cookieSession.get(CookieSessionKeys.authState);
   // Redirect to login if the state arg doesn't match
   if (dbState !== state) {
     console.error("DB state didn’t match cookie state");
     throw redirect("/login");
   }
 
-  cookieSession.set(CookieSessionKeys.userId, userId);
+  dbSession.set(DbSessionKeys.userId, userId);
   // @ts-expect-error token.toJSON() isn't in the types but it works
   cookieSession.set(CookieSessionKeys.discordToken, token.toJSON());
-  dbSession.unset(DbSessionKeys.authState);
   const [cookie, dbCookie] = await Promise.all([
     commitCookieSession(cookieSession, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -242,7 +241,7 @@ export async function completeOauthLogin(
   headers.append("Set-Cookie", cookie);
   headers.append("Set-Cookie", dbCookie);
 
-  return redirect(dbSession.get(DbSessionKeys.authRedirect) ?? "/", {
+  return redirect(cookieSession.get(CookieSessionKeys.authRedirect) ?? "/", {
     headers,
   });
 }

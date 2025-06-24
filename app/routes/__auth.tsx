@@ -1,6 +1,6 @@
 import type { Route } from "./+types/__auth";
 import { Outlet, useLocation, type LoaderFunctionArgs } from "react-router";
-import { Login } from "#~/components/login";
+import { Login } from "#~/basics/login";
 import { isProd } from "#~/helpers/env.server";
 import { getUser } from "#~/models/session.server";
 import { useOptionalUser } from "#~/utils";
