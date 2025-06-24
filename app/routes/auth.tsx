@@ -2,7 +2,7 @@ import type { Route } from "./+types/auth";
 import { redirect } from "react-router";
 
 import { initOauthLogin } from "#~/models/session.server";
-import { Login } from "#~/components/login";
+import { Login } from "#~/basics/login";
 
 // eslint-disable-next-line no-empty-pattern
 export async function loader({}: Route.LoaderArgs) {
