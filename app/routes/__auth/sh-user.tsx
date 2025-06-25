@@ -80,7 +80,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .groupBy("channel_category");
 
   const channelBreakdownQuery = reportSlice
-    .select((eb) => [eb.fn.count("channel_id").as("messages"), "channel_id"])
+    .leftJoin(
+      "channel_info as channel",
+      "channel.id",
+      "message_stats.channel_id",
+    )
+    .select((eb) => [
+      eb.fn.count("channel_id").as("messages"),
+      "channel.name",
+      "channel_id",
+    ])
     .orderBy("messages", "desc")
     .groupBy("channel_id");
 
@@ -178,7 +187,7 @@ export default function UserProfile({
           }}
         >
           <CartesianGrid strokeDasharray="1 3" stroke="#ddd" />
-          <XAxis dataKey="channel_id" />
+          <XAxis dataKey="name" />
           <YAxis />
           <Tooltip />
           <Bar dataKey="messages" fill="#8884d8" />
