@@ -1,10 +1,5 @@
 import type { Route } from "./+types/dashboard";
-import {
-  data,
-  useNavigation,
-  useSearchParams,
-  Link,
-} from "react-router";
+import { data, useNavigation, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
@@ -98,11 +93,11 @@ export default function DashboardPage({
         <textarea
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
 ${data
-              .map(
-                (d) =>
-                  `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
-              )
-              .join("\n")}`}
+  .map(
+    (d) =>
+      `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
+  )
+  .join("\n")}`}
         ></textarea>
         <table className="mt-24">
           <thead>

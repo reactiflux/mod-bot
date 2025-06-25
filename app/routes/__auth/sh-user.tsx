@@ -91,7 +91,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       channelBreakdownQuery.execute(),
     ]);
 
-  return { dailyBreakdown, categoryBreakdown, channelBreakdown };
+  return {
+    dailyBreakdown,
+    categoryBreakdown,
+    channelBreakdown,
+  };
 }
 
 export default function UserProfile({
