@@ -125,7 +125,7 @@ ${data
                       search: `?start=${start}&end=${end}`,
                     }}
                   >
-                    {d.data.member.author_id}
+                    {d.data.member.username || d.data.member.author_id}
                   </Link>
                 </td>
                 <td>{percent(d.metadata.percentZeroDays)}</td>

@@ -21,6 +21,7 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 import { sql } from "kysely";
+import { getOrFetchUser } from "#~/helpers/userInfoCache";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
@@ -93,17 +94,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .orderBy("messages", "desc")
     .groupBy("channel_id");
 
-  const [dailyBreakdown, categoryBreakdown, channelBreakdown] =
+  const [dailyBreakdown, categoryBreakdown, channelBreakdown, userInfo] =
     await Promise.all([
       dailyBreakdownQuery.execute(),
       categoryBreakdownQuery.execute(),
       channelBreakdownQuery.execute(),
+      getOrFetchUser(userId),
     ]);
 
   return {
     dailyBreakdown,
     categoryBreakdown,
     channelBreakdown,
+    userInfo,
   };
 }
 
@@ -137,7 +140,15 @@ export default function UserProfile({
 
   return (
     <>
-      <h1>{params.userId}</h1>
+      <h1 className="text-4xl pt-2 font-bold text-center">
+        {data.userInfo?.username}
+      </h1>
+      {data.userInfo?.global_name &&
+        data.userInfo?.global_name !== data.userInfo?.username && (
+          <div className="text-xl pt-2 text-center">
+            ({data.userInfo?.global_name})
+          </div>
+        )}
       <Link
         to={{
           pathname: `/${params.guildId}/sh`,
@@ -150,7 +161,7 @@ export default function UserProfile({
         className="border"
         style={{ width: "100%", height: "200px" }}
         readOnly
-        defaultValue={JSON.stringify({ derivedData, ...data }, null, 2)}
+        defaultValue={JSON.stringify(derivedData, null, 2)}
       />
 
       <ResponsiveContainer width="100%" height={300}>
