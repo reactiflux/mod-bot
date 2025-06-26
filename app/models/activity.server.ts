@@ -1,5 +1,6 @@
 import type { DB } from "#~/db.server";
 import db from "#~/db.server";
+import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
 
 type MessageStats = DB["message_stats"];
 
@@ -86,7 +87,23 @@ export async function getTopParticipants(
     intervalEnd,
   );
 
-  return topMembers.map((m) => scoreMember(m, dailyParticipation[m.author_id]));
+  const scores = topMembers.map((m) =>
+    scoreMember(m, dailyParticipation[m.author_id]),
+  );
+
+  const withUsernames = await Promise.all(
+    scores.map(async (scores) => {
+      const user = await getOrFetchUser(scores.data.member.author_id);
+      return {
+        ...scores,
+        data: {
+          ...scores.data,
+          member: { ...scores.data.member, username: user?.global_name },
+        },
+      };
+    }),
+  );
+  return withUsernames;
 }
 
 // copy-pasted out of TopMembers query result

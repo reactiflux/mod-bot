@@ -1,22 +1,21 @@
 import type { Route } from "./+types/dashboard";
-import { data, useNavigation } from "react-router";
+import { data, useNavigation, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   // const user = await getUser(request);
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
+  const guildId = params.guildId;
 
-  if (!start || !end) {
+  if (!(guildId && start && end)) {
     return data(null, { status: 400 });
   }
 
-  const REACTIFLUX_GUILD_ID = "102860784329052160";
-
   const output = await getTopParticipants(
-    REACTIFLUX_GUILD_ID,
+    guildId,
     start,
     end,
     [],
@@ -37,16 +36,16 @@ const percent = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 }).format;
 
-function RangeForm() {
+function RangeForm({ values }: { values: { start?: string; end?: string } }) {
   return (
     <form method="GET">
       <Label>
         Start date
-        <input name="start" type="date" />
+        <input name="start" type="date" defaultValue={values.start} />
       </Label>
       <Label>
         End date
-        <input name="end" type="date" />
+        <input name="end" type="date" defaultValue={values.end} />
       </Label>
       <input type="submit" value="Submit" />
     </form>
@@ -65,16 +64,20 @@ export default function DashboardPage({
   loaderData: data,
 }: Route.ComponentProps) {
   const nav = useNavigation();
+  const [qs] = useSearchParams();
 
   if (nav.state === "loading") {
     return "loading…";
   }
 
+  const start = qs.get("start") ?? undefined;
+  const end = qs.get("end") ?? undefined;
+
   if (!data) {
     return (
       <div>
         <div className="flex min-h-full justify-center">
-          <RangeForm />
+          <RangeForm values={{ start, end }} />
         </div>
         <div></div>
       </div>
@@ -84,7 +87,7 @@ export default function DashboardPage({
   return (
     <div>
       <div className="flex min-h-full justify-center">
-        <RangeForm />
+        <RangeForm values={{ start, end }} />
       </div>
       <div>
         <textarea
@@ -115,7 +118,16 @@ ${data
           <tbody>
             {data.map((d) => (
               <tr key={d.data.member.author_id}>
-                <td>{d.data.member.author_id}</td>
+                <td>
+                  <Link
+                    to={{
+                      pathname: d.data.member.author_id,
+                      search: `?start=${start}&end=${end}`,
+                    }}
+                  >
+                    {d.data.member.username || d.data.member.author_id}
+                  </Link>
+                </td>
                 <td>{percent(d.metadata.percentZeroDays)}</td>
                 <td>{d.data.member.total_word_count}</td>
                 <td>{d.data.member.message_count}</td>
