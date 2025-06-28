@@ -1,16 +1,9 @@
 import db from "#~/db.server";
-import type { GuildSubscriptions } from "#~/db";
 
 export type ProductTier = "free" | "paid";
 
-// Define feature sets per subscription tier
-const SUBSCRIPTION_FEATURES = {
-  free: [],
-  paid: [], // Will be populated when we implement actual features
-} as const;
-
 export const SubscriptionService = {
-  async getGuildSubscription(guildId: string): Promise<any> {
+  async getGuildSubscription(guildId: string) {
     const result = await db
       .selectFrom("guild_subscriptions")
       .selectAll()
@@ -39,7 +32,7 @@ export const SubscriptionService = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .onConflict((oc: any) =>
+      .onConflict((oc) =>
         oc.column("guild_id").doUpdateSet({
           stripe_customer_id: data.stripe_customer_id ?? null,
           stripe_subscription_id: data.stripe_subscription_id ?? null,
@@ -70,7 +63,7 @@ export const SubscriptionService = {
 
   async getProductTier(guildId: string): Promise<ProductTier> {
     const subscription = await this.getGuildSubscription(guildId);
-    
+
     // If no subscription exists, default to free
     if (!subscription) {
       return "free";
@@ -93,8 +86,8 @@ export const SubscriptionService = {
     return subscription.product_tier as unknown as ProductTier;
   },
 
-  async hasFeature(guildId: string, feature: string): Promise<boolean> {
-    const tier = await this.getProductTier(guildId);
+  async hasFeature(guildId: string, _feature: string): Promise<boolean> {
+    const _tier = await this.getProductTier(guildId);
     // For now, return false since we haven't defined features yet
     return false;
   },
