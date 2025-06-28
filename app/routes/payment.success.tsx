@@ -1,16 +1,21 @@
 import type { Route } from "./+types/payment.success";
 import { data, useLoaderData, Link } from "react-router";
 import { requireUser } from "#~/models/session.server";
-import { CreditsService } from "#~/models/credits.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
 import { StripeService } from "#~/models/stripe.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("session_id");
+  const guildId = url.searchParams.get("guild_id");
 
   if (!sessionId) {
     throw data({ message: "Missing session ID" }, { status: 400 });
+  }
+
+  if (!guildId) {
+    throw data({ message: "Missing guild ID" }, { status: 400 });
   }
 
   // Verify Stripe session
@@ -20,36 +25,29 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw data({ message: "Payment verification failed" }, { status: 400 });
   }
 
-  // Check if credits were already awarded for this session
-  const existingCredits =
-    await CreditsService.getCreditsByStripeSession(sessionId);
+  // Update subscription to paid tier
+  await SubscriptionService.createOrUpdateSubscription({
+    guild_id: guildId,
+    stripe_customer_id: `cus_${guildId}`, // TODO: Get from Stripe session
+    product_tier: "paid",
+    status: "active",
+    current_period_end: new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString(), // 30 days from now
+  });
 
-  if (!existingCredits) {
-    // Award credits based on amount paid (e.g., $1 = 100 credits)
-    const creditsAmount = Math.floor(stripeSession.amount_total / 100); // Convert cents to credits
-
-    await CreditsService.addCredits({
-      userId: user.id,
-      amount: creditsAmount,
-      description: `Payment received via Stripe`,
-      stripeSessionId: sessionId,
-    });
-  }
-
-  const creditsBalance = await CreditsService.getUserCreditsBalance(user.id);
+  const subscription = await SubscriptionService.getGuildSubscription(guildId);
 
   return {
     user,
+    guildId,
     sessionId,
-    creditsBalance,
-    creditsAmount:
-      existingCredits?.amount ?? Math.floor(stripeSession.amount_total / 100),
+    subscription,
   };
 }
 
 export default function PaymentSuccess() {
-  const { sessionId, creditsBalance, creditsAmount } =
-    useLoaderData<typeof loader>();
+  const { guildId, sessionId } = useLoaderData<typeof loader>();
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -74,7 +72,7 @@ export default function PaymentSuccess() {
             Payment Successful!
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {creditsAmount} credits have been added to your account
+            Your subscription has been upgraded to Pro
           </p>
         </div>
       </div>
@@ -86,17 +84,18 @@ export default function PaymentSuccess() {
               <div className="flex">
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-green-800">
-                    Credits Added Successfully
+                    Subscription Activated
                   </h3>
                   <div className="mt-2 text-sm text-green-700">
                     <p>
-                      <strong>+{creditsAmount} credits</strong> have been added
-                      to your account.
+                      Your server now has access to all Pro features including:
                     </p>
-                    <p className="mt-1">
-                      Your current balance:{" "}
-                      <strong>{creditsBalance} credits</strong>
-                    </p>
+                    <ul className="mt-2 list-disc list-inside space-y-1">
+                      <li>Advanced analytics and insights</li>
+                      <li>Unlimited message tracking</li>
+                      <li>Premium moderation tools</li>
+                      <li>Priority support</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -106,11 +105,14 @@ export default function PaymentSuccess() {
               <p className="mb-2">
                 <strong>Session ID:</strong> {sessionId}
               </p>
+              <p>
+                <strong>Guild ID:</strong> {guildId}
+              </p>
             </div>
 
             <div className="flex space-x-3">
               <Link
-                to="/dashboard"
+                to={`/dashboard?guild_id=${guildId}`}
                 className="flex-1 bg-indigo-600 text-white py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
               >
                 View Dashboard
