@@ -55,7 +55,9 @@ export default function Onboard() {
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">Bot Successfully Added!</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Bot Successfully Added!
+              </h3>
               <p className="mt-1 text-sm text-gray-600">
                 Euno has been added to your Discord server and is ready to use.
               </p>
@@ -75,7 +77,9 @@ export default function Onboard() {
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">What&apos;s next?</h4>
+              <h4 className="text-sm font-medium text-gray-900">
+                What&apos;s next?
+              </h4>
               <ul className="text-sm text-gray-600 space-y-2">
                 <li className="flex items-center">
                   <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
@@ -92,9 +96,35 @@ export default function Onboard() {
               </ul>
             </div>
 
+            {tier === "free" && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-indigo-800">
+                      🚀 Want More Features?
+                    </h3>
+                    <div className="mt-2 text-sm text-indigo-700">
+                      <p>
+                        Upgrade to Pro for advanced analytics, unlimited
+                        tracking, and premium features.
+                      </p>
+                    </div>
+                    <div className="mt-3">
+                      <a
+                        href={`/upgrade?guild_id=${guildId}`}
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        Upgrade to Pro
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Form method="post" className="space-y-4">
               <input type="hidden" name="guild_id" value={guildId} />
-              
+
               <div className="flex space-x-3">
                 <a
                   href={`/dashboard?guild_id=${guildId}`}

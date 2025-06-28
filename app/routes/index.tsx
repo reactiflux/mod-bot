@@ -104,7 +104,8 @@ export default function Index({ loaderData }: Route.ComponentProps) {
                   </span>
                 </h1>
                 <p className="text-slate-800 mb-8">
-                  A community-in-a-box bot for large Discord servers with advanced analytics and moderation tools
+                  A community-in-a-box bot for large Discord servers with
+                  advanced analytics and moderation tools
                 </p>
                 <div className="space-y-4">
                   <a
