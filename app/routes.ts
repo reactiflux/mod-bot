@@ -13,4 +13,5 @@ export default [
   route("healthcheck", "routes/healthcheck.tsx"),
   route("/", "routes/index.tsx"),
   route("logout", "routes/logout.tsx"),
+  route("onboard", "routes/onboard.tsx"),
 ] satisfies RouteConfig;

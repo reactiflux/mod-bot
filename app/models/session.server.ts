@@ -16,6 +16,8 @@ import {
   getUserById,
 } from "#~/models/user.server";
 import { fetchUser } from "#~/models/discord.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
+
 import {
   applicationId,
   discordSecret,
@@ -39,7 +41,9 @@ const config = {
 
 const authorization = new AuthorizationCode(config);
 
-const SCOPE = "identify email guilds guilds.members.read";
+const USER_SCOPE = "identify email guilds guilds.members.read";
+const BOT_SCOPE =
+  "identify email guilds guilds.members.read bot applications.commands";
 
 const {
   commitSession: commitCookieSession,
@@ -107,18 +111,20 @@ const {
 export type DbSession = Awaited<ReturnType<typeof getDbSession>>;
 
 export const CookieSessionKeys = {
+  userId: "userId",
   discordToken: "discordToken",
-  authState: "state",
-  authRedirect: "redirectTo",
 } as const;
 
 export const DbSessionKeys = {
-  userId: "userId",
+  authState: "state",
+  authRedirect: "redirectTo",
+  authFlow: "flow",
+  authGuildId: "guildId",
 } as const;
 
 async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getDbSession(request.headers.get("Cookie"));
-  const userId = session.get(DbSessionKeys.userId);
+  const userId = session.get(CookieSessionKeys.userId);
   return userId;
 }
 
@@ -157,29 +163,53 @@ const OAUTH_REDIRECT_ROUTE = "discord-oauth";
 export async function initOauthLogin({
   request,
   redirectTo,
+  flow = "user",
+  guildId,
 }: {
   request: Request;
   redirectTo?: string;
+  flow?: "user" | "signup" | "add-bot";
+  guildId?: string;
 }) {
   const { origin } = new URL(request.url);
   const cookieSession = await getCookieSession(request.headers.get("Cookie"));
 
   const state = randomUUID();
-  cookieSession.set(CookieSessionKeys.authState, state);
+  cookieSession.set(DbSessionKeys.authState, state);
+  cookieSession.set(DbSessionKeys.authFlow, flow);
   if (redirectTo) {
-    cookieSession.set(CookieSessionKeys.authRedirect, redirectTo);
+    cookieSession.set(DbSessionKeys.authRedirect, redirectTo);
   }
+  if (guildId) {
+    cookieSession.set(DbSessionKeys.authGuildId, guildId);
+  }
+
+  // Choose scope based on flow type
+  const scope = flow === "user" ? USER_SCOPE : BOT_SCOPE;
+
+  // Build authorization URL
+  const authParams: Record<string, string> = {
+    redirect_uri: `${origin}/${OAUTH_REDIRECT_ROUTE}`,
+    state,
+    scope,
+  };
+
+  // Add bot-specific parameters
+  if (flow !== "user") {
+    // Core permissions: ManageRoles + SendMessages + ManageMessages + ReadMessageHistory + ModerateMembers
+    authParams.permissions = "1099512100352";
+    if (guildId) {
+      authParams.guild_id = guildId;
+    }
+  }
+
   const cookie = await commitCookieSession(cookieSession, {
     maxAge: 60 * 60 * 1, // 1 hour
   });
-  return redirect(
-    authorization.authorizeURL({
-      redirect_uri: `${origin}/${OAUTH_REDIRECT_ROUTE}`,
-      state,
-      scope: SCOPE,
-    }),
-    { headers: { "Set-Cookie": cookie } },
-  );
+
+  return redirect(authorization.authorizeURL(authParams), {
+    headers: { "Set-Cookie": cookie },
+  });
 }
 
 export async function completeOauthLogin(
@@ -188,8 +218,20 @@ export async function completeOauthLogin(
   reqCookie: string,
   state?: string,
 ) {
+  const [cookieSession, dbSession] = await Promise.all([
+    getCookieSession(reqCookie),
+    getDbSession(reqCookie),
+  ]);
+
+  const cookieState = cookieSession.get(DbSessionKeys.authState);
+  const flow = cookieSession.get(DbSessionKeys.authFlow) ?? "user";
+  const guildId = cookieSession.get(DbSessionKeys.authGuildId);
+
+  // Choose scope based on flow type
+  const scope = flow === "user" ? USER_SCOPE : BOT_SCOPE;
+
   const token = await authorization.getToken({
-    scope: SCOPE,
+    scope,
     code,
     redirect_uri: `${origin}/${OAUTH_REDIRECT_ROUTE}`,
   });
@@ -216,21 +258,33 @@ export async function completeOauthLogin(
     );
   }
 
-  const [cookieSession, dbSession] = await Promise.all([
-    getCookieSession(reqCookie),
-    getDbSession(reqCookie),
-  ]);
+  // Handle bot installation flows
+  if (flow !== "user" && guildId) {
+    // Initialize free subscription for the guild
+    await SubscriptionService.initializeFreeSubscription(guildId);
+  }
 
-  const dbState = cookieSession.get(CookieSessionKeys.authState);
+  // dbState already checked earlier
   // Redirect to login if the state arg doesn't match
-  if (dbState !== state) {
+  if (cookieState !== state) {
     console.error("DB state didn’t match cookie state");
     throw redirect("/login");
   }
 
-  dbSession.set(DbSessionKeys.userId, userId);
+  dbSession.set(CookieSessionKeys.userId, userId);
   // @ts-expect-error token.toJSON() isn't in the types but it works
-  cookieSession.set(CookieSessionKeys.discordToken, token.toJSON());
+  dbSession.set(CookieSessionKeys.discordToken, token.toJSON());
+  // Clean up session data
+  cookieSession.unset(DbSessionKeys.authState);
+  cookieSession.unset(DbSessionKeys.authFlow);
+  cookieSession.unset(DbSessionKeys.authGuildId);
+
+  // Determine redirect based on flow
+  let redirectTo = dbSession.get(DbSessionKeys.authRedirect) ?? "/";
+  if (flow !== "user" && guildId) {
+    redirectTo = `/onboard?guild_id=${guildId}`;
+  }
+
   const [cookie, dbCookie] = await Promise.all([
     commitCookieSession(cookieSession, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -241,24 +295,22 @@ export async function completeOauthLogin(
   headers.append("Set-Cookie", cookie);
   headers.append("Set-Cookie", dbCookie);
 
-  return redirect(cookieSession.get(CookieSessionKeys.authRedirect) ?? "/", {
-    headers,
-  });
+  return redirect(redirectTo, { headers });
 }
 
 export async function retrieveDiscordToken(request: Request) {
-  const cookieSession = await getCookieSession(request.headers.get("Cookie"));
-  const storedToken = await cookieSession.get(CookieSessionKeys.discordToken);
+  const dbSession = await getDbSession(request.headers.get("Cookie"));
+  const storedToken = dbSession.get(CookieSessionKeys.discordToken);
   const token = authorization.createToken(storedToken);
   return token;
 }
 export async function refreshDiscordSession(request: Request) {
-  const cookieSession = await getCookieSession(request.headers.get("Cookie"));
+  const dbSession = await getDbSession(request.headers.get("Cookie"));
   const token = await retrieveDiscordToken(request);
   const newToken = await token.refresh();
-  cookieSession.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
+  dbSession.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
 
-  return cookieSession;
+  return dbSession;
 }
 
 export async function logout(request: Request) {

@@ -103,10 +103,18 @@ export default function Index({ loaderData }: Route.ComponentProps) {
                     Euno
                   </span>
                 </h1>
-                <p className="text-slate-800">
-                  A community-in-a-box bot for large Discord servers
+                <p className="text-slate-800 mb-8">
+                  A community-in-a-box bot for large Discord servers with advanced analytics and moderation tools
                 </p>
-                <Login>Log in</Login>
+                <div className="space-y-4">
+                  <a
+                    href="/auth?flow=signup"
+                    className="w-full rounded bg-indigo-600 px-4 py-3 text-white font-medium hover:bg-indigo-700 focus:bg-indigo-500 text-center block"
+                  >
+                    🚀 Add to Discord Server
+                  </a>
+                  <Login>Already have an account? Log in</Login>
+                </div>
               </div>
             </div>
           </div>
