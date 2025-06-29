@@ -24,7 +24,7 @@ const EmojiBackdrop = () => {
       }}
     >
       <div
-        className="w-full h-full animate-slide bg-yellow-500 bg-opacity-50"
+        className="animate-slide h-full w-full bg-yellow-500 bg-opacity-50"
         style={{
           backgroundBlendMode: "color",
           backgroundSize: "300px 150px",
@@ -92,13 +92,13 @@ export default function Index({ loaderData }: Route.ComponentProps) {
 
   if (!user || !loaderData) {
     return (
-      <main className="relative min-h-screen bg-white flex items-center justify-center overflow-hidden">
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
         <EmojiBackdrop />
         <div className="relative pb-16 pt-8">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="relative shadow-xl overflow-hidden rounded-2xl bg-white">
+            <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
               <div className="lg:pb-18 relative w-full max-w-xl px-6 pb-14 pt-24 lg:px-8 lg:pt-24">
-                <h1 className="text-center text-9xl font-extrabold tracking-tight mb-10">
+                <h1 className="mb-10 text-center text-9xl font-extrabold tracking-tight">
                   <span className="block uppercase text-yellow-500 drop-shadow-md">
                     Euno
                   </span>
