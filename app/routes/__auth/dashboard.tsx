@@ -54,7 +54,7 @@ function RangeForm({ values }: { values: { start?: string; end?: string } }) {
 
 const DataHeading = ({ children }: PropsWithChildren) => {
   return (
-    <th className="relative origin-bottom-left -rotate-45 max-w-8 text-nowrap">
+    <th className="relative max-w-8 origin-bottom-left -rotate-45 text-nowrap">
       {children}
     </th>
   );
