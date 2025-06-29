@@ -23,6 +23,7 @@ export async function getTopParticipants(
     .select(({ fn, val, eb }) => [
       fn("date", [eb("sent_at", "/", 1000), val("unixepoch")]).as("date"),
     ])
+    .where("guild_id", "=", guildId)
     .where(({ between, and, or, eb }) =>
       and([
         between(
