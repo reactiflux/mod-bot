@@ -22,6 +22,7 @@ import {
 import { useMemo } from "react";
 import { sql } from "kysely";
 import { getOrFetchUser } from "#~/helpers/userInfoCache";
+import { fillDateGaps } from "#~/helpers/dateUtils";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
@@ -51,7 +52,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .select((eb) => [
       eb.fn.countAll<number>().as("messages"),
       eb.fn.sum<number>("word_count").as("word_count"),
-      eb.fn.sum<number>("char_count").as("char_count"),
       eb.fn.sum<number>("react_count").as("react_count"),
       eb
         .fn<number>("round", [eb.fn.avg("word_count"), eb.lit(3)])
@@ -102,8 +102,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       getOrFetchUser(userId),
     ]);
 
+  // Fill date gaps in daily breakdown data with zero values
+  const filledDailyBreakdown = fillDateGaps(dailyBreakdown, start, end, {
+    messages: 0,
+    word_count: 0,
+    react_count: 0,
+    avg_words: 0,
+  });
+
   return {
-    dailyBreakdown,
+    dailyBreakdown: filledDailyBreakdown,
     categoryBreakdown,
     channelBreakdown,
     userInfo,
@@ -131,11 +139,7 @@ export default function UserProfile({
       (a, c) => a + Number(c.word_count),
       0,
     );
-    const totalChars = data.dailyBreakdown.reduce(
-      (a, c) => a + Number(c.char_count),
-      0,
-    );
-    return { totalMessages, totalWords, totalReactions, totalChars };
+    return { totalMessages, totalWords, totalReactions };
   }, [data]);
 
   return (
@@ -199,7 +203,7 @@ export default function UserProfile({
         >
           <CartesianGrid strokeDasharray="1 3" stroke="#ddd" />
           <XAxis dataKey="name" />
-          <YAxis />
+          <YAxis domain={[0, 250]} />
           <Tooltip />
           <Bar dataKey="messages" fill="#8884d8" />
         </ComposedChart>
@@ -220,7 +224,7 @@ export default function UserProfile({
         >
           <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
           <XAxis dataKey="date" scale="band" />
-          <YAxis />
+          <YAxis domain={[0, 125]} />
           <Tooltip />
           <Legend />
           <Bar dataKey="messages" fill="#413ea0" />
@@ -242,11 +246,10 @@ export default function UserProfile({
         >
           <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
           <XAxis dataKey="date" scale="band" />
-          <YAxis />
+          <YAxis domain={[0, 1250]} />
           <Tooltip />
           <Legend />
           <Bar dataKey="word_count" stackId="1" fill="red" />
-          <Bar dataKey="char_count" stackId="1" fill="blue" />
         </ComposedChart>
       </ResponsiveContainer>
 
@@ -265,7 +268,7 @@ export default function UserProfile({
         >
           <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
           <XAxis dataKey="date" scale="band" />
-          <YAxis />
+          <YAxis domain={[0, 25]} />
           <Tooltip />
           <Legend />
           <Bar dataKey="react_count" fill="green" />
