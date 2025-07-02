@@ -143,7 +143,7 @@ export default function UserProfile({
   }, [data]);
 
   return (
-    <>
+    <div className="max-w-screen-lg mx-auto">
       <h1 className="text-4xl pt-2 font-bold text-center">
         {data.userInfo?.username}
       </h1>
@@ -274,6 +274,6 @@ export default function UserProfile({
           <Bar dataKey="react_count" fill="green" />
         </ComposedChart>
       </ResponsiveContainer>
-    </>
+    </div>
   );
 }
