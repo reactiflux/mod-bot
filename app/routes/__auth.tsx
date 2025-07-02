@@ -1,21 +1,10 @@
-import type { Route } from "./+types/__auth";
-import { Outlet, useLocation, type LoaderFunctionArgs } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Login } from "#~/basics/login";
-import { isProd } from "#~/helpers/env.server";
-import { getUser } from "#~/models/session.server";
 import { useOptionalUser } from "#~/utils";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  return { user: await getUser(request), isProd: isProd() };
-}
-
-export default function Auth({ loaderData }: Route.ComponentProps) {
+export default function Auth() {
   const user = useOptionalUser();
   const location = useLocation();
-
-  if (loaderData.isProd) {
-    return <div>nope</div>;
-  }
 
   if (!user) {
     return (

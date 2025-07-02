@@ -144,12 +144,12 @@ export default function UserProfile({
 
   return (
     <div className="max-w-screen-lg mx-auto">
-      <h1 className="text-4xl pt-2 font-bold text-center">
+      <h1 className="pt-2 text-center text-4xl font-bold">
         {data.userInfo?.username}
       </h1>
       {data.userInfo?.global_name &&
         data.userInfo?.global_name !== data.userInfo?.username && (
-          <div className="text-xl pt-2 text-center">
+          <div className="pt-2 text-center text-xl">
             ({data.userInfo?.global_name})
           </div>
         )}
