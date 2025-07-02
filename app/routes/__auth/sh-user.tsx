@@ -161,12 +161,15 @@ export default function UserProfile({
       >
         back
       </Link>
-      <textarea
-        className="border"
-        style={{ width: "100%", height: "200px" }}
-        readOnly
-        defaultValue={JSON.stringify(derivedData, null, 2)}
-      />
+      <details>
+        <summary>raw data</summary>
+        <textarea
+          className="border"
+          style={{ width: "100%", height: "200px" }}
+          readOnly
+          defaultValue={JSON.stringify(derivedData, null, 2)}
+        />
+      </details>
 
       <ResponsiveContainer width="100%" height={300}>
         <RadarChart
