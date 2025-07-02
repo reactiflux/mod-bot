@@ -46,7 +46,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .where("guild_id", "=", guildId)
     .where("author_id", "=", userId)
     .where("sent_at", ">=", new Date(start).getTime())
-    .where("sent_at", "<", new Date(end).getTime());
+    .where("sent_at", "<=", new Date(end + "T23:59:59").getTime());
 
   const dailyBreakdownQuery = reportSlice
     .select((eb) => [

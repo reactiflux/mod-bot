@@ -1,11 +1,23 @@
 /**
  * Generate a date range between start and end dates in YYYY-MM-DD format
+ * Ensures proper date parsing and handles edge cases
  */
 export const generateDateRange = (start: string, end: string): string[] => {
   const dates: string[] = [];
-  const currentDate = new Date(start);
 
-  while (currentDate <= new Date(end)) {
+  // Parse dates and normalize to start of day to avoid timezone issues
+  const startDate = new Date(start + "T00:00:00");
+  const endDate = new Date(end + "T00:00:00");
+
+  // Validate dates
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new Error("Invalid date format provided to generateDateRange");
+  }
+
+  const currentDate = new Date(startDate);
+
+  // Include both start and end dates in the range
+  while (currentDate <= endDate) {
     dates.push(currentDate.toISOString().split("T")[0]);
     currentDate.setDate(currentDate.getDate() + 1);
   }
