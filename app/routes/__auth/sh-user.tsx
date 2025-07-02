@@ -143,7 +143,7 @@ export default function UserProfile({
   }, [data]);
 
   return (
-    <div className="max-w-screen-lg mx-auto">
+    <div className="mx-auto max-w-screen-lg">
       <h1 className="pt-2 text-center text-4xl font-bold">
         {data.userInfo?.username}
       </h1>
