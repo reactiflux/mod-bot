@@ -14,16 +14,19 @@ The unified OAuth implementation is now fully functional:
 ## Key Fixes Applied
 
 ### **Cookie Size Issue (RESOLVED)**
+
 - **Problem**: Discord tokens can be >23KB, exceeding browser limits
 - **Solution**: Moved token storage from cookie to database session
 - **Result**: OAuth flow completes without errors
 
 ### **Multi-Flow Support (WORKING)**
+
 - `flow=signup` → Combined user auth + bot installation
 - `flow=add-bot` → Bot-only for existing users
 - Backward compatibility with existing login flow
 
 ### **Automatic Features (WORKING)**
+
 - Free subscription auto-creation via `SubscriptionService.initializeFreeSubscription()`
 - Proper permission scoping (specific permissions vs Administrator)
 - Seamless redirect to onboarding experience
@@ -31,12 +34,14 @@ The unified OAuth implementation is now fully functional:
 ## Major UX Achievement
 
 **Before**: Manual process requiring Discord knowledge
+
 1. User finds bot invite link manually
 2. Adds bot with unclear permissions
 3. Runs `/setup` command in Discord
 4. Manually configures roles/channels
 
 **After**: Seamless web-guided experience
+
 1. Click "Add to Discord Server" button
 2. Discord OAuth handles everything
 3. Land on success page with clear next steps
