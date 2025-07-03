@@ -1,6 +1,7 @@
 import type { Route } from "./+types/sh-user";
 import db from "#~/db.server";
 import { type LoaderFunctionArgs, Link, useSearchParams } from "react-router";
+import { DiscordLayout } from "#~/components/DiscordLayout";
 import {
   ComposedChart,
   // Line,
@@ -143,13 +144,15 @@ export default function UserProfile({
   }, [data]);
 
   return (
-    <div className="mx-auto max-w-screen-lg">
-      <h1 className="pt-2 text-center text-4xl font-bold">
-        {data.userInfo?.username}
-      </h1>
+    <DiscordLayout>
+      <div className="h-full px-6 py-8">
+        <div className="mx-auto max-w-screen-lg">
+          <h1 className="pt-2 text-center text-4xl font-bold text-white">
+            {data.userInfo?.username}
+          </h1>
       {data.userInfo?.global_name &&
         data.userInfo?.global_name !== data.userInfo?.username && (
-          <div className="pt-2 text-center text-xl">
+          <div className="pt-2 text-center text-xl text-gray-300">
             ({data.userInfo?.global_name})
           </div>
         )}
@@ -158,8 +161,9 @@ export default function UserProfile({
           pathname: `/${params.guildId}/sh`,
           search: `?start=${start}&end=${end}`,
         }}
+        className="inline-block mb-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
       >
-        back
+        ← Back to Dashboard
       </Link>
       <textarea
         className="border"
@@ -291,6 +295,8 @@ export default function UserProfile({
           <Bar dataKey="react_count" fill="green" />
         </ComposedChart>
       </ResponsiveContainer>
-    </div>
+        </div>
+      </div>
+    </DiscordLayout>
   );
 }

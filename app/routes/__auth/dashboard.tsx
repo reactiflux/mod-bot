@@ -2,6 +2,7 @@ import type { Route } from "./+types/dashboard";
 import { data, useNavigation, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
+import { DiscordLayout } from "#~/components/DiscordLayout";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   // const user = await getUser(request);
@@ -75,20 +76,23 @@ export default function DashboardPage({
 
   if (!data) {
     return (
-      <div>
-        <div className="flex min-h-full justify-center">
-          <RangeForm values={{ start, end }} />
+      <DiscordLayout>
+        <div className="h-full px-6 py-8">
+          <div className="flex min-h-full justify-center">
+            <RangeForm values={{ start, end }} />
+          </div>
+          <div></div>
         </div>
-        <div></div>
-      </div>
+      </DiscordLayout>
     );
   }
 
   return (
-    <div>
-      <div className="flex min-h-full justify-center">
-        <RangeForm values={{ start, end }} />
-      </div>
+    <DiscordLayout>
+      <div className="h-full px-6 py-8">
+        <div className="flex min-h-full justify-center">
+          <RangeForm values={{ start, end }} />
+        </div>
       <div>
         <textarea
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
@@ -142,7 +146,8 @@ ${data
             ))}
           </tbody>
         </table>
+        </div>
       </div>
-    </div>
+    </DiscordLayout>
   );
 }
