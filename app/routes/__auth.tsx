@@ -7,35 +7,23 @@ import { fetchGuilds } from "#~/models/discord.server";
 import { rest } from "#~/discord/api.js";
 import { REST } from "@discordjs/rest";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { createContext, useContext } from "react";
+import { DiscordLayout } from "#~/components/DiscordLayout";
 import TTLCache from "@isaacs/ttlcache";
 
-// Guild context for sharing guild data across authenticated routes
-interface GuildContextType {
-  guilds: Array<{
+// TTL cache for guild data - 5 minute TTL, max 100 users
+const guildCache = new TTLCache<
+  string,
+  Array<{
     id: string;
     name: string;
     icon?: string;
     hasBot: boolean;
     authz: string[];
-  }>;
-}
-
-// TTL cache for guild data - 5 minute TTL, max 100 users
-const guildCache = new TTLCache<string, GuildContextType["guilds"]>({
+  }>
+>({
   ttl: 5 * 60 * 1000, // 5 minutes
   max: 100, // max 100 users cached
 });
-
-const GuildContext = createContext<GuildContextType | null>(null);
-
-export function useGuilds() {
-  const context = useContext(GuildContext);
-  if (!context) {
-    throw new Error("useGuilds must be used within a GuildProvider");
-  }
-  return context;
-}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUser(request);
@@ -85,6 +73,13 @@ export default function Auth() {
   const { pathname, search, hash } = useLocation();
   const { guilds } = useLoaderData<typeof loader>();
 
+  console.log("🏠 Auth component rendering:", {
+    hasUser: !!user,
+    guildsCount: guilds?.length || 0,
+    guilds,
+    pathname,
+  });
+
   if (!user) {
     return (
       <div className="flex min-h-full flex-col justify-center">
@@ -96,8 +91,8 @@ export default function Auth() {
   }
 
   return (
-    <GuildContext.Provider value={{ guilds }}>
+    <DiscordLayout guilds={guilds}>
       <Outlet />
-    </GuildContext.Provider>
+    </DiscordLayout>
   );
 }

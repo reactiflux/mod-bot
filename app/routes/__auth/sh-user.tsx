@@ -1,7 +1,6 @@
 import type { Route } from "./+types/sh-user";
 import db from "#~/db.server";
 import { type LoaderFunctionArgs, Link, useSearchParams } from "react-router";
-import { DiscordLayout } from "#~/components/DiscordLayout";
 import {
   ComposedChart,
   // Line,
@@ -144,159 +143,143 @@ export default function UserProfile({
   }, [data]);
 
   return (
-    <DiscordLayout>
-      <div className="h-full px-6 py-8">
-        <div className="mx-auto max-w-screen-lg">
-          <h1 className="pt-2 text-center text-4xl font-bold text-white">
-            {data.userInfo?.username}
-          </h1>
-      {data.userInfo?.global_name &&
-        data.userInfo?.global_name !== data.userInfo?.username && (
-          <div className="pt-2 text-center text-xl text-gray-300">
-            ({data.userInfo?.global_name})
-          </div>
-        )}
-      <Link
-        to={{
-          pathname: `/${params.guildId}/sh`,
-          search: `?start=${start}&end=${end}`,
-        }}
-        className="inline-block mb-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-      >
-        ← Back to Dashboard
-      </Link>
-      <textarea
-        className="border"
-        style={{ width: "100%" }}
-        readOnly
-        value={`from:${data.userInfo?.id} before:${end} after:${start}`}
-      />
-      <details>
-        <summary>raw data</summary>
-        <textarea
-          className="border"
-          style={{ width: "100%", height: "200px" }}
-          readOnly
-          defaultValue={JSON.stringify(derivedData, null, 2)}
-        />
-      </details>
-
-      <div>
-        <p>
-          {derivedData.totalMessages} messages in {data.channelBreakdown.length}{" "}
-          channels
-        </p>
-        <p>{derivedData.totalReactions} reactions</p>
-      </div>
-
-      <ResponsiveContainer width="100%" height={300}>
-        <RadarChart
-          cx="50%"
-          cy="50%"
-          outerRadius="80%"
-          data={data.categoryBreakdown}
+    <div className="h-full px-6 py-8">
+      <div className="mx-auto max-w-screen-lg">
+        <h1 className="pt-2 text-center text-4xl font-bold text-white">
+          {data.userInfo?.username}
+        </h1>
+        {data.userInfo?.global_name &&
+          data.userInfo?.global_name !== data.userInfo?.username && (
+            <div className="pt-2 text-center text-xl text-gray-300">
+              ({data.userInfo?.global_name})
+            </div>
+          )}
+        <Link
+          to={{
+            pathname: `/app/${params.guildId}/sh`,
+            search: `?start=${start}&end=${end}`,
+          }}
+          className="mb-4 inline-block rounded bg-gray-600 px-4 py-2 text-white transition-colors hover:bg-gray-500"
         >
-          <PolarGrid />
-          <PolarAngleAxis dataKey="channel_category" />
-          <PolarRadiusAxis />
-          <Tooltip />
-          <Radar
-            name="Channels"
-            dataKey="messages"
-            stroke="#8884d8"
-            fill="#8884d8"
-            fillOpacity={0.6}
+          ← Back to Dashboard
+        </Link>
+        <details>
+          <summary>raw data</summary>
+          <textarea
+            className="border"
+            style={{ width: "100%", height: "200px" }}
+            readOnly
+            defaultValue={JSON.stringify(derivedData, null, 2)}
           />
-        </RadarChart>
-      </ResponsiveContainer>
+        </details>
 
-      <ResponsiveContainer width="100%" height={200}>
-        <ComposedChart
-          width={500}
-          height={300}
-          data={data.channelBreakdown}
-          margin={{
-            top: 20,
-            right: 50,
-            bottom: 20,
-            left: 20,
-          }}
-        >
-          <CartesianGrid strokeDasharray="1 3" stroke="#ddd" />
-          <XAxis dataKey="name" />
-          <YAxis domain={[0, 250]} />
-          <Tooltip />
-          <Bar dataKey="messages" fill="#8884d8" />
-        </ComposedChart>
-      </ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={300}>
+          <RadarChart
+            cx="50%"
+            cy="50%"
+            outerRadius="80%"
+            data={data.categoryBreakdown}
+          >
+            <PolarGrid />
+            <PolarAngleAxis dataKey="channel_category" />
+            <PolarRadiusAxis />
+            <Tooltip />
+            <Radar
+              name="Channels"
+              dataKey="messages"
+              stroke="#8884d8"
+              fill="#8884d8"
+              fillOpacity={0.6}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart
-          width={500}
-          height={200}
-          data={data.dailyBreakdown}
-          syncId="dailyStats"
-          margin={{
-            top: 20,
-            right: 20,
-            bottom: 20,
-            left: 20,
-          }}
-        >
-          <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
-          <XAxis dataKey="date" scale="band" />
-          <YAxis domain={[0, 125]} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="messages" fill="#413ea0" />
-        </ComposedChart>
-      </ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart
+            width={500}
+            height={300}
+            data={data.channelBreakdown}
+            margin={{
+              top: 20,
+              right: 50,
+              bottom: 20,
+              left: 20,
+            }}
+          >
+            <CartesianGrid strokeDasharray="1 3" stroke="#ddd" />
+            <XAxis dataKey="name" />
+            <YAxis domain={[0, 250]} />
+            <Tooltip />
+            <Bar dataKey="messages" fill="#8884d8" />
+          </ComposedChart>
+        </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart
-          width={500}
-          height={200}
-          data={data.dailyBreakdown}
-          syncId="dailyStats"
-          margin={{
-            top: 20,
-            right: 20,
-            bottom: 20,
-            left: 20,
-          }}
-        >
-          <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
-          <XAxis dataKey="date" scale="band" />
-          <YAxis domain={[0, 1250]} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="word_count" stackId="1" fill="red" />
-        </ComposedChart>
-      </ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart
+            width={500}
+            height={200}
+            data={data.dailyBreakdown}
+            syncId="dailyStats"
+            margin={{
+              top: 20,
+              right: 20,
+              bottom: 20,
+              left: 20,
+            }}
+          >
+            <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
+            <XAxis dataKey="date" scale="band" />
+            <YAxis domain={[0, 125]} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="messages" fill="#413ea0" />
+          </ComposedChart>
+        </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart
-          width={500}
-          height={200}
-          data={data.dailyBreakdown}
-          syncId="dailyStats"
-          margin={{
-            top: 20,
-            right: 20,
-            bottom: 20,
-            left: 20,
-          }}
-        >
-          <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
-          <XAxis dataKey="date" scale="band" />
-          <YAxis domain={[0, 25]} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="react_count" fill="green" />
-        </ComposedChart>
-      </ResponsiveContainer>
-        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart
+            width={500}
+            height={200}
+            data={data.dailyBreakdown}
+            syncId="dailyStats"
+            margin={{
+              top: 20,
+              right: 20,
+              bottom: 20,
+              left: 20,
+            }}
+          >
+            <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
+            <XAxis dataKey="date" scale="band" />
+            <YAxis domain={[0, 1250]} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="word_count" stackId="1" fill="red" />
+          </ComposedChart>
+        </ResponsiveContainer>
+
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart
+            width={500}
+            height={200}
+            data={data.dailyBreakdown}
+            syncId="dailyStats"
+            margin={{
+              top: 20,
+              right: 20,
+              bottom: 20,
+              left: 20,
+            }}
+          >
+            <CartesianGrid strokeDasharray="7 3" stroke="#ddd" />
+            <XAxis dataKey="date" scale="band" />
+            <YAxis domain={[0, 25]} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="react_count" fill="green" />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
-    </DiscordLayout>
+    </div>
   );
 }

@@ -3,7 +3,6 @@ import { route, layout } from "@react-router/dev/routes";
 
 export default [
   layout("routes/__auth.tsx", [
-    route("guilds", "routes/guilds.tsx"),
     route("app/:guildId/onboard", "routes/onboard.tsx"),
     route("app/:guildId/sh", "routes/__auth/dashboard.tsx"),
     route("app/:guildId/sh/:userId", "routes/__auth/sh-user.tsx"),

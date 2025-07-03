@@ -2,18 +2,27 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import { useUser } from "#~/utils";
 import { Logout } from "#~/basics/logout";
-import { useGuilds } from "#~/routes/__auth";
 
 interface DiscordLayoutProps {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
+  guilds: Array<{
+    id: string;
+    name: string;
+    icon?: string;
+    hasBot: boolean;
+    authz: string[];
+  }>;
 }
 
-export function DiscordLayout({ children, rightPanel }: DiscordLayoutProps) {
+export function DiscordLayout({
+  children,
+  rightPanel,
+  guilds,
+}: DiscordLayoutProps) {
   const user = useUser();
   const location = useLocation();
   const [accountExpanded, setAccountExpanded] = useState(false);
-  const { guilds } = useGuilds();
 
   // Filter to only show manageable guilds (where Euno is installed) in the server selector
   const manageableGuilds = guilds.filter((guild) => guild.hasBot);
@@ -170,7 +179,7 @@ export function DiscordLayout({ children, rightPanel }: DiscordLayoutProps) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden bg-gray-700">
         {/* Main Content */}
         <main className={`flex-1 overflow-auto ${rightPanel ? "pr-0" : ""}`}>
           <div className="h-full bg-gray-700">{children}</div>
