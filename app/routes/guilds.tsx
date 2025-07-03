@@ -66,13 +66,13 @@ export default function Guilds() {
                   </div>
                   <div className="ml-4 flex space-x-3">
                     <Link
-                      to={`/${guild.id}/sh`}
+                      to={`/app/${guild.id}/sh`}
                       className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
                       Dashboard
                     </Link>
                     <Link
-                      to={`/onboard?guild_id=${guild.id}`}
+                      to={`/app/${guild.id}/onboard`}
                       className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                     >
                       Configure
