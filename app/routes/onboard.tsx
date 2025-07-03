@@ -32,6 +32,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     name: string;
     position: number;
     type: number;
+    parent_id?: string | null;
+  }> = [];
+  let categories: Array<{
+    id: string;
+    name: string;
+    position: number;
+    type: number;
   }> = [];
 
   try {
@@ -41,15 +48,27 @@ export async function loader({ request }: Route.LoaderArgs) {
         Array<{ id: string; name: string; position: number; color: number }>
       >,
       rest.get(Routes.guildChannels(guildId)) as Promise<
-        Array<{ id: string; name: string; position: number; type: number }>
+        Array<{
+          id: string;
+          name: string;
+          position: number;
+          type: number;
+          parent_id?: string | null;
+        }>
       >,
     ]);
 
     roles = guildRoles
       .filter((role) => role.name !== "@everyone")
       .sort((a, b) => b.position - a.position);
+
+    // Separate categories and text channels
+    categories = guildChannels
+      .filter((channel) => channel.type === 4) // Category channels
+      .sort((a, b) => a.position - b.position);
+
     channels = guildChannels
-      .filter((channel) => channel.type === 0)
+      .filter((channel) => channel.type === 0) // Text channels only
       .sort((a, b) => a.position - b.position);
   } catch (error) {
     console.error("Error fetching guild data:", error);
@@ -62,11 +81,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     tier,
     roles,
     channels,
+    categories,
   };
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const _user = await requireUser(request);
   const formData = await request.formData();
   const guildId = formData.get("guild_id") as string;
   const modLogChannel = formData.get("mod_log_channel") as string;
@@ -85,10 +104,9 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   // Register the guild and set up configuration
-  const mockGuild = { id: guildId };
-  await registerGuild(mockGuild as { id: string });
+  await registerGuild(guildId);
 
-  await setSettings(mockGuild as { id: string }, {
+  await setSettings(guildId, {
     [SETTINGS.modLog]: modLogChannel,
     [SETTINGS.moderator]: moderatorRole,
     [SETTINGS.restricted]: restrictedRole || undefined,
@@ -98,7 +116,59 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Onboard() {
-  const { guildId, tier, roles, channels } = useLoaderData<typeof loader>();
+  const { guildId, tier, roles, channels, categories } =
+    useLoaderData<typeof loader>();
+
+  // Organize channels by category
+  const organizedChannels = () => {
+    const uncategorized = channels.filter((channel) => !channel.parent_id);
+    const channelsByCategory = new Map<string, typeof channels>();
+
+    // Group channels by their parent category
+    channels.forEach((channel) => {
+      if (channel.parent_id) {
+        if (!channelsByCategory.has(channel.parent_id)) {
+          channelsByCategory.set(channel.parent_id, []);
+        }
+        channelsByCategory.get(channel.parent_id)!.push(channel);
+      }
+    });
+
+    const result: Array<{
+      type: "category" | "channel";
+      data: {
+        id: string;
+        name: string;
+        position: number;
+        type: number;
+        parent_id?: string | null;
+      };
+      children?: Array<{
+        id: string;
+        name: string;
+        position: number;
+        type: number;
+        parent_id?: string | null;
+      }>;
+    }> = [];
+
+    // Add uncategorized channels first
+    uncategorized.forEach((channel) => {
+      result.push({ type: "channel", data: channel });
+    });
+
+    // Add categories with their channels
+    categories.forEach((category) => {
+      const categoryChannels = channelsByCategory.get(category.id) || [];
+      result.push({
+        type: "category",
+        data: category,
+        children: categoryChannels.sort((a, b) => a.position - b.position),
+      });
+    });
+
+    return result;
+  };
 
   return (
     <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
@@ -182,11 +252,33 @@ export default function Onboard() {
                     className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="">Select a channel...</option>
-                    {channels.map((channel) => (
-                      <option key={channel.id} value={channel.id}>
-                        #{channel.name}
-                      </option>
-                    ))}
+                    {organizedChannels().map((item) => {
+                      if (item.type === "channel") {
+                        return (
+                          <option key={item.data.id} value={item.data.id}>
+                            #{item.data.name}
+                          </option>
+                        );
+                      } else if (
+                        item.type === "category" &&
+                        item.children &&
+                        item.children.length > 0
+                      ) {
+                        return (
+                          <optgroup
+                            key={item.data.id}
+                            label={item.data.name.toUpperCase()}
+                          >
+                            {item.children.map((channel) => (
+                              <option key={channel.id} value={channel.id}>
+                                #{channel.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      }
+                      return null;
+                    })}
                   </select>
                 </div>
                 <p className="mt-2 text-sm text-gray-500">

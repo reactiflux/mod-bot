@@ -1,4 +1,3 @@
-import type { Guild as DiscordGuild } from "discord.js";
 import db, { SqliteError } from "#~/db.server";
 import type { DB } from "#~/db.server";
 
@@ -18,19 +17,19 @@ interface SettingsRecord {
   [SETTINGS.restricted]?: string;
 }
 
-export const fetchGuild = async (guild: DiscordGuild) => {
+export const fetchGuild = async (guildId: string) => {
   return await db
     .selectFrom("guilds")
-    .where("id", "=", guild.id)
+    .where("id", "=", guildId)
     .executeTakeFirst();
 };
 
-export const registerGuild = async (guild: DiscordGuild) => {
+export const registerGuild = async (guildId: string) => {
   try {
     await db
       .insertInto("guilds")
       .values({
-        id: guild.id,
+        id: guildId,
         settings: JSON.stringify({}),
       })
       .execute();
@@ -44,7 +43,7 @@ export const registerGuild = async (guild: DiscordGuild) => {
 };
 
 export const setSettings = async (
-  guild: DiscordGuild,
+  guildId: string,
   settings: SettingsRecord,
 ) => {
   await db
@@ -52,12 +51,12 @@ export const setSettings = async (
     .set("settings", (eb) =>
       eb.fn("json_patch", ["settings", eb.val(JSON.stringify(settings))]),
     )
-    .where("id", "=", guild.id)
+    .where("id", "=", guildId)
     .execute();
 };
 
 export const fetchSettings = async <T extends keyof typeof SETTINGS>(
-  guild: DiscordGuild,
+  guildId: string,
   keys: T[],
 ) => {
   const result = Object.entries(
@@ -69,7 +68,7 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
       .select<DB, "guilds", SettingsRecord>((eb) =>
         keys.map((k) => eb.ref("settings", "->").key(k).as(k)),
       )
-      .where("id", "=", guild.id)
+      .where("id", "=", guildId)
       // This cast is also evidence of the pattern being broken
       .executeTakeFirstOrThrow(),
   ) as [T, string][];

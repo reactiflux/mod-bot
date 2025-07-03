@@ -8,7 +8,7 @@ export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes
   // available after downtime, or when actually added to a new guild
   bot.on("guildCreate", async (guild) => {
-    const appGuild = await fetchGuild(guild);
+    const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
       const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
 
