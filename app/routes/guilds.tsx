@@ -11,7 +11,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   // Get user's Discord token for user-specific guild fetching
   const userToken = await retrieveDiscordToken(request);
-  console.log("userToken", userToken);
   const userRest = new REST({ version: "10", authPrefix: "Bearer" }).setToken(
     userToken.token.access_token as string,
   );

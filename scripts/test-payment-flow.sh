@@ -138,7 +138,7 @@ main() {
     
     # Test auth protection
     echo -e "${YELLOW}Testing auth protection (should redirect to login)${NC}"
-    local auth_response=$(curl -s -w "%{http_code}" -I "$BASE_URL/onboard" 2>/dev/null | tail -n 1)
+    local auth_response=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/onboard")
     if [ "$auth_response" = "302" ]; then
         echo -e "  ${GREEN}✅ Auth protection working${NC}"
     else

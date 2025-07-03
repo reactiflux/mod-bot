@@ -4,7 +4,7 @@ import type { Route } from "./+types/index";
 import { redirect } from "react-router";
 
 import { Login } from "#~/basics/login";
-import { getUser } from "#~/models/session.server.js";
+import { getUser } from "#~/models/session.server";
 
 const EmojiBackdrop = () => {
   return (
