@@ -1,53 +1,17 @@
-import type { Route } from "./+types/guilds";
-import { useLoaderData, Link } from "react-router";
-import { requireUser, retrieveDiscordToken } from "#~/models/session.server";
-import { fetchGuilds } from "#~/models/discord.server";
-import { rest } from "#~/discord/api.js";
-import { REST } from "@discordjs/rest";
-import { log, trackPerformance } from "#~/helpers/observability";
+import { Link } from "react-router";
 import { DiscordLayout } from "#~/components/DiscordLayout";
+import { useGuilds } from "#~/routes/__auth";
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const user = await requireUser(request);
-
-  // Get user's Discord token for user-specific guild fetching
-  const userToken = await retrieveDiscordToken(request);
-  const userRest = new REST({ version: "10", authPrefix: "Bearer" }).setToken(
-    userToken.token.access_token as string,
-  );
-
-  // Fetch guilds using both user token (for user's guilds) and bot token (for bot's guilds)
-  const guilds = await trackPerformance("discord.fetchGuilds", () =>
-    fetchGuilds(userRest, rest),
-  );
-
-  log("info", "guilds", "Guilds fetched successfully", {
-    userId: user.id,
-    totalGuilds: guilds.length,
-    manageableGuilds: guilds.filter((g) => g.hasBot).length,
-    invitableGuilds: guilds.filter((g) => !g.hasBot).length,
-  });
-
-  return { guilds };
-}
+// No loader needed - guild data comes from parent route
 
 export default function Guilds() {
-  const { guilds } = useLoaderData<typeof loader>();
+  const { guilds } = useGuilds();
 
   const manageableGuilds = guilds.filter((guild) => guild.hasBot);
   const invitableGuilds = guilds.filter((guild) => !guild.hasBot);
 
-  // Create server icons for the left sidebar from manageable guilds
-  const serverIcons = manageableGuilds.map((guild) => ({
-    id: guild.id,
-    name: guild.name,
-    icon: guild.icon,
-    href: `/${guild.id}/sh`,
-    isActive: false, // We'll determine this based on current route later
-  }));
-
   return (
-    <DiscordLayout serverIcons={serverIcons}>
+    <DiscordLayout>
       <div className="h-full px-6 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-white">
@@ -68,9 +32,9 @@ export default function Guilds() {
               {manageableGuilds.map((guild) => (
                 <div
                   key={guild.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-800 border border-gray-600 p-4 transition-all duration-200 hover:bg-gray-750 hover:border-gray-500"
+                  className="hover:bg-gray-750 flex items-center justify-between rounded-lg border border-gray-600 bg-gray-800 p-4 transition-all duration-200 hover:border-gray-500"
                 >
-                  <div className="flex items-center flex-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center">
                     {guild.icon ? (
                       <img
                         src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`}
@@ -84,7 +48,7 @@ export default function Guilds() {
                         </span>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className="truncate text-lg font-semibold text-white">
                         {guild.name}
                       </h3>
@@ -100,7 +64,7 @@ export default function Guilds() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex space-x-3 ml-4">
+                  <div className="ml-4 flex space-x-3">
                     <Link
                       to={`/${guild.id}/sh`}
                       className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -130,9 +94,9 @@ export default function Guilds() {
               {invitableGuilds.map((guild) => (
                 <div
                   key={guild.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-800 border border-gray-600 p-4 transition-all duration-200 hover:bg-gray-750 hover:border-gray-500"
+                  className="hover:bg-gray-750 flex items-center justify-between rounded-lg border border-gray-600 bg-gray-800 p-4 transition-all duration-200 hover:border-gray-500"
                 >
-                  <div className="flex items-center flex-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center">
                     {guild.icon ? (
                       <img
                         src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`}
@@ -146,7 +110,7 @@ export default function Guilds() {
                         </span>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className="truncate text-lg font-semibold text-gray-300">
                         {guild.name}
                       </h3>

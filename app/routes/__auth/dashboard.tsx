@@ -1,5 +1,5 @@
 import type { Route } from "./+types/dashboard";
-import { data, useNavigation, useSearchParams, Link } from "react-router";
+import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 import { DiscordLayout } from "#~/components/DiscordLayout";
@@ -64,12 +64,7 @@ const DataHeading = ({ children }: PropsWithChildren) => {
 export default function DashboardPage({
   loaderData: data,
 }: Route.ComponentProps) {
-  const nav = useNavigation();
   const [qs] = useSearchParams();
-
-  if (nav.state === "loading") {
-    return "loading…";
-  }
 
   const start = qs.get("start") ?? undefined;
   const end = qs.get("end") ?? undefined;
@@ -93,59 +88,59 @@ export default function DashboardPage({
         <div className="flex min-h-full justify-center">
           <RangeForm values={{ start, end }} />
         </div>
-      <div>
-        <textarea
-          defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
+        <div>
+          <textarea
+            defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
 ${data
   .map(
     (d) =>
       `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
   )
   .join("\n")}`}
-        ></textarea>
-        <table className="mt-24">
-          <thead>
-            <tr>
-              <DataHeading>Author ID</DataHeading>
-              <DataHeading>Percent Zero Days</DataHeading>
-              <DataHeading>Word Count</DataHeading>
-              <DataHeading>Message Count</DataHeading>
-              <DataHeading>Channel Count</DataHeading>
-              <DataHeading>Category Count</DataHeading>
-              <DataHeading>Reaction Count</DataHeading>
-              <DataHeading>Word Score</DataHeading>
-              <DataHeading>Message Score</DataHeading>
-              <DataHeading>Channel Score</DataHeading>
-              <DataHeading>Consistency Score</DataHeading>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((d) => (
-              <tr key={d.data.member.author_id}>
-                <td>
-                  <Link
-                    to={{
-                      pathname: d.data.member.author_id,
-                      search: `?start=${start}&end=${end}`,
-                    }}
-                  >
-                    {d.data.member.username || d.data.member.author_id}
-                  </Link>
-                </td>
-                <td>{percent(d.metadata.percentZeroDays)}</td>
-                <td>{d.data.member.total_word_count}</td>
-                <td>{d.data.member.message_count}</td>
-                <td>{d.data.member.channel_count}</td>
-                <td>{d.data.member.category_count}</td>
-                <td>{d.data.member.total_reaction_count}</td>
-                <td>{d.score.wordScore}</td>
-                <td>{d.score.messageScore}</td>
-                <td>{d.score.channelScore}</td>
-                <td>{d.score.consistencyScore}</td>
+          ></textarea>
+          <table className="mt-24">
+            <thead>
+              <tr>
+                <DataHeading>Author ID</DataHeading>
+                <DataHeading>Percent Zero Days</DataHeading>
+                <DataHeading>Word Count</DataHeading>
+                <DataHeading>Message Count</DataHeading>
+                <DataHeading>Channel Count</DataHeading>
+                <DataHeading>Category Count</DataHeading>
+                <DataHeading>Reaction Count</DataHeading>
+                <DataHeading>Word Score</DataHeading>
+                <DataHeading>Message Score</DataHeading>
+                <DataHeading>Channel Score</DataHeading>
+                <DataHeading>Consistency Score</DataHeading>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.map((d) => (
+                <tr key={d.data.member.author_id}>
+                  <td>
+                    <Link
+                      to={{
+                        pathname: d.data.member.author_id,
+                        search: `?start=${start}&end=${end}`,
+                      }}
+                    >
+                      {d.data.member.username || d.data.member.author_id}
+                    </Link>
+                  </td>
+                  <td>{percent(d.metadata.percentZeroDays)}</td>
+                  <td>{d.data.member.total_word_count}</td>
+                  <td>{d.data.member.message_count}</td>
+                  <td>{d.data.member.channel_count}</td>
+                  <td>{d.data.member.category_count}</td>
+                  <td>{d.data.member.total_reaction_count}</td>
+                  <td>{d.score.wordScore}</td>
+                  <td>{d.score.messageScore}</td>
+                  <td>{d.score.channelScore}</td>
+                  <td>{d.score.consistencyScore}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </DiscordLayout>
