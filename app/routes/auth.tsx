@@ -44,6 +44,6 @@ export async function action({ request }: Route.ActionArgs) {
 
   return initOauthLogin({
     request,
-    redirectTo: form.get("redirectTo")?.toString() ?? undefined,
+    redirectTo: form.get("redirectTo")?.toString() ?? "/guilds",
   });
 }

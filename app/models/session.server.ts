@@ -117,7 +117,6 @@ export const CookieSessionKeys = {
 
 export const DbSessionKeys = {
   authState: "state",
-  authRedirect: "redirectTo",
   authFlow: "flow",
   authGuildId: "guildId",
 } as const;
@@ -167,19 +166,19 @@ export async function initOauthLogin({
   guildId,
 }: {
   request: Request;
-  redirectTo?: string;
+  redirectTo: string;
   flow?: "user" | "signup" | "add-bot";
   guildId?: string;
 }) {
   const { origin } = new URL(request.url);
   const cookieSession = await getCookieSession(request.headers.get("Cookie"));
 
-  const state = randomUUID();
+  const state = JSON.stringify({
+    uuid: randomUUID(),
+    redirectTo: encodeURIComponent(redirectTo),
+  });
   cookieSession.set(DbSessionKeys.authState, state);
   cookieSession.set(DbSessionKeys.authFlow, flow);
-  if (redirectTo) {
-    cookieSession.set(DbSessionKeys.authRedirect, redirectTo);
-  }
   if (guildId) {
     cookieSession.set(DbSessionKeys.authGuildId, guildId);
   }
@@ -223,9 +222,31 @@ export async function completeOauthLogin(
     getDbSession(reqCookie),
   ]);
 
-  const cookieState = cookieSession.get(DbSessionKeys.authState);
+  const cookieStateStr = cookieSession.get(DbSessionKeys.authState);
   const flow = cookieSession.get(DbSessionKeys.authFlow) ?? "user";
   const guildId = cookieSession.get(DbSessionKeys.authGuildId);
+
+  // Parse state to get UUID and redirectTo
+  let cookieState;
+  let stateRedirectTo = "/guilds";
+  try {
+    const parsedState = JSON.parse(cookieStateStr || "{}");
+    cookieState = parsedState.uuid;
+    stateRedirectTo = decodeURIComponent(parsedState.redirectTo) || "/guilds";
+  } catch (e) {
+    console.error("Failed to parse state:", e);
+    throw redirect("/login");
+  }
+
+  // Parse incoming state
+  let incomingStateUuid;
+  try {
+    const parsedIncomingState = JSON.parse(state || "{}");
+    incomingStateUuid = parsedIncomingState.uuid;
+  } catch (e) {
+    // Fallback for legacy/simple state format
+    incomingStateUuid = state;
+  }
 
   // Choose scope based on flow type
   const scope = flow === "user" ? USER_SCOPE : BOT_SCOPE;
@@ -266,7 +287,7 @@ export async function completeOauthLogin(
 
   // dbState already checked earlier
   // Redirect to login if the state arg doesn't match
-  if (cookieState !== state) {
+  if (cookieState !== incomingStateUuid) {
     console.error("DB state didn’t match cookie state");
     throw redirect("/login");
   }
@@ -280,9 +301,9 @@ export async function completeOauthLogin(
   cookieSession.unset(DbSessionKeys.authGuildId);
 
   // Determine redirect based on flow
-  let redirectTo = dbSession.get(DbSessionKeys.authRedirect) ?? "/guilds";
+  let finalRedirectTo = stateRedirectTo || "/guilds";
   if (flow !== "user" && guildId) {
-    redirectTo = `/onboard?guild_id=${guildId}`;
+    finalRedirectTo = `/onboard?guild_id=${guildId}`;
   }
 
   const [cookie, dbCookie] = await Promise.all([
@@ -295,7 +316,7 @@ export async function completeOauthLogin(
   headers.append("Set-Cookie", cookie);
   headers.append("Set-Cookie", dbCookie);
 
-  return redirect(redirectTo, { headers });
+  return redirect(finalRedirectTo, { headers });
 }
 
 export async function retrieveDiscordToken(request: Request) {
