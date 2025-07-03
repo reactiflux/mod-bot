@@ -2,7 +2,7 @@ import { LRUCache } from "lru-cache";
 import { rest } from "#~/discord/api.js";
 import { Routes } from "discord.js";
 
-type DiscordUser = { username: string; global_name: string };
+type DiscordUser = { username: string; global_name: string; id: string };
 
 const cache = new LRUCache<string, DiscordUser>({
   ttl: 1000 * 60 * 60 * 24 * 14, // 14 days
@@ -17,7 +17,7 @@ export async function getOrFetchUser(id: string) {
   const { username, global_name } = (await rest.get(
     Routes.user(id),
   )) as DiscordUser;
-  const result = { username, global_name };
+  const result = { username, global_name, id };
   cache.set(id, result);
   return result;
 }

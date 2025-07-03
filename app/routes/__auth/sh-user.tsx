@@ -161,6 +161,12 @@ export default function UserProfile({
       >
         back
       </Link>
+      <textarea
+        className="border"
+        style={{ width: "100%" }}
+        readOnly
+        value={`from:${data.userInfo?.id} before:${end} after:${start}`}
+      />
       <details>
         <summary>raw data</summary>
         <textarea
@@ -170,6 +176,14 @@ export default function UserProfile({
           defaultValue={JSON.stringify(derivedData, null, 2)}
         />
       </details>
+
+      <div>
+        <p>
+          {derivedData.totalMessages} messages in {data.channelBreakdown.length}{" "}
+          channels
+        </p>
+        <p>{derivedData.totalReactions} reactions</p>
+      </div>
 
       <ResponsiveContainer width="100%" height={300}>
         <RadarChart
