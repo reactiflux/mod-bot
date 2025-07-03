@@ -1,8 +1,7 @@
 import type { Route } from "./+types/guilds";
 import { data, useLoaderData, Link } from "react-router";
-import { requireUser, retrieveDiscordToken } from "#~/models/session.server";
+import { requireUser } from "#~/models/session.server";
 import { fetchGuilds } from "#~/models/discord.server";
-import { REST } from "@discordjs/rest";
 import { rest } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -10,15 +9,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
 
   try {
-    // Get user's Discord token for API calls
-    const userToken = await retrieveDiscordToken(request);
-    const userRest = new REST({ version: "10" }).setToken(
-      userToken.token.access_token,
-    );
-
-    // Fetch guilds where user has management permissions
+    // Use bot token for guild operations per best practices
     const guilds = await trackPerformance("discord.fetchGuilds", () =>
-      fetchGuilds(userRest, rest),
+      fetchGuilds(rest, rest),
     );
 
     log("info", "guilds", "Guilds fetched successfully", {
