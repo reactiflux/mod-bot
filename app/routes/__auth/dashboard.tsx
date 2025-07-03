@@ -2,6 +2,7 @@ import type { Route } from "./+types/dashboard";
 import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
+import { ALLOWED_CATEGORIES, ALLOWED_CHANNELS } from "#~/config/channels";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   // const user = await getUser(request);
@@ -18,8 +19,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     guildId,
     start,
     end,
-    [],
-    ["Need Help", "React General", "Advanced Topics"],
+    ALLOWED_CHANNELS,
+    ALLOWED_CATEGORIES,
   );
 
   return output;
