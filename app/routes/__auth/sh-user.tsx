@@ -1,5 +1,4 @@
 import type { Route } from "./+types/sh-user";
-import db from "#~/db.server";
 import { type LoaderFunctionArgs, Link, useSearchParams } from "react-router";
 import {
   ComposedChart,
@@ -23,6 +22,7 @@ import { useMemo } from "react";
 import { sql } from "kysely";
 import { getOrFetchUser } from "#~/helpers/userInfoCache";
 import { fillDateGaps } from "#~/helpers/dateUtils";
+import { createMessageStatsQuery } from "#~/models/message-stats.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
@@ -41,12 +41,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Error("cannot load data without start and end range");
   }
 
-  const reportSlice = db
-    .selectFrom("message_stats")
-    .where("guild_id", "=", guildId)
-    .where("author_id", "=", userId)
-    .where("sent_at", ">=", new Date(start).getTime())
-    .where("sent_at", "<=", new Date(end + "T23:59:59").getTime());
+  const reportSlice = createMessageStatsQuery(guildId, start, end, userId);
 
   const dailyBreakdownQuery = reportSlice
     .select((eb) => [
