@@ -1,7 +1,11 @@
 import type { Route } from "./+types/onboard";
-import { data, useLoaderData } from "react-router";
+import { data, useLoaderData, Form } from "react-router";
 import { requireUser } from "#~/models/session.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
+import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
+
+import { Routes } from "discord-api-types/v10";
+import { rest } from "#~/discord/api.js";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const _user = await requireUser(request);
@@ -16,10 +20,48 @@ export async function loader({ request }: Route.LoaderArgs) {
   const subscription = await SubscriptionService.getGuildSubscription(guildId);
   const tier = await SubscriptionService.getProductTier(guildId);
 
+  // Get Discord token and fetch guild data
+  let roles: Array<{
+    id: string;
+    name: string;
+    position: number;
+    color: number;
+  }> = [];
+  let channels: Array<{
+    id: string;
+    name: string;
+    position: number;
+    type: number;
+  }> = [];
+
+  try {
+    // Fetch guild roles and channels
+    const [guildRoles, guildChannels] = await Promise.all([
+      rest.get(Routes.guildRoles(guildId)) as Promise<
+        Array<{ id: string; name: string; position: number; color: number }>
+      >,
+      rest.get(Routes.guildChannels(guildId)) as Promise<
+        Array<{ id: string; name: string; position: number; type: number }>
+      >,
+    ]);
+
+    roles = guildRoles
+      .filter((role) => role.name !== "@everyone")
+      .sort((a, b) => b.position - a.position);
+    channels = guildChannels
+      .filter((channel) => channel.type === 0)
+      .sort((a, b) => a.position - b.position);
+  } catch (error) {
+    console.error("Error fetching guild data:", error);
+    // Continue with empty arrays if Discord API fails
+  }
+
   return {
     guildId,
     subscription,
     tier,
+    roles,
+    channels,
   };
 }
 
@@ -27,225 +69,40 @@ export async function action({ request }: Route.ActionArgs) {
   const _user = await requireUser(request);
   const formData = await request.formData();
   const guildId = formData.get("guild_id") as string;
+  const modLogChannel = formData.get("mod_log_channel") as string;
+  const moderatorRole = formData.get("moderator_role") as string;
+  const restrictedRole = formData.get("restricted_role") as string;
 
   if (!guildId) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
   }
 
-  // Here we would save the guild configuration
-  // For now, just redirect to dashboard
+  if (!modLogChannel || !moderatorRole) {
+    throw data(
+      { message: "Moderator role and log channel are required" },
+      { status: 400 },
+    );
+  }
+
+  // Register the guild and set up configuration
+  const mockGuild = { id: guildId };
+  await registerGuild(mockGuild as { id: string });
+
+  await setSettings(mockGuild as { id: string }, {
+    [SETTINGS.modLog]: modLogChannel,
+    [SETTINGS.moderator]: moderatorRole,
+    [SETTINGS.restricted]: restrictedRole || undefined,
+  });
+
   return data({ success: true });
 }
 
 export default function Onboard() {
-  const { guildId, tier } = useLoaderData<typeof loader>();
+  const { guildId, tier, roles, channels } = useLoaderData<typeof loader>();
 
-  if (tier === "free") {
-    // Show upgrade-focused onboarding for free users
-    return (
-      <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <svg
-                className="h-6 w-6 text-green-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-extrabold text-gray-900">
-              Euno is now active!
-            </h2>
-            <p className="mt-2 text-lg text-gray-600">
-              Your Discord server is ready. Choose how you want to proceed:
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {/* Pro Plan - Highlighted */}
-            <div className="relative rounded-lg border-2 border-indigo-500 bg-white shadow-lg">
-              <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 transform">
-                <span className="inline-flex rounded-full bg-indigo-500 px-4 py-1 text-sm font-semibold uppercase tracking-wide text-white">
-                  Recommended
-                </span>
-              </div>
-              <div className="p-6">
-                <h3 className="text-center text-xl font-bold text-gray-900">
-                  Start with Pro
-                </h3>
-                <p className="mt-2 text-center text-sm text-gray-600">
-                  Get full access to all features immediately
-                </p>
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Advanced analytics & insights
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Unlimited message tracking
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Premium moderation tools
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Priority support
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <a
-                    href={`/upgrade?guild_id=${guildId}`}
-                    className="block w-full rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  >
-                    Upgrade to Pro - $15/month
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Free Plan */}
-            <div className="rounded-lg border border-gray-200 bg-white shadow">
-              <div className="p-6">
-                <h3 className="text-center text-xl font-bold text-gray-900">
-                  Continue with Free
-                </h3>
-                <p className="mt-2 text-center text-sm text-gray-600">
-                  Start with basic features, upgrade anytime
-                </p>
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Basic moderation tools
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Limited analytics
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="ml-3 text-sm text-gray-700">
-                      Community support
-                    </span>
-                  </div>
-                  <div className="h-6"></div>{" "}
-                  {/* Spacer to align with Pro features */}
-                </div>
-                <div className="mt-6">
-                  <a
-                    href={`/dashboard?guild_id=${guildId}`}
-                    className="block w-full rounded-md border border-gray-300 bg-white px-4 py-3 text-center text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  >
-                    Continue with Free
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              You can upgrade or downgrade anytime from your dashboard
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Pro user onboarding (existing flow simplified)
   return (
     <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
             <svg
@@ -261,44 +118,176 @@ export default function Onboard() {
             </svg>
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900">
-            Welcome to Euno Pro!
+            Set up Euno for your server
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Your Discord server is set up with Pro features
+          <p className="mt-2 text-lg text-gray-600">
+            Configure the essential settings to get started
           </p>
         </div>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-          <div className="space-y-6">
-            <div className="rounded-md border border-green-200 bg-green-50 p-4">
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
+            <Form method="post" className="space-y-6">
+              <input type="hidden" name="guild_id" value={guildId} />
+
+              <div>
+                <label
+                  htmlFor="moderator_role"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Moderator Role <span className="text-red-500">*</span>
+                </label>
+                <div className="mt-1">
+                  <select
+                    id="moderator_role"
+                    name="moderator_role"
+                    required
+                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select a role...</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                        {role.color !== 0 && (
+                          <span
+                            style={{
+                              color: `#${role.color.toString(16).padStart(6, "0")}`,
+                            }}
+                          >
+                            {" "}
+                            ●
+                          </span>
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  The role that grants moderator permissions to users.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="mod_log_channel"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Mod Log Channel <span className="text-red-500">*</span>
+                </label>
+                <div className="mt-1">
+                  <select
+                    id="mod_log_channel"
+                    name="mod_log_channel"
+                    required
+                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select a channel...</option>
+                    {channels.map((channel) => (
+                      <option key={channel.id} value={channel.id}>
+                        #{channel.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  The channel where moderation reports will be sent.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="restricted_role"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Restricted Role (Optional)
+                </label>
+                <div className="mt-1">
+                  <select
+                    id="restricted_role"
+                    name="restricted_role"
+                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select a role...</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                        {role.color !== 0 && (
+                          <span
+                            style={{
+                              color: `#${role.color.toString(16).padStart(6, "0")}`,
+                            }}
+                          >
+                            {" "}
+                            ●
+                          </span>
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  A role that prevents members from accessing some channels
+                  during timeouts.
+                </p>
+              </div>
+
+              {(roles.length === 0 || channels.length === 0) && (
+                <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Unable to load server data
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <p>
+                          We couldn't fetch your server's roles and channels.
+                          Make sure Euno has proper permissions in your server.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Complete Setup
+                </button>
+              </div>
+            </Form>
+          </div>
+        </div>
+
+        {tier === "free" && (
+          <div className="mt-8 text-center">
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
               <div className="flex">
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-800">
-                    Pro Features Activated
+                  <h3 className="text-sm font-medium text-yellow-800">
+                    Want more features?
                   </h3>
-                  <div className="mt-2 text-sm text-green-700">
+                  <div className="mt-2 text-sm text-yellow-700">
                     <p>
-                      You now have access to all premium features including
-                      advanced analytics, unlimited tracking, and priority
-                      support.
+                      Upgrade to Pro for advanced analytics, unlimited tracking,
+                      and priority support.
                     </p>
+                    <div className="mt-3">
+                      <a
+                        href={`/upgrade?guild_id=${guildId}`}
+                        className="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-3 py-2 text-sm font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                      >
+                        Upgrade to Pro
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="flex space-x-3">
-              <a
-                href={`/dashboard?guild_id=${guildId}`}
-                className="flex-1 rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                Explore Pro Dashboard
-              </a>
-            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
