@@ -3,9 +3,8 @@
 import type { Route } from "./+types/index";
 import { redirect } from "react-router";
 
-import { getOptionalUser } from "#~/utils";
-
 import { Login } from "#~/basics/login";
+import { getUser } from "#~/models/session.server.js";
 
 const EmojiBackdrop = () => {
   return (
@@ -46,7 +45,7 @@ const EmojiBackdrop = () => {
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
   // If user is logged in, redirect to guilds page
-  const user = await getOptionalUser(request);
+  const user = await getUser(request);
   if (user) {
     throw redirect("/guilds");
   }

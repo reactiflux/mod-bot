@@ -14,6 +14,7 @@ export default [
   route("/", "routes/index.tsx"),
   route("logout", "routes/logout.tsx"),
   route("onboard", "routes/onboard.tsx"),
+  route("guilds", "routes/guilds.tsx"),
   route("upgrade", "routes/upgrade.tsx"),
   route("payment/success", "routes/payment.success.tsx"),
   route("payment/cancel", "routes/payment.cancel.tsx"),

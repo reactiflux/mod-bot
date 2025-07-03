@@ -11,6 +11,7 @@ import { complement, intersection } from "#~/helpers/sets.js";
 
 import type { AccessToken } from "simple-oauth2";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { trackPerformance } from "#~/helpers/observability.js";
 
 export interface DiscordUserInfo {
   id: string;
@@ -149,10 +150,14 @@ export const fetchGuilds = async (
   userRest: REST,
   botRest: REST,
 ): Promise<Guild[]> => {
-  const [rawUserGuilds, rawBotGuilds] = (await Promise.all([
-    userRest.get(Routes.userGuilds()),
-    botRest.get(Routes.userGuilds()),
-  ])) as [APIGuild[], APIGuild[]];
+  const [rawUserGuilds, rawBotGuilds] = (await trackPerformance(
+    "discord.fetchGuilds",
+    () =>
+      Promise.all([
+        userRest.get(Routes.userGuilds()),
+        botRest.get(Routes.userGuilds()),
+      ]),
+  )) as [APIGuild[], APIGuild[]];
 
   const botGuilds = new Map(
     rawBotGuilds.reduce(

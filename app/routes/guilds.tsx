@@ -1,37 +1,34 @@
 import type { Route } from "./+types/guilds";
-import { data, useLoaderData, Link } from "react-router";
-import { requireUser } from "#~/models/session.server";
+import { useLoaderData, Link } from "react-router";
+import { requireUser, retrieveDiscordToken } from "#~/models/session.server";
 import { fetchGuilds } from "#~/models/discord.server";
 import { rest } from "#~/discord/api.js";
+import { REST } from "@discordjs/rest";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
 
-  try {
-    // Use bot token for guild operations per best practices
-    const guilds = await trackPerformance("discord.fetchGuilds", () =>
-      fetchGuilds(rest, rest),
-    );
+  // Get user's Discord token for user-specific guild fetching
+  const userToken = await retrieveDiscordToken(request);
+  console.log("userToken", userToken);
+  const userRest = new REST({ version: "10", authPrefix: "Bearer" }).setToken(
+    userToken.token.access_token as string,
+  );
 
-    log("info", "guilds", "Guilds fetched successfully", {
-      userId: user.id,
-      totalGuilds: guilds.length,
-      manageableGuilds: guilds.filter((g) => g.hasBot).length,
-      invitableGuilds: guilds.filter((g) => !g.hasBot).length,
-    });
+  // Fetch guilds using both user token (for user's guilds) and bot token (for bot's guilds)
+  const guilds = await trackPerformance("discord.fetchGuilds", () =>
+    fetchGuilds(userRest, rest),
+  );
 
-    return { guilds };
-  } catch (error) {
-    log("error", "guilds", "Failed to fetch guilds", {
-      userId: user.id,
-      error,
-    });
-    throw data(
-      { message: "Failed to load your Discord servers. Please try again." },
-      { status: 500 },
-    );
-  }
+  log("info", "guilds", "Guilds fetched successfully", {
+    userId: user.id,
+    totalGuilds: guilds.length,
+    manageableGuilds: guilds.filter((g) => g.hasBot).length,
+    invitableGuilds: guilds.filter((g) => !g.hasBot).length,
+  });
+
+  return { guilds };
 }
 
 export default function Guilds() {
@@ -97,7 +94,7 @@ export default function Guilds() {
                     </div>
                     <div className="flex space-x-3">
                       <Link
-                        to={`/dashboard?guild_id=${guild.id}`}
+                        to={`/${guild.id}/sh`}
                         className="flex-1 rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       >
                         Dashboard
