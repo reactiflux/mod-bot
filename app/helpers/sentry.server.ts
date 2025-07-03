@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 // import * as Tracing from "@sentry/tracing";
 
-console.log(process.env.SENTRY_INGEST);
+console.log("[SENTRY]", process.env.SENTRY_INGEST);
 
 Sentry.init({
   dsn: process.env.SENTRY_INGEST,
