@@ -280,7 +280,7 @@ export async function completeOauthLogin(
   cookieSession.unset(DbSessionKeys.authGuildId);
 
   // Determine redirect based on flow
-  let redirectTo = dbSession.get(DbSessionKeys.authRedirect) ?? "/";
+  let redirectTo = dbSession.get(DbSessionKeys.authRedirect) ?? "/guilds";
   if (flow !== "user" && guildId) {
     redirectTo = `/onboard?guild_id=${guildId}`;
   }
