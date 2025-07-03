@@ -193,7 +193,7 @@ export async function escalate(
               }),
             ]);
             const [{ moderator: modRoleId }] = await Promise.all([
-              fetchSettings(reportedMessage.guild!, [SETTINGS.moderator]),
+              fetchSettings(reportedMessage.guildId!, [SETTINGS.moderator]),
               thread.members.add(reportedMessage.author),
             ]);
             await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.

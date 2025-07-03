@@ -34,7 +34,7 @@ export const handler = async (interaction: ChatInputCommandInteraction) => {
   try {
     if (!interaction.guild) throw new Error("Interaction has no guild");
 
-    await registerGuild(interaction.guild);
+    await registerGuild(interaction.guildId!);
 
     const role = interaction.options.getRole("moderator");
     const channel = interaction.options.getChannel("mod-log-channel");
@@ -42,7 +42,7 @@ export const handler = async (interaction: ChatInputCommandInteraction) => {
     if (!role) throw new Error("Interaction has no role");
     if (!channel) throw new Error("Interaction has no channel");
 
-    await setSettings(interaction.guild, {
+    await setSettings(interaction.guildId!, {
       [SETTINGS.modLog]: channel.id,
       [SETTINGS.moderator]: role.id,
       [SETTINGS.restricted]: restricted?.id,

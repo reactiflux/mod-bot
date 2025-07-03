@@ -1,11 +1,30 @@
 import type { Route } from "./+types/auth";
 import { redirect } from "react-router";
-
 import { initOauthLogin } from "#~/models/session.server";
 import { Login } from "#~/basics/login";
 
-// eslint-disable-next-line no-empty-pattern
-export async function loader({}: Route.LoaderArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const flow = url.searchParams.get("flow");
+  const guildId = url.searchParams.get("guild_id");
+  const redirectTo = url.searchParams.get("redirectTo");
+
+  // If flow parameter is provided, handle as OAuth initiation
+  if (flow) {
+    // Validate flow type
+    if (!["user", "signup", "add-bot"].includes(flow)) {
+      throw redirect("/");
+    }
+
+    return await initOauthLogin({
+      request,
+      flow: flow as "user" | "signup" | "add-bot",
+      guildId: guildId ?? undefined,
+      redirectTo: redirectTo ?? "/",
+    });
+  }
+
+  // Otherwise, redirect to home (preserving original behavior)
   return redirect("/");
 }
 
@@ -13,19 +32,18 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-md px-8">
-        <Login redirectTo="/dashboard" />;
+        <Login redirectTo="/guilds" />
       </div>
     </div>
   );
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  // fetch user from db
-  // if doesn't exist, create it with discord ID + email
+  // Handle form POST from Login component (existing functionality)
   const form = await request.formData();
 
   return initOauthLogin({
     request,
-    redirectTo: form.get("redirectTo")?.toString() ?? undefined,
+    redirectTo: form.get("redirectTo")?.toString() ?? "/guilds",
   });
 }

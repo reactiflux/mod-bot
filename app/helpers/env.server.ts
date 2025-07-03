@@ -11,7 +11,7 @@ const getEnv = (key: string, optional = false) => {
     return "";
   }
   if (!value && !optional) {
-    console.log(`Add a ${key} value to .env`);
+    console.error(`Add a ${key} value to .env`);
     ok = false;
     return "";
   }
@@ -25,6 +25,7 @@ console.log(
   `environment: '${process.env.NODE_ENV}'`,
 );
 
+console.log("");
 export const databaseUrl = getEnv("DATABASE_URL");
 export const sessionSecret = getEnv("SESSION_SECRET");
 
@@ -35,3 +36,4 @@ export const discordToken = getEnv("DISCORD_HASH");
 export const testGuild = getEnv("DISCORD_TEST_GUILD");
 
 if (!ok) throw new Error("Environment misconfigured");
+console.log("");

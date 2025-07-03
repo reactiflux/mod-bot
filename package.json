@@ -12,7 +12,7 @@
     "start": "npm run start:migrate; npm run start:bot",
     "test": "vitest",
     "build": "run-s build:*",
-    "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+    "lint": "eslint --no-warn-ignored --cache --cache-location ./node_modules/.cache/eslint .",
     "format": "prettier --write .",
     "validate": "run-p \"test -- run\" lint typecheck",
     "kysely": "kysely",

@@ -16,6 +16,17 @@ export interface Guilds {
   settings: string | null;
 }
 
+export interface GuildSubscriptions {
+  created_at: Generated<string | null>;
+  current_period_end: string | null;
+  guild_id: string | null;
+  product_tier: Generated<string>;
+  status: Generated<string>;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  updated_at: Generated<string | null>;
+}
+
 export interface MessageStats {
   author_id: string;
   channel_category: string | null;
@@ -52,6 +63,7 @@ export interface Users {
 
 export interface DB {
   channel_info: ChannelInfo;
+  guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   message_stats: MessageStats;
   sessions: Sessions;

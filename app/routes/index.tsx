@@ -1,16 +1,10 @@
-import type { PropsWithChildren } from "react";
-
 // import { REST } from "@discordjs/rest";
 
 import type { Route } from "./+types/index";
-
-// import { retrieveDiscordToken } from "#~/models/session.server.js";
-// import { discordToken } from "#~/helpers/env.server.js";
-import { ServerOverview } from "#~/features/ServerOverview";
-import { useOptionalUser } from "#~/utils";
+import { redirect } from "react-router";
 
 import { Login } from "#~/basics/login";
-import { Logout } from "#~/basics/logout.js";
+import { getUser } from "#~/models/session.server";
 
 const EmojiBackdrop = () => {
   return (
@@ -49,76 +43,47 @@ const EmojiBackdrop = () => {
   );
 };
 
-// const botDiscord = new REST().setToken(discordToken);
-// const userDiscord = new REST({ authPrefix: "Bearer" });
+export const loader = async ({ request }: Route.LoaderArgs) => {
+  // If user is logged in, redirect to guilds page
+  const user = await getUser(request);
+  if (user) {
+    throw redirect("/guilds");
+  }
 
-// export const loader = async ({ request }: Route.LoaderArgs) => {
-//   let token;
-//   try {
-//     token = await retrieveDiscordToken(request);
-//   } catch (e) {
-//     console.error(e);
-//     return;
-//   }
-
-//   userDiscord.setToken(token.token.access_token as string);
-
-//   return {
-//     guilds: await fetchGuilds(userDiscord, botDiscord),
-//   };
-// };
-
-interface LayoutProps extends PropsWithChildren {
-  guilds: Exclude<Route.ComponentProps["loaderData"], undefined>["guilds"];
-}
-
-const Layout = ({ /* guilds, */ children }: LayoutProps) => {
-  return (
-    <>
-      <nav className="flex justify-end">
-        <div></div>
-        <div>
-          <Logout />
-        </div>
-      </nav>
-      <main className="">{children}</main>
-      <footer></footer>
-    </>
-  );
+  return null;
 };
 
-export default function Index({ loaderData }: Route.ComponentProps) {
-  const user = useOptionalUser();
-
-  if (!user || !loaderData) {
-    return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
-        <EmojiBackdrop />
-        <div className="relative pb-16 pt-8">
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
-              <div className="lg:pb-18 relative w-full max-w-xl px-6 pb-14 pt-24 lg:px-8 lg:pt-24">
-                <h1 className="mb-10 text-center text-9xl font-extrabold tracking-tight">
-                  <span className="block uppercase text-yellow-500 drop-shadow-md">
-                    Euno
-                  </span>
-                </h1>
-                <p className="text-slate-800">
-                  A community-in-a-box bot for large Discord servers
-                </p>
-                <Login>Log in</Login>
+export default function Index() {
+  // Authenticated users are redirected in loader, so this only shows for guests
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white">
+      <EmojiBackdrop />
+      <div className="relative pb-16 pt-8">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div className="lg:pb-18 relative w-full max-w-xl px-6 pb-14 pt-24 lg:px-8 lg:pt-24">
+              <h1 className="mb-10 text-center text-9xl font-extrabold tracking-tight">
+                <span className="block uppercase text-yellow-500 drop-shadow-md">
+                  Euno
+                </span>
+              </h1>
+              <p className="mb-8 text-slate-800">
+                A community-in-a-box bot for large Discord servers with advanced
+                analytics and moderation tools
+              </p>
+              <div className="space-y-4">
+                <a
+                  href="/auth?flow=signup"
+                  className="block w-full rounded bg-indigo-600 px-4 py-3 text-center font-medium text-white hover:bg-indigo-700 focus:bg-indigo-500"
+                >
+                  🚀 Add to Discord Server
+                </a>
+                <Login>Already have an account? Log in</Login>
               </div>
             </div>
           </div>
         </div>
-      </main>
-    );
-  }
-
-  const { guilds } = loaderData;
-  return (
-    <Layout guilds={guilds}>
-      <ServerOverview />
-    </Layout>
+      </div>
+    </main>
   );
 }
