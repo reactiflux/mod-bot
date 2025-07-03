@@ -1,49 +1,39 @@
-# Builder-Focused Action Plan - 2025-06-28
+# Updated Priorities - Multi-tenancy Already Done! - 2025-06-28
 
-## Core Technical Gaps to Address
+### 1. **Web Onboarding Flow (Priority 1)**
 
-### 1. Multi-tenancy Architecture (Priority 1)
-**Current**: Single guild deployment
-**Needed**: Support multiple Discord servers per instance
-- Database schema isolation by guild_id
-- Service layer refactoring for tenant separation
-- Configuration management per guild
+**Current**: Manual `/setup` command requiring Discord knowledge
+**Needed**: Guided OAuth flow for server owners
 
-### 2. Streamlined Onboarding Flow (Priority 2)
-**Current**: Manual setup commands requiring technical knowledge
-**Needed**: One-click Discord bot installation
-- Discord OAuth flow for server owners
-- Automated bot invitation with proper permissions
-- Replace `/setup` command with guided web UI
-- Auto-detect server structure and suggest configuration
+- Discord OAuth for server installation
+- Automated bot invitation with permissions
+- Web-based configuration replacing `/setup`
+- Auto-detect server structure
 
-### 3. Web Dashboard Accessibility (Priority 3)
-**Current**: Auth system exists but dashboard features limited
-**Needed**: Full-featured web interface for server owners
-- Expose analytics dashboard with proper auth
-- Real-time activity monitoring
-- User management interface
-- Configuration panels for moderation settings
+### 2. **Dashboard Polish & Access (Priority 2)**
 
-### 4. Usage Limits & Gating (Priority 4)
+**Current**: Auth exists but limited dashboard features
+**Needed**: Full analytics interface (your main differentiator)
+
+- Expose comprehensive analytics dashboard
+- Real-time activity monitoring interface
+- User management and moderation controls
+- Export functionality for server owners
+
+### 3. **Feature Gating Infrastructure (Priority 3)**
+
 **Current**: No usage restrictions
-**Needed**: Basic feature gating for future monetization
+**Needed**: Foundation for any future business model
+
 - Message tracking limits
 - Analytics export restrictions
-- Premium feature flags in codebase
-- Usage monitoring infrastructure
+- Premium feature flags
+- Usage monitoring
 
-## Technical Implementation Order
+## Immediate Next Steps
 
-1. **Guild isolation** - Critical for scaling beyond single server
-2. **Web onboarding** - Removes biggest friction point
-3. **Dashboard polish** - Your main differentiator vs other mod bots
-4. **Feature gating** - Foundation for any future business model
+1. **Onboarding flow** - Biggest friction removal
+2. **Dashboard exposure** - Your competitive advantage
+3. **Basic gating** - Future-proofing
 
-## Key Architecture Decisions Needed
-- How to handle guild data isolation in SQLite vs. moving to Postgres
-- Whether to keep single deployment vs. multi-instance architecture
-- How to structure the OAuth flow and permission scopes
 - What to do about the AGPL license if commercializing
-
-Want to start with multi-tenancy architecture first?
