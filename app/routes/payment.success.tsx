@@ -50,10 +50,10 @@ export default function PaymentSuccess() {
   const { guildId, sessionId } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
             <svg
               className="h-6 w-6 text-green-600"
               fill="none"
@@ -78,9 +78,9 @@ export default function PaymentSuccess() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+            <div className="rounded-md border border-green-200 bg-green-50 p-4">
               <div className="flex">
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-green-800">
@@ -90,7 +90,7 @@ export default function PaymentSuccess() {
                     <p>
                       Your server now has access to all Pro features including:
                     </p>
-                    <ul className="mt-2 list-disc list-inside space-y-1">
+                    <ul className="mt-2 list-inside list-disc space-y-1">
                       <li>Advanced analytics and insights</li>
                       <li>Unlimited message tracking</li>
                       <li>Premium moderation tools</li>
@@ -113,13 +113,13 @@ export default function PaymentSuccess() {
             <div className="flex space-x-3">
               <Link
                 to={`/dashboard?guild_id=${guildId}`}
-                className="flex-1 bg-indigo-600 text-white py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                className="flex-1 rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 View Dashboard
               </Link>
               <Link
                 to="/"
-                className="flex-1 bg-white text-gray-700 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 Done
               </Link>

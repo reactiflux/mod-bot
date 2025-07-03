@@ -17,10 +17,10 @@ export default function PaymentCancel() {
   const { guildId } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
             <svg
               className="h-6 w-6 text-yellow-600"
               fill="none"
@@ -45,9 +45,9 @@ export default function PaymentCancel() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
               <div className="flex">
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-yellow-800">
@@ -67,21 +67,21 @@ export default function PaymentCancel() {
               <h4 className="text-sm font-medium text-gray-900">
                 What you&apos;re missing out on:
               </h4>
-              <ul className="text-sm text-gray-600 space-y-2">
+              <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-400 rounded-full mr-3"></span>
+                  <span className="mr-3 h-2 w-2 rounded-full bg-red-400"></span>
                   Advanced analytics and member insights
                 </li>
                 <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-400 rounded-full mr-3"></span>
+                  <span className="mr-3 h-2 w-2 rounded-full bg-red-400"></span>
                   Unlimited message tracking
                 </li>
                 <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-400 rounded-full mr-3"></span>
+                  <span className="mr-3 h-2 w-2 rounded-full bg-red-400"></span>
                   Premium moderation features
                 </li>
                 <li className="flex items-center">
-                  <span className="w-2 h-2 bg-red-400 rounded-full mr-3"></span>
+                  <span className="mr-3 h-2 w-2 rounded-full bg-red-400"></span>
                   Priority customer support
                 </li>
               </ul>
@@ -92,13 +92,13 @@ export default function PaymentCancel() {
                 <>
                   <Link
                     to={`/upgrade?guild_id=${guildId}`}
-                    className="flex-1 bg-indigo-600 text-white py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                    className="flex-1 rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     Try Again
                   </Link>
                   <Link
                     to={`/dashboard?guild_id=${guildId}`}
-                    className="flex-1 bg-white text-gray-700 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                    className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     Dashboard
                   </Link>
@@ -107,7 +107,7 @@ export default function PaymentCancel() {
               {!guildId && (
                 <Link
                   to="/"
-                  className="w-full bg-indigo-600 text-white py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                  className="w-full rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   Return Home
                 </Link>

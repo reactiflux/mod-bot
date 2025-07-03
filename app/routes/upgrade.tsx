@@ -60,12 +60,12 @@ export default function Upgrade() {
         <div className="mt-12 space-y-8 sm:mt-16">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {/* Current Plan */}
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900">
                   Free Plan
                   {currentTier === "free" && (
-                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                       Current
                     </span>
                   )}
@@ -82,7 +82,7 @@ export default function Upgrade() {
                   </span>
                 </p>
               </div>
-              <div className="px-6 pt-6 pb-8">
+              <div className="px-6 pb-8 pt-6">
                 <ul className="space-y-4">
                   <li className="flex items-start">
                     <div className="flex-shrink-0">
@@ -143,9 +143,9 @@ export default function Upgrade() {
             </div>
 
             {/* Pro Plan */}
-            <div className="bg-white border-2 border-indigo-500 rounded-lg shadow-sm divide-y divide-gray-200 relative">
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <span className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-indigo-500 text-white">
+            <div className="relative divide-y divide-gray-200 rounded-lg border-2 border-indigo-500 bg-white shadow-sm">
+              <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 transform">
+                <span className="inline-flex rounded-full bg-indigo-500 px-4 py-1 text-sm font-semibold uppercase tracking-wide text-white">
                   Recommended
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function Upgrade() {
                 <h3 className="text-lg font-medium text-gray-900">
                   Pro Plan
                   {currentTier === "paid" && (
-                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                       Current
                     </span>
                   )}
@@ -170,7 +170,7 @@ export default function Upgrade() {
                   </span>
                 </p>
               </div>
-              <div className="px-6 pt-6 pb-8">
+              <div className="px-6 pb-8 pt-6">
                 <ul className="space-y-4">
                   <li className="flex items-start">
                     <div className="flex-shrink-0">
@@ -288,7 +288,7 @@ export default function Upgrade() {
                       <input type="hidden" name="guild_id" value={guildId} />
                       <button
                         type="submit"
-                        className="w-full bg-indigo-600 text-white py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="w-full rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       >
                         Upgrade to Pro
                       </button>
@@ -298,7 +298,7 @@ export default function Upgrade() {
 
                 {currentTier === "paid" && (
                   <div className="mt-8">
-                    <div className="w-full bg-green-100 text-green-800 py-3 px-4 border border-green-200 rounded-md text-sm font-medium text-center">
+                    <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
                       ✓ You have this plan
                     </div>
                   </div>

@@ -43,10 +43,10 @@ export default function Onboard() {
   if (tier === "free") {
     // Show upgrade-focused onboarding for free users
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
           <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <svg
                 className="h-6 w-6 text-green-600"
                 fill="currentColor"
@@ -69,17 +69,17 @@ export default function Onboard() {
 
           <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {/* Pro Plan - Highlighted */}
-            <div className="bg-white border-2 border-indigo-500 rounded-lg shadow-lg relative">
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <span className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-indigo-500 text-white">
+            <div className="relative rounded-lg border-2 border-indigo-500 bg-white shadow-lg">
+              <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 transform">
+                <span className="inline-flex rounded-full bg-indigo-500 px-4 py-1 text-sm font-semibold uppercase tracking-wide text-white">
                   Recommended
                 </span>
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 text-center">
+                <h3 className="text-center text-xl font-bold text-gray-900">
                   Start with Pro
                 </h3>
-                <p className="mt-2 text-sm text-gray-600 text-center">
+                <p className="mt-2 text-center text-sm text-gray-600">
                   Get full access to all features immediately
                 </p>
                 <div className="mt-6 space-y-3">
@@ -151,7 +151,7 @@ export default function Onboard() {
                 <div className="mt-6">
                   <a
                     href={`/upgrade?guild_id=${guildId}`}
-                    className="w-full bg-indigo-600 text-white py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center block"
+                    className="block w-full rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     Upgrade to Pro - $15/month
                   </a>
@@ -160,12 +160,12 @@ export default function Onboard() {
             </div>
 
             {/* Free Plan */}
-            <div className="bg-white border border-gray-200 rounded-lg shadow">
+            <div className="rounded-lg border border-gray-200 bg-white shadow">
               <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 text-center">
+                <h3 className="text-center text-xl font-bold text-gray-900">
                   Continue with Free
                 </h3>
-                <p className="mt-2 text-sm text-gray-600 text-center">
+                <p className="mt-2 text-center text-sm text-gray-600">
                   Start with basic features, upgrade anytime
                 </p>
                 <div className="mt-6 space-y-3">
@@ -223,7 +223,7 @@ export default function Onboard() {
                 <div className="mt-6">
                   <a
                     href={`/dashboard?guild_id=${guildId}`}
-                    className="w-full bg-white text-gray-700 py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center block"
+                    className="block w-full rounded-md border border-gray-300 bg-white px-4 py-3 text-center text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
                     Continue with Free
                   </a>
@@ -244,10 +244,10 @@ export default function Onboard() {
 
   // Pro user onboarding (existing flow simplified)
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
             <svg
               className="h-6 w-6 text-green-600"
               fill="currentColor"
@@ -270,9 +270,9 @@ export default function Onboard() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+            <div className="rounded-md border border-green-200 bg-green-50 p-4">
               <div className="flex">
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-green-800">
@@ -292,7 +292,7 @@ export default function Onboard() {
             <div className="flex space-x-3">
               <a
                 href={`/dashboard?guild_id=${guildId}`}
-                className="flex-1 bg-indigo-600 text-white py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-center"
+                className="flex-1 rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 Explore Pro Dashboard
               </a>
