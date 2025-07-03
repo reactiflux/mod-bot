@@ -100,7 +100,7 @@ export default [
         let roleId = pingableRole?.id;
         if (!roleId) {
           const { [SETTINGS.moderator]: mod } = await fetchSettings(
-            interaction.guildId!,
+            interaction.guild.id,
             [SETTINGS.moderator, SETTINGS.modLog],
           );
           roleId = mod;
@@ -167,7 +167,7 @@ export default [
       // If there's no config, that means that the button was set up before the db was set up. Add one with default values
       if (!config) {
         const { [SETTINGS.moderator]: mod } = await fetchSettings(
-          interaction.guildId!,
+          interaction.guild.id,
           [SETTINGS.moderator, SETTINGS.modLog],
         );
         config = await db
@@ -242,7 +242,7 @@ ${quoteMessageContent(concern)}`);
       }
 
       const { [SETTINGS.modLog]: modLog } = await fetchSettings(
-        interaction.guildId!,
+        interaction.guild.id,
         [SETTINGS.modLog],
       );
 

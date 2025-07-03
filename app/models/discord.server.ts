@@ -59,7 +59,7 @@ export const applyRestriction = async (member: GuildMember | null) => {
     return;
   }
 
-  const { restricted } = await fetchSettings(member.guild, [
+  const { restricted } = await fetchSettings(member.guild.id, [
     SETTINGS.restricted,
   ]);
   if (!restricted) {

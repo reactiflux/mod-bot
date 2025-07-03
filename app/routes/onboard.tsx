@@ -6,9 +6,10 @@ import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 
 import { Routes } from "discord-api-types/v10";
 import { rest } from "#~/discord/api.js";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const _user = await requireUser(request);
+  await requireUser(request);
   const url = new URL(request.url);
   const guildId = url.searchParams.get("guild_id");
 
@@ -16,9 +17,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
   }
 
+  log("info", "onboarding", "Onboarding page accessed", { guildId });
+
   // Get subscription info for the guild
-  const subscription = await SubscriptionService.getGuildSubscription(guildId);
-  const tier = await SubscriptionService.getProductTier(guildId);
+  const subscription = await trackPerformance(
+    "subscriptions.getGuildSubscription",
+    () => SubscriptionService.getGuildSubscription(guildId),
+  );
+  const tier = await trackPerformance("subscriptions.getProductTier", () =>
+    SubscriptionService.getProductTier(guildId),
+  );
 
   // Get Discord token and fetch guild data
   let roles: Array<{
@@ -43,20 +51,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     // Fetch guild roles and channels
-    const [guildRoles, guildChannels] = await Promise.all([
-      rest.get(Routes.guildRoles(guildId)) as Promise<
-        Array<{ id: string; name: string; position: number; color: number }>
-      >,
-      rest.get(Routes.guildChannels(guildId)) as Promise<
-        Array<{
-          id: string;
-          name: string;
-          position: number;
-          type: number;
-          parent_id?: string | null;
-        }>
-      >,
-    ]);
+    const [guildRoles, guildChannels] = await trackPerformance(
+      "discord.fetchGuildData",
+      () =>
+        Promise.all([
+          rest.get(Routes.guildRoles(guildId)) as Promise<
+            Array<{ id: string; name: string; position: number; color: number }>
+          >,
+          rest.get(Routes.guildChannels(guildId)) as Promise<
+            Array<{
+              id: string;
+              name: string;
+              position: number;
+              type: number;
+              parent_id?: string | null;
+            }>
+          >,
+        ]),
+    );
 
     roles = guildRoles
       .filter((role) => role.name !== "@everyone")
@@ -70,8 +82,18 @@ export async function loader({ request }: Route.LoaderArgs) {
     channels = guildChannels
       .filter((channel) => channel.type === 0) // Text channels only
       .sort((a, b) => a.position - b.position);
+
+    log("info", "onboarding", "Guild data fetched successfully", {
+      guildId,
+      rolesCount: roles.length,
+      channelsCount: channels.length,
+      categoriesCount: categories.length,
+    });
   } catch (error) {
-    console.error("Error fetching guild data:", error);
+    log("error", "onboarding", "Failed to fetch guild data", {
+      guildId,
+      error,
+    });
     // Continue with empty arrays if Discord API fails
   }
 
@@ -86,6 +108,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  await requireUser(request);
   const formData = await request.formData();
   const guildId = formData.get("guild_id") as string;
   const modLogChannel = formData.get("mod_log_channel") as string;
@@ -103,16 +126,49 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-  // Register the guild and set up configuration
-  await registerGuild(guildId);
-
-  await setSettings(guildId, {
-    [SETTINGS.modLog]: modLogChannel,
-    [SETTINGS.moderator]: moderatorRole,
-    [SETTINGS.restricted]: restrictedRole || undefined,
+  log("info", "onboarding", "Onboarding form submitted", {
+    guildId,
+    modLogChannel,
+    moderatorRole,
+    hasRestrictedRole: !!restrictedRole,
   });
 
-  return data({ success: true });
+  try {
+    // Register the guild and set up configuration
+    await trackPerformance("guilds.registerGuild", () =>
+      registerGuild(guildId),
+    );
+
+    await trackPerformance("guilds.setSettings", () =>
+      setSettings(guildId, {
+        [SETTINGS.modLog]: modLogChannel,
+        [SETTINGS.moderator]: moderatorRole,
+        [SETTINGS.restricted]: restrictedRole || undefined,
+      }),
+    );
+
+    // Initialize free subscription for new guilds
+    await trackPerformance("subscriptions.initializeFreeSubscription", () =>
+      SubscriptionService.initializeFreeSubscription(guildId),
+    );
+
+    log("info", "onboarding", "Onboarding completed successfully", {
+      guildId,
+      settings: {
+        modLog: modLogChannel,
+        moderator: moderatorRole,
+        restricted: restrictedRole || null,
+      },
+    });
+
+    return data({ success: true });
+  } catch (error) {
+    log("error", "onboarding", "Onboarding failed", { guildId, error });
+    throw data(
+      { message: "Failed to complete onboarding. Please try again." },
+      { status: 500 },
+    );
+  }
 }
 
 export default function Onboard() {

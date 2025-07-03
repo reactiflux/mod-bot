@@ -66,7 +66,7 @@ export const reportUser = async ({
   );
 
   const { modLog: modLogId, moderator: modRoleId } = await fetchSettings(
-    guild,
+    guild.id,
     [SETTINGS.modLog, SETTINGS.moderator],
   );
 
@@ -190,7 +190,7 @@ const constructLog = async ({
   if (!lastReport || !lastReport.message.guild) {
     throw new Error("Something went wrong when trying to retrieve last report");
   }
-  const { moderator } = await fetchSettings(lastReport.message.guild, [
+  const { moderator } = await fetchSettings(lastReport.message.guild.id, [
     SETTINGS.moderator,
   ]);
   let { message } = lastReport;
