@@ -144,8 +144,14 @@ export default function UserProfile({
 
   return (
     <div className="h-full px-6 py-8">
+      <style>{`
+      text {fill: #ccc;}
+      .recharts-default-tooltip {
+        background-color: rgb(55,65,81) !important;
+      }
+      `}</style>
       <div className="mx-auto max-w-screen-lg">
-        <h1 className="pt-2 text-center text-4xl font-bold text-white">
+        <h1 className="pt-2 text-center text-4xl font-bold">
           {data.userInfo?.username}
         </h1>
         {data.userInfo?.global_name &&
@@ -191,6 +197,7 @@ export default function UserProfile({
               fill="#8884d8"
               fillOpacity={0.6}
             />
+            <Legend fill="lightgray" />
           </RadarChart>
         </ResponsiveContainer>
 
@@ -210,6 +217,7 @@ export default function UserProfile({
             <XAxis dataKey="name" />
             <YAxis domain={[0, 250]} />
             <Tooltip />
+            <Legend fill="lightgray" />
             <Bar dataKey="messages" fill="#8884d8" />
           </ComposedChart>
         </ResponsiveContainer>
@@ -232,7 +240,8 @@ export default function UserProfile({
             <YAxis domain={[0, 125]} />
             <Tooltip />
             <Legend />
-            <Bar dataKey="messages" fill="#413ea0" />
+            <Legend fill="lightgray" />
+            <Bar dataKey="messages" fill="#4d48e2" />
           </ComposedChart>
         </ResponsiveContainer>
 
