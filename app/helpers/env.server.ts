@@ -35,5 +35,7 @@ export const applicationId = getEnv("DISCORD_APP_ID");
 export const discordToken = getEnv("DISCORD_HASH");
 export const testGuild = getEnv("DISCORD_TEST_GUILD");
 
+export const amplitudeKey = getEnv("AMPLITUDE_API_KEY", true);
+
 if (!ok) throw new Error("Environment misconfigured");
 console.log("");
