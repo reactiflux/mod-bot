@@ -1,5 +1,6 @@
 import db, { SqliteError } from "#~/db.server";
 import type { DB } from "#~/db.server";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Guild = DB["guilds"];
 
@@ -18,28 +19,63 @@ interface SettingsRecord {
 }
 
 export const fetchGuild = async (guildId: string) => {
-  return await db
-    .selectFrom("guilds")
-    .where("id", "=", guildId)
-    .executeTakeFirst();
+  return trackPerformance(
+    "fetchGuild",
+    async () => {
+      log("debug", "Guild", "Fetching guild", { guildId });
+
+      const guild = await db
+        .selectFrom("guilds")
+        .where("id", "=", guildId)
+        .executeTakeFirst();
+
+      log("debug", "Guild", guild ? "Guild found" : "Guild not found", {
+        guildId,
+        guildExists: !!guild,
+        hasSettings: guild ? !!guild.settings : false,
+      });
+
+      return guild;
+    },
+    { guildId },
+  );
 };
 
 export const registerGuild = async (guildId: string) => {
-  try {
-    await db
-      .insertInto("guilds")
-      .values({
-        id: guildId,
-        settings: JSON.stringify({}),
-      })
-      .execute();
-  } catch (e) {
-    if (e instanceof SqliteError && e.code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
-      // do nothing
-    } else {
-      throw e;
-    }
-  }
+  return trackPerformance(
+    "registerGuild",
+    async () => {
+      log("info", "Guild", "Registering guild", { guildId });
+
+      try {
+        await db
+          .insertInto("guilds")
+          .values({
+            id: guildId,
+            settings: JSON.stringify({}),
+          })
+          .execute();
+
+        log("info", "Guild", "Guild registered successfully", { guildId });
+      } catch (e) {
+        if (
+          e instanceof SqliteError &&
+          e.code === "SQLITE_CONSTRAINT_PRIMARYKEY"
+        ) {
+          log("debug", "Guild", "Guild already exists", { guildId });
+          // do nothing
+        } else {
+          log("error", "Guild", "Failed to register guild", {
+            guildId,
+            error: e instanceof Error ? e.message : String(e),
+            stack: e instanceof Error ? e.stack : undefined,
+          });
+          throw e;
+        }
+      }
+    },
+    { guildId },
+  );
 };
 
 export const setSettings = async (
