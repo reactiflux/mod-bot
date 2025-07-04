@@ -1,6 +1,7 @@
 import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
 import { discordToken } from "#~/helpers/env.server";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 export const client = new Client({
   intents: [
@@ -18,11 +19,14 @@ export const client = new Client({
 export const reacord = new ReacordDiscordJs(client);
 
 export const login = () => {
-  console.log("INI", "Bootstrap starting…");
-  client
-    .login(discordToken)
-    .then(async () => {
-      console.log("INI", "Bootstrap complete");
+  return trackPerformance(
+    "discord_login",
+    async () => {
+      log("info", "Client", "Starting Discord client login", {});
+
+      await client.login(discordToken);
+
+      log("info", "Client", "Discord client login successful", {});
 
       client.user?.setActivity("server activity…", {
         type: ActivityType.Watching,
@@ -30,34 +34,34 @@ export const login = () => {
 
       try {
         const guilds = await client.guilds.fetch();
-        console.log(
-          "INI",
-          `client connected to Discord server: ${guilds
-            .map(({ name }) => name)
-            .join(", ")}`,
-        );
+        const guildNames = guilds.map(({ name }) => name);
+
+        log("info", "Client", "Connected to Discord guilds", {
+          guildCount: guilds.size,
+          guildNames: guildNames.join(", "),
+        });
       } catch (error) {
-        console.log("Something went wrong when fetching the guilds: ", error);
+        log("error", "Client", "Failed to fetch guilds", {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       if (client.application) {
         const { id } = client.application;
-        console.log(
-          "client started. If necessary, add it to your test server:",
-        );
-        console.log(
-          `https://discord.com/oauth2/authorize?client_id=${id}&permissions=8&scope=applications.commands%20bot`,
-        );
+        log("info", "Client", "Discord application ready", {
+          applicationId: id,
+          inviteUrl: `https://discord.com/oauth2/authorize?client_id=${id}&permissions=8&scope=applications.commands%20bot`,
+        });
       }
-    })
-    .catch((e) => {
-      console.log({ e });
-      console.log(
-        `Failed to log into discord client. Make sure \`.env.local\` has a discord token. Tried to use '${process.env.DISCORD_HASH}'`,
-      );
-      console.log(
-        'You can get a new discord token at https://discord.com/developers/applications, selecting your client (or making a new one), navigating to "client", and clicking "Copy" under "Click to reveal token"',
-      );
-      process.exit(1);
+    },
+    {},
+  ).catch((e) => {
+    log("error", "Client", "Discord client login failed", {
+      error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+      tokenPresent: !!discordToken,
     });
+
+    process.exit(1);
+  });
 };
