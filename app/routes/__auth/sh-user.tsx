@@ -39,6 +39,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return await getUserMessageAnalytics(guildId, userId, start, end);
 }
 
+const num = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
+});
+
 export default function UserProfile({
   params,
   loaderData: data,
@@ -48,20 +53,32 @@ export default function UserProfile({
   const end = qs.get("end");
 
   const derivedData = useMemo(() => {
-    const totalMessages = data.categoryBreakdown.reduce(
-      (a, c) => a + Number(c.messages),
-      0,
-    );
-    const totalReactions = data.dailyBreakdown.reduce(
-      (a, c) => a + Number(c.react_count),
-      0,
-    );
-    const totalWords = data.dailyBreakdown.reduce(
-      (a, c) => a + Number(c.word_count),
-      0,
-    );
-    return { totalMessages, totalWords, totalReactions };
-  }, [data]);
+    // Calculate days between start and end dates
+    const startDate = start ? new Date(start) : null;
+    const endDate = end ? new Date(end) : null;
+    const daysBetween =
+      startDate && endDate
+        ? Math.ceil(
+            (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+          ) + 1
+        : 0;
+
+    return {
+      totalMessages: data.categoryBreakdown.reduce(
+        (a, c) => a + Number(c.messages),
+        0,
+      ),
+      totalReactions: data.dailyBreakdown.reduce(
+        (a, c) => a + Number(c.react_count),
+        0,
+      ),
+      totalWords: data.dailyBreakdown.reduce(
+        (a, c) => a + Number(c.word_count),
+        0,
+      ),
+      daysBetween,
+    };
+  }, [data, start, end]);
 
   return (
     <>
@@ -90,7 +107,8 @@ text {
             {data.userInfo?.global_name &&
               data.userInfo?.global_name !== data.userInfo?.username && (
                 <div className="pt-2 text-center text-xl text-gray-300">
-                  ({data.userInfo?.global_name})
+                  <small>In {derivedData.daysBetween} days</small> (
+                  {data.userInfo?.global_name}) <small>:</small>
                 </div>
               )}
           </small>
@@ -101,9 +119,13 @@ text {
       <div className="h-full px-6 py-8">
         <div>
           {/* (top 5: 👀❤️✨‼️🫡) (top langs: JS, Go, Rust) */}
-          <p>{`${derivedData.totalMessages} messages in ${data.channelBreakdown.length} channels
-${derivedData.totalWords} words sent 
-${derivedData.totalReactions} reactions`}</p>
+          <p>
+            Sent {num.format(derivedData.totalMessages)} messages in{" "}
+            {data.channelBreakdown.length} channels consisting of{" "}
+            {num.format(derivedData.totalWords)} words.
+          </p>
+          <p></p>
+          <p>Received {num.format(derivedData.totalReactions)} reactions.</p>
         </div>
         <div className="mx-auto max-w-screen-lg">
           <ResponsiveContainer width="100%" height={300}>
