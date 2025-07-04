@@ -2,21 +2,56 @@ import type { Route } from "./+types/dashboard";
 import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  // const user = await getUser(request);
-  const url = new URL(request.url);
-  const start = url.searchParams.get("start");
-  const end = url.searchParams.get("end");
-  const guildId = params.guildId;
+  return trackPerformance(
+    "dashboardLoader",
+    async () => {
+      const url = new URL(request.url);
+      const start = url.searchParams.get("start");
+      const end = url.searchParams.get("end");
+      const guildId = params.guildId;
 
-  if (!(guildId && start && end)) {
-    return data(null, { status: 400 });
-  }
+      log("info", "Dashboard", "Dashboard loader accessed", {
+        guildId,
+        start,
+        end,
+        userAgent: request.headers.get("user-agent"),
+        ip: request.headers.get("x-forwarded-for") || "unknown",
+      });
 
-  const output = await getTopParticipants(guildId, start, end);
+      if (!(guildId && start && end)) {
+        log(
+          "warn",
+          "Dashboard",
+          "Invalid dashboard request - missing parameters",
+          {
+            guildId,
+            start,
+            end,
+          },
+        );
+        return data(null, { status: 400 });
+      }
 
-  return output;
+      const output = await getTopParticipants(guildId, start, end);
+
+      log("info", "Dashboard", "Dashboard data loaded successfully", {
+        guildId,
+        start,
+        end,
+        participantCount: output?.length || 0,
+      });
+
+      return output;
+    },
+    {
+      guildId: params.guildId,
+      start: new URL(request.url).searchParams.get("start"),
+      end: new URL(request.url).searchParams.get("end"),
+    },
+  );
 }
 
 const Label = (props: LabelHTMLAttributes<Element>) => (
