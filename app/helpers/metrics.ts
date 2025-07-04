@@ -1,6 +1,12 @@
 import fetch from "node-fetch";
 import queryString from "query-string";
-import type { Message, Guild, ThreadChannel } from "discord.js";
+import type {
+  Message,
+  Guild,
+  ThreadChannel,
+  ChatInputCommandInteraction,
+  MessageContextMenuCommandInteraction,
+} from "discord.js";
 import { amplitudeKey } from "#~/helpers/env.server";
 
 type AmplitudeValue = string | number | boolean;
@@ -13,6 +19,10 @@ const events = {
   threadCreated: "thread created",
   gatewayError: "gateway error",
   reconnection: "bot reconnected",
+  commandExecuted: "command executed",
+  commandFailed: "command failed",
+  setupCompleted: "setup completed",
+  reportSubmitted: "report submitted",
 };
 
 export const threadStats = {
@@ -55,6 +65,78 @@ export const botStats = {
   reconnection: (guildCount: number, userCount: number) =>
     emitEvent(events.reconnection, {
       data: { guildCount, userCount },
+    }),
+};
+
+export const commandStats = {
+  commandExecuted: (
+    interaction:
+      | ChatInputCommandInteraction
+      | MessageContextMenuCommandInteraction,
+    commandName: string,
+    success: boolean = true,
+    duration?: number,
+  ) =>
+    emitEvent(events.commandExecuted, {
+      data: {
+        commandName,
+        success,
+        guildId: interaction.guildId ?? "none",
+        userId: interaction.user.id,
+        channelId: interaction.channelId,
+        duration: duration ?? 0,
+      },
+      userId: interaction.user.id,
+    }),
+
+  commandFailed: (
+    interaction:
+      | ChatInputCommandInteraction
+      | MessageContextMenuCommandInteraction,
+    commandName: string,
+    error: string,
+    duration?: number,
+  ) =>
+    emitEvent(events.commandFailed, {
+      data: {
+        commandName,
+        error,
+        guildId: interaction.guildId ?? "none",
+        userId: interaction.user.id,
+        channelId: interaction.channelId,
+        duration: duration ?? 0,
+      },
+      userId: interaction.user.id,
+    }),
+
+  setupCompleted: (
+    interaction: ChatInputCommandInteraction,
+    settings: Record<string, string | undefined>,
+  ) =>
+    emitEvent(events.setupCompleted, {
+      data: {
+        guildId: interaction.guildId ?? "none",
+        userId: interaction.user.id,
+        settingsCount: Object.keys(settings).length,
+        hasModRole: !!settings.moderator,
+        hasModChannel: !!settings.modLog,
+        hasRestrictedRole: !!settings.restricted,
+      },
+      userId: interaction.user.id,
+    }),
+
+  reportSubmitted: (
+    interaction: MessageContextMenuCommandInteraction,
+    targetUserId: string,
+  ) =>
+    emitEvent(events.reportSubmitted, {
+      data: {
+        guildId: interaction.guildId ?? "none",
+        reporterUserId: interaction.user.id,
+        targetUserId,
+        channelId: interaction.channelId,
+      },
+      userId: interaction.user.id,
     }),
 };
 
