@@ -26,13 +26,14 @@ export const fetchGuild = async (guildId: string) => {
 
       const guild = await db
         .selectFrom("guilds")
+        .selectAll()
         .where("id", "=", guildId)
         .executeTakeFirst();
 
       log("debug", "Guild", guild ? "Guild found" : "Guild not found", {
         guildId,
         guildExists: !!guild,
-        hasSettings: guild ? !!guild.settings : false,
+        hasSettings: !!guild?.settings,
       });
 
       return guild;
