@@ -6,6 +6,7 @@ import type {
   ThreadChannel,
   ChatInputCommandInteraction,
   MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
 } from "discord.js";
 import { amplitudeKey } from "#~/helpers/env.server";
 
@@ -72,7 +73,8 @@ export const commandStats = {
   commandExecuted: (
     interaction:
       | ChatInputCommandInteraction
-      | MessageContextMenuCommandInteraction,
+      | MessageContextMenuCommandInteraction
+      | UserContextMenuCommandInteraction,
     commandName: string,
     success: boolean = true,
     duration?: number,
@@ -92,7 +94,8 @@ export const commandStats = {
   commandFailed: (
     interaction:
       | ChatInputCommandInteraction
-      | MessageContextMenuCommandInteraction,
+      | MessageContextMenuCommandInteraction
+      | UserContextMenuCommandInteraction,
     commandName: string,
     error: string,
     duration?: number,
