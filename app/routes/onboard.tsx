@@ -227,7 +227,7 @@ export default function Onboard() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+    <div className="h-full bg-gray-50 px-6 py-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">

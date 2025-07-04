@@ -136,7 +136,7 @@ const processGuild = (g: APIGuild) => {
 
   return {
     id: g.id as string,
-    icon: g.icon,
+    icon: g.icon ?? undefined,
     name: g.name as string,
     authz: [...authz.values()],
   };

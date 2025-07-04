@@ -1,5 +1,5 @@
 import type { Route } from "./+types/dashboard";
-import { data, useNavigation, useSearchParams, Link } from "react-router";
+import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 
@@ -63,20 +63,15 @@ const DataHeading = ({ children }: PropsWithChildren) => {
 export default function DashboardPage({
   loaderData: data,
 }: Route.ComponentProps) {
-  const nav = useNavigation();
   const [qs] = useSearchParams();
-
-  if (nav.state === "loading") {
-    return "loading…";
-  }
 
   const start = qs.get("start") ?? undefined;
   const end = qs.get("end") ?? undefined;
 
   if (!data) {
     return (
-      <div>
-        <div className="flex min-h-full justify-center">
+      <div className="h-full px-6 py-8">
+        <div className="flex justify-center">
           <RangeForm values={{ start, end }} />
         </div>
         <div></div>
@@ -85,8 +80,8 @@ export default function DashboardPage({
   }
 
   return (
-    <div>
-      <div className="flex min-h-full justify-center">
+    <div className="px-6 py-8">
+      <div className="flex justify-center">
         <RangeForm values={{ start, end }} />
       </div>
       <div>
