@@ -8,10 +8,9 @@ import { Routes } from "discord-api-types/v10";
 import { rest } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   await requireUser(request);
-  const url = new URL(request.url);
-  const guildId = url.searchParams.get("guild_id");
+  const { guildId } = params;
 
   if (!guildId) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
