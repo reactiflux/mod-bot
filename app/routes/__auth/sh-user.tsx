@@ -122,12 +122,34 @@ text {
           <p>
             Sent {num.format(derivedData.totalMessages)} messages in{" "}
             {data.channelBreakdown.length} channels consisting of{" "}
-            {num.format(derivedData.totalWords)} words.
+            {num.format(derivedData.totalWords)} words (
+            {num.format(derivedData.totalWords / derivedData.totalMessages)}{" "}
+            words/message).
           </p>
           <p></p>
           <p>Received {num.format(derivedData.totalReactions)} reactions.</p>
         </div>
         <div className="mx-auto max-w-screen-lg">
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart
+              width={500}
+              height={300}
+              data={data.channelBreakdown}
+              margin={{
+                top: 20,
+                right: 50,
+                bottom: 20,
+                left: 20,
+              }}
+            >
+              <CartesianGrid strokeDasharray="1 3" stroke="#ddd" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 250]} />
+              <Tooltip />
+              <Legend fill="lightgray" />
+              <Bar dataKey="messages" fill="#8884d8" />
+            </ComposedChart>
+          </ResponsiveContainer>
           <ResponsiveContainer width="100%" height={300}>
             <RadarChart
               cx="50%"
