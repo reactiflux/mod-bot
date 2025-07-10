@@ -1,15 +1,143 @@
 import type { DB } from "#~/db.server";
 import db from "#~/db.server";
 import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
+import { fillDateGaps } from "#~/helpers/dateUtils";
+import { sql } from "kysely";
 
 type MessageStats = DB["message_stats"];
+
+// // Default allowed channel categories for analytics
+// const ALLOWED_CATEGORIES: string[] = [
+//   "Need Help",
+//   "React General",
+//   "Advanced Topics",
+// ];
+
+// // Default allowed channels (currently empty but can be configured)
+// const ALLOWED_CHANNELS: string[] = [];
+
+/**
+ * Creates a base query for message_stats filtered by guild, date range, and optionally user
+ */
+export function createMessageStatsQuery(
+  guildId: MessageStats["guild_id"],
+  start: string,
+  end: string,
+  userId?: MessageStats["author_id"],
+) {
+  let query = db
+    .selectFrom("message_stats")
+    .where("guild_id", "=", guildId)
+    .where("sent_at", ">=", new Date(start).getTime())
+    .where("sent_at", "<=", new Date(end + "T23:59:59").getTime());
+
+  if (userId) {
+    query = query.where("author_id", "=", userId);
+  }
+
+  return query;
+}
+
+/**
+ * Gets complete user message analytics using composed queries
+ */
+export async function getUserMessageAnalytics(
+  guildId: string,
+  userId: string,
+  start: string,
+  end: string,
+) {
+  // Build daily stats query
+  const dailyQuery = createMessageStatsQuery(guildId, start, end, userId)
+    .select(({ fn, eb, lit }) => [
+      fn.countAll<number>().as("messages"),
+      fn.sum<number>("word_count").as("word_count"),
+      fn.sum<number>("react_count").as("react_count"),
+      fn("round", [fn.avg("word_count"), lit(3)]).as("avg_words"),
+      eb
+        .fn("date", [eb("sent_at", "/", lit(1000)), sql.lit("unixepoch")])
+        .as("date"),
+    ])
+    // .where((eb) =>
+    //   eb.or([
+    //     eb("channel_id", "in", ALLOWED_CHANNELS),
+    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
+    //   ]),
+    // )
+    .orderBy("date", "asc")
+    .groupBy("date");
+
+  // Build category stats query
+  const categoryQuery = createMessageStatsQuery(guildId, start, end, userId)
+    .select(({ fn }) => [
+      fn.count<number>("channel_category").as("messages"),
+      "channel_category",
+    ])
+    // .where((eb) =>
+    //   eb.or([
+    //     eb("channel_id", "in", ALLOWED_CHANNELS),
+    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
+    //   ]),
+    // )
+    .groupBy("channel_category");
+
+  // Build channel stats query
+  const channelQuery = createMessageStatsQuery(guildId, start, end, userId)
+    // @ts-expect-error - Kysely selector typing is complex
+    .select(({ fn }) => [
+      fn.count<number>("channel_id").as("messages"),
+      "channel_id",
+      "channel.name",
+    ])
+    .leftJoin(
+      "channel_info as channel",
+      "channel.id",
+      "message_stats.channel_id",
+    )
+    // .where((eb) =>
+    //   eb.or([
+    //     eb("channel_id", "in", ALLOWED_CHANNELS),
+    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
+    //   ]),
+    // )
+    .orderBy("messages", "desc")
+    .groupBy("channel_id");
+
+  const [dailyResults, categoryBreakdown, channelBreakdown, userInfo] =
+    await Promise.all([
+      dailyQuery.execute(),
+      categoryQuery.execute(),
+      channelQuery.execute(),
+      getOrFetchUser(userId),
+    ]);
+
+  type DailyBreakdown = {
+    messages: number;
+    word_count: number;
+    react_count: number;
+    avg_words: number;
+    date: string;
+  };
+  // Only daily breakdown needs date gap filling
+  const dailyBreakdown = fillDateGaps<DailyBreakdown>(
+    dailyResults as DailyBreakdown[],
+    start,
+    end,
+    {
+      messages: 0,
+      word_count: 0,
+      react_count: 0,
+      avg_words: 0,
+    },
+  );
+
+  return { dailyBreakdown, categoryBreakdown, channelBreakdown, userInfo };
+}
 
 export async function getTopParticipants(
   guildId: MessageStats["guild_id"],
   intervalStart: string,
   intervalEnd: string,
-  channels: string[],
-  channelCategories: string[],
 ) {
   const config = {
     count: 100,
@@ -17,29 +145,25 @@ export async function getTopParticipants(
     wordThreshold: 2200,
   };
 
-  const baseQuery = db
-    .selectFrom("message_stats")
+  const baseQuery = createMessageStatsQuery(guildId, intervalStart, intervalEnd)
     .selectAll()
-    .select(({ fn, val, eb }) => [
-      fn("date", [eb("sent_at", "/", 1000), val("unixepoch")]).as("date"),
-    ])
-    .where("guild_id", "=", guildId)
-    .where(({ between, and, or, eb }) =>
-      and([
-        between(
-          "sent_at",
-          new Date(intervalStart).getTime(),
-          new Date(intervalEnd).getTime(),
-        ),
-        or([
-          eb("channel_id", "in", channels),
-          eb("channel_category", "in", channelCategories),
-        ]),
-      ]),
-    );
+    .select(({ fn, eb, lit }) => [
+      fn("date", [eb("sent_at", "/", lit(1000)), sql.lit("unixepoch")]).as(
+        "date",
+      ),
+    ]);
 
-  // get shortlist, volume threshold of 1000 words
+  // Apply channel filtering inline
+  // const filteredQuery = baseQuery.where((eb) =>
+  //   eb.or([
+  //     eb("channel_id", "in", ALLOWED_CHANNELS),
+  //     eb("channel_category", "in", ALLOWED_CATEGORIES),
+  //   ]),
+  // );
+
+  // get shortlist using inline selectors
   const topMembersQuery = db
+    // .with("interval_message_stats", () => filteredQuery)
     .with("interval_message_stats", () => baseQuery)
     .selectFrom("interval_message_stats")
     .select(({ fn }) => [
@@ -54,8 +178,8 @@ export async function getTopParticipants(
     .groupBy("author_id")
     .having(({ eb, or, fn }) =>
       or([
-        eb(fn.count("author_id"), ">=", config.messageThreshold),
-        eb(fn.sum("word_count"), ">=", config.wordThreshold),
+        eb(fn.count<number>("author_id"), ">=", config.messageThreshold),
+        eb(fn.sum<number>("word_count"), ">=", config.wordThreshold),
       ]),
     )
     .limit(config.count);
@@ -63,6 +187,7 @@ export async function getTopParticipants(
   const topMembers = await topMembersQuery.execute();
 
   const dailyParticipationQuery = db
+    // .with("interval_message_stats", () => filteredQuery)
     .with("interval_message_stats", () => baseQuery)
     .selectFrom("interval_message_stats")
     .select(({ fn }) => [
@@ -82,15 +207,48 @@ export async function getTopParticipants(
       topMembers.map((m) => m.author_id),
     );
   console.log(dailyParticipationQuery.compile().sql);
-  const dailyParticipation = fillDateGaps(
-    groupByAuthor(await dailyParticipationQuery.execute()),
-    intervalStart,
-    intervalEnd,
-  );
+  const rawDailyParticipation = await dailyParticipationQuery.execute();
+  // Group by author and fill date gaps inline
+  const groupedData = rawDailyParticipation.reduce((acc, record) => {
+    const { author_id, date } = record;
+    if (!acc[author_id]) acc[author_id] = [];
+    acc[author_id].push({ ...record, date: date as string });
+    return acc;
+  }, {} as GroupedResult);
 
-  const scores = topMembers.map((m) =>
-    scoreMember(m, dailyParticipation[m.author_id]),
-  );
+  const dailyParticipation: GroupedResult = {};
+  for (const authorId in groupedData) {
+    dailyParticipation[authorId] = fillDateGaps(
+      groupedData[authorId],
+      intervalStart,
+      intervalEnd,
+      { message_count: 0, word_count: 0, channel_count: 0, category_count: 0 },
+    );
+  }
+
+  const scores = topMembers.map((m) => {
+    const member = m as MemberData;
+    const participation = dailyParticipation[member.author_id];
+    const categoryCounts = participation
+      .map((p) => p.category_count)
+      .sort((a, b) => a - b);
+    const zeroDays = participation.filter((p) => p.message_count === 0).length;
+
+    return {
+      score: {
+        channelScore: scoreValue(member.channel_count, scoreLookups.channels),
+        messageScore: scoreValue(member.message_count, scoreLookups.messages),
+        wordScore: scoreValue(member.total_word_count, scoreLookups.words),
+        consistencyScore: Math.ceil(
+          categoryCounts[Math.floor(categoryCounts.length / 2)],
+        ),
+      },
+      metadata: {
+        percentZeroDays: zeroDays / participation.length,
+      },
+      data: { participation, member },
+    };
+  });
 
   const withUsernames = await Promise.all(
     scores.map(async (scores) => {
@@ -116,94 +274,18 @@ type MemberData = {
   category_count: number;
   channel_count: number;
 };
-function isBetween(test: number, a: number, b: number) {
-  return test >= a && test < b;
-}
-function scoreValue(test: number, lookup: [number, number][], x?: string) {
-  return lookup.reduce((score, _, i, list) => {
-    const check = isBetween(
-      test,
-      list[i][0] ?? Infinity,
-      list[i + 1]?.[0] ?? Infinity,
-    );
-    if (check && x)
-      console.log(
-        test,
-        "is between",
-        list[i][0],
-        "and",
-        list[i + 1]?.[0] ?? Infinity,
-        "scoring",
-        list[i][1],
-      );
-    return check ? list[i][1] : score;
+function scoreValue(test: number, lookup: [number, number][]) {
+  return lookup.reduce((score, [min, value], i, list) => {
+    const max = list[i + 1]?.[0] ?? Infinity;
+    return test >= min && test < max ? value : score;
   }, 0);
 }
-function median(list: number[]) {
-  const mid = list.length / 2;
-  return list.length % 2 === 1
-    ? (list[Math.floor(mid)] + list[Math.ceil(mid)]) / 2
-    : list[mid];
-}
+// prettier-ignore
 const scoreLookups = {
-  words: [
-    [0, 0],
-    [2000, 1],
-    [5000, 2],
-    [7500, 3],
-    [20000, 4],
-  ],
-  messages: [
-    [0, 0],
-    [150, 1],
-    [350, 2],
-    [800, 3],
-    [1500, 4],
-  ],
-  channels: [
-    [0, 0],
-    [3, 1],
-    [7, 2],
-    [9, 3],
-  ],
-} as Record<string, [number, number][]>;
-function scoreMember(member: MemberData, participation: ParticipationData[]) {
-  return {
-    score: {
-      channelScore: scoreValue(member.channel_count, scoreLookups.channels),
-      messageScore: scoreValue(member.message_count, scoreLookups.messages),
-      wordScore: scoreValue(
-        member.total_word_count,
-        scoreLookups.words,
-        "words",
-      ),
-      consistencyScore: Math.ceil(
-        median(participation.map((p) => p.category_count)),
-      ),
-    },
-    metadata: {
-      percentZeroDays:
-        participation.reduce(
-          (count, val) => (val.message_count === 0 ? count + 1 : count),
-          0,
-        ) / participation.length,
-    },
-    data: {
-      participation,
-      member,
-    },
-  };
-}
-
-type RawParticipationData = {
-  author_id: string;
-  // hack fix for weird types coming out of query
-  date: string | unknown;
-  message_count: number;
-  word_count: number;
-  channel_count: number;
-  category_count: number;
-};
+  words: [ [0, 0], [2000, 1], [5000, 2], [7500, 3], [20000, 4], ],
+  messages: [ [0, 0], [150, 1], [350, 2], [800, 3], [1500, 4], ],
+  channels: [ [0, 0], [3, 1], [7, 2], [9, 3], ],
+} as { words: [number, number][]; messages: [number, number][]; channels: [number, number][] };
 
 type ParticipationData = {
   date: string;
@@ -214,66 +296,3 @@ type ParticipationData = {
 };
 
 type GroupedResult = Record<string, ParticipationData[]>;
-
-function groupByAuthor(records: RawParticipationData[]): GroupedResult {
-  return records.reduce((acc, record) => {
-    const { author_id, date } = record;
-
-    if (!acc[author_id]) {
-      acc[author_id] = [];
-    }
-
-    // hack fix for weird types coming out of query
-    acc[author_id].push({ ...record, date: date as string });
-
-    return acc;
-  }, {} as GroupedResult);
-}
-
-const generateDateRange = (start: string, end: string): string[] => {
-  const dates: string[] = [];
-  const currentDate = new Date(start);
-
-  while (currentDate <= new Date(end)) {
-    dates.push(currentDate.toISOString().split("T")[0]);
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  return dates;
-};
-
-function fillDateGaps(
-  groupedResult: GroupedResult,
-  startDate: string,
-  endDate: string,
-): GroupedResult {
-  // Helper to generate a date range in YYYY-MM-DD format
-
-  const dateRange = generateDateRange(startDate, endDate);
-
-  const filledResult: GroupedResult = {};
-
-  for (const authorId in groupedResult) {
-    const authorData = groupedResult[authorId];
-    const dateToEntryMap: Record<string, (typeof authorData)[number]> = {};
-
-    // Map existing entries by date
-    authorData.forEach((entry) => {
-      dateToEntryMap[entry.date] = entry;
-    });
-
-    // Fill missing dates with zeroed-out data
-    filledResult[authorId] = dateRange.map((date) => {
-      return (
-        dateToEntryMap[date] || {
-          date,
-          message_count: 0,
-          word_count: 0,
-          channel_count: 0,
-          category_count: 0,
-        }
-      );
-    });
-  }
-
-  return filledResult;
-}

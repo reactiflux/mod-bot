@@ -14,13 +14,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     return data(null, { status: 400 });
   }
 
-  const output = await getTopParticipants(
-    guildId,
-    start,
-    end,
-    [],
-    ["Need Help", "React General", "Advanced Topics"],
-  );
+  const output = await getTopParticipants(guildId, start, end);
 
   return output;
 }
