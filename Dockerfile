@@ -1,4 +1,4 @@
-FROM node:20-alpine as build
+FROM node:24-alpine as build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -10,7 +10,7 @@ COPY app ./app
 RUN npm run build
 
 # Build the production image with minimal footprint
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
