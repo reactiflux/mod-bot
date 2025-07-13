@@ -1,5 +1,5 @@
 import type { Route } from "./+types/onboard";
-import { data, useLoaderData, Form } from "react-router";
+import { data, Form } from "react-router";
 import { requireUser } from "#~/models/session.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
 import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
@@ -27,27 +27,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     SubscriptionService.getProductTier(guildId),
   );
 
-  // Get Discord token and fetch guild data
-  let roles: Array<{
-    id: string;
-    name: string;
-    position: number;
-    color: number;
-  }> = [];
-  let channels: Array<{
-    id: string;
-    name: string;
-    position: number;
-    type: number;
-    parent_id?: string | null;
-  }> = [];
-  let categories: Array<{
-    id: string;
-    name: string;
-    position: number;
-    type: number;
-  }> = [];
-
   try {
     // Fetch guild roles and channels
     const [guildRoles, guildChannels] = await trackPerformance(
@@ -69,118 +48,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         ]),
     );
 
-    roles = guildRoles
+    const roles = guildRoles
       .filter((role) => role.name !== "@everyone")
       .sort((a, b) => b.position - a.position);
 
     // Separate categories and text channels
-    categories = guildChannels
+    const categories = guildChannels
       .filter((channel) => channel.type === 4) // Category channels
       .sort((a, b) => a.position - b.position);
 
-    channels = guildChannels
+    const allChannels = guildChannels
       .filter((channel) => channel.type === 0) // Text channels only
       .sort((a, b) => a.position - b.position);
 
     log("info", "onboarding", "Guild data fetched successfully", {
       guildId,
       rolesCount: roles.length,
-      channelsCount: channels.length,
+      channelsCount: allChannels.length,
       categoriesCount: categories.length,
     });
-  } catch (error) {
-    log("error", "onboarding", "Failed to fetch guild data", {
-      guildId,
-      error,
-    });
-    // Continue with empty arrays if Discord API fails
-  }
 
-  return {
-    guildId,
-    subscription,
-    tier,
-    roles,
-    channels,
-    categories,
-  };
-}
-
-export async function action({ request }: Route.ActionArgs) {
-  await requireUser(request);
-  const formData = await request.formData();
-  const guildId = formData.get("guild_id") as string;
-  const modLogChannel = formData.get("mod_log_channel") as string;
-  const moderatorRole = formData.get("moderator_role") as string;
-  const restrictedRole = formData.get("restricted_role") as string;
-
-  if (!guildId) {
-    throw data({ message: "Guild ID is required" }, { status: 400 });
-  }
-
-  if (!modLogChannel || !moderatorRole) {
-    throw data(
-      { message: "Moderator role and log channel are required" },
-      { status: 400 },
-    );
-  }
-
-  log("info", "onboarding", "Onboarding form submitted", {
-    guildId,
-    modLogChannel,
-    moderatorRole,
-    hasRestrictedRole: !!restrictedRole,
-  });
-
-  try {
-    // Register the guild and set up configuration
-    await trackPerformance("guilds.registerGuild", () =>
-      registerGuild(guildId),
-    );
-
-    await trackPerformance("guilds.setSettings", () =>
-      setSettings(guildId, {
-        [SETTINGS.modLog]: modLogChannel,
-        [SETTINGS.moderator]: moderatorRole,
-        [SETTINGS.restricted]: restrictedRole || undefined,
-      }),
-    );
-
-    // Initialize free subscription for new guilds
-    await trackPerformance("subscriptions.initializeFreeSubscription", () =>
-      SubscriptionService.initializeFreeSubscription(guildId),
-    );
-
-    log("info", "onboarding", "Onboarding completed successfully", {
-      guildId,
-      settings: {
-        modLog: modLogChannel,
-        moderator: moderatorRole,
-        restricted: restrictedRole || null,
-      },
-    });
-
-    return data({ success: true });
-  } catch (error) {
-    log("error", "onboarding", "Onboarding failed", { guildId, error });
-    throw data(
-      { message: "Failed to complete onboarding. Please try again." },
-      { status: 500 },
-    );
-  }
-}
-
-export default function Onboard() {
-  const { guildId, tier, roles, channels, categories } =
-    useLoaderData<typeof loader>();
-
-  // Organize channels by category
-  const organizedChannels = () => {
-    const uncategorized = channels.filter((channel) => !channel.parent_id);
-    const channelsByCategory = new Map<string, typeof channels>();
+    const channelsByCategory = new Map<string, typeof allChannels>();
 
     // Group channels by their parent category
-    channels.forEach((channel) => {
+    allChannels.forEach((channel) => {
       if (channel.parent_id) {
         if (!channelsByCategory.has(channel.parent_id)) {
           channelsByCategory.set(channel.parent_id, []);
@@ -189,42 +80,49 @@ export default function Onboard() {
       }
     });
 
-    const result: Array<{
-      type: "category" | "channel";
-      data: {
-        id: string;
-        name: string;
-        position: number;
-        type: number;
-        parent_id?: string | null;
-      };
-      children?: Array<{
-        id: string;
-        name: string;
-        position: number;
-        type: number;
-        parent_id?: string | null;
-      }>;
-    }> = [];
+    const channels = [
+      // Add uncategorized channels first
+      ...allChannels
+        .filter((channel) => !channel.parent_id)
+        .map((channel) => ({ type: "channel", data: channel }) as const),
+      // Add categories with their channels
+      ...categories.map((category) => {
+        const categoryChannels = channelsByCategory.get(category.id) || [];
+        return {
+          type: "category",
+          data: category,
+          children: categoryChannels.sort((a, b) => a.position - b.position),
+        } as const;
+      }),
+    ];
 
-    // Add uncategorized channels first
-    uncategorized.forEach((channel) => {
-      result.push({ type: "channel", data: channel });
+    return {
+      guildId,
+      subscription,
+      tier,
+      roles,
+      channels,
+    };
+  } catch (error) {
+    log("error", "onboarding", "Failed to fetch guild data", {
+      guildId,
+      error,
     });
+    // Continue with empty arrays if Discord API fails
+    return {
+      guildId,
+      subscription,
+      tier,
+      roles: [],
+      channels: [],
+      categories: [],
+    };
+  }
+}
 
-    // Add categories with their channels
-    categories.forEach((category) => {
-      const categoryChannels = channelsByCategory.get(category.id) || [];
-      result.push({
-        type: "category",
-        data: category,
-        children: categoryChannels.sort((a, b) => a.position - b.position),
-      });
-    });
-
-    return result;
-  };
-
+export default function Onboard({
+  loaderData: { guildId, tier, roles, channels },
+}: Route.ComponentProps) {
   return (
     <div className="h-full bg-gray-50 px-6 py-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
@@ -307,7 +205,7 @@ export default function Onboard() {
                     className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="">Select a channel...</option>
-                    {organizedChannels().map((item) => {
+                    {channels.map((item) => {
                       if (item.type === "channel") {
                         return (
                           <option key={item.data.id} value={item.data.id}>
@@ -438,4 +336,68 @@ export default function Onboard() {
       </div>
     </div>
   );
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  await requireUser(request);
+  const formData = await request.formData();
+  const guildId = formData.get("guild_id") as string;
+  const modLogChannel = formData.get("mod_log_channel") as string;
+  const moderatorRole = formData.get("moderator_role") as string;
+  const restrictedRole = formData.get("restricted_role") as string;
+
+  if (!guildId) {
+    throw data({ message: "Guild ID is required" }, { status: 400 });
+  }
+
+  if (!modLogChannel || !moderatorRole) {
+    throw data(
+      { message: "Moderator role and log channel are required" },
+      { status: 400 },
+    );
+  }
+
+  log("info", "onboarding", "Onboarding form submitted", {
+    guildId,
+    modLogChannel,
+    moderatorRole,
+    hasRestrictedRole: !!restrictedRole,
+  });
+
+  try {
+    // Register the guild and set up configuration
+    await trackPerformance("guilds.registerGuild", () =>
+      registerGuild(guildId),
+    );
+
+    await trackPerformance("guilds.setSettings", () =>
+      setSettings(guildId, {
+        [SETTINGS.modLog]: modLogChannel,
+        [SETTINGS.moderator]: moderatorRole,
+        [SETTINGS.restricted]: restrictedRole || undefined,
+      }),
+    );
+
+    // Initialize free subscription for new guilds
+    await trackPerformance("subscriptions.initializeFreeSubscription", () =>
+      SubscriptionService.initializeFreeSubscription(guildId),
+    );
+
+    log("info", "onboarding", "Onboarding completed successfully", {
+      guildId,
+      settings: {
+        modLog: modLogChannel,
+        moderator: moderatorRole,
+        restricted: restrictedRole || null,
+      },
+    });
+
+    return data({ success: true });
+  } catch (error) {
+    log("error", "onboarding", "Onboarding failed", { guildId, error });
+    throw data(
+      { message: "Failed to complete onboarding. Please try again." },
+      { status: 500 },
+    );
+  }
 }
