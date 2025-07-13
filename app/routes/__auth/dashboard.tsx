@@ -3,6 +3,10 @@ import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
 import { getTopParticipants } from "#~/models/activity.server";
 import { log, trackPerformance } from "#~/helpers/observability";
+import {
+  getCohortMetrics,
+  calculateCohortBenchmarks,
+} from "#~/helpers/cohortAnalysis";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return trackPerformance(
@@ -12,6 +16,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       const start = url.searchParams.get("start");
       const end = url.searchParams.get("end");
       const guildId = params.guildId;
+      const minThreshold = Number(url.searchParams.get("minThreshold") || 10);
 
       log("info", "Dashboard", "Dashboard loader accessed", {
         guildId,
@@ -35,16 +40,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         return data(null, { status: 400 });
       }
 
-      const output = await getTopParticipants(guildId, start, end);
+      const userResults = await getTopParticipants(guildId, start, end);
 
-      log("info", "Dashboard", "Dashboard data loaded successfully", {
+      // Return full cohort metrics and benchmarks
+      const cohortMetrics = await getCohortMetrics(
         guildId,
         start,
         end,
-        participantCount: output?.length || 0,
-      });
-
-      return output;
+        minThreshold,
+      );
+      const benchmarks = calculateCohortBenchmarks(cohortMetrics);
+      return { cohortMetrics, benchmarks, userResults };
     },
     {
       guildId: params.guildId,
@@ -98,15 +104,13 @@ const Tr = ({ children, ...props }: PropsWithChildren) => (
   <tr {...props}>{children}</tr>
 );
 
-export default function DashboardPage({
-  loaderData: data,
-}: Route.ComponentProps) {
+export default function DashboardPage({ loaderData }: Route.ComponentProps) {
   const [qs] = useSearchParams();
 
   const start = qs.get("start") ?? undefined;
   const end = qs.get("end") ?? undefined;
 
-  if (!data) {
+  if (!loaderData) {
     return (
       <div className="h-full px-6 py-8">
         <div className="flex justify-center">
@@ -117,15 +121,25 @@ export default function DashboardPage({
     );
   }
 
+  const { userResults, cohortMetrics, benchmarks } = loaderData;
+
   return (
     <div className="px-6 py-8">
       <div className="flex justify-center">
         <RangeForm values={{ start, end }} />
       </div>
       <div>
+        <textarea readOnly className="resize text-black">
+          {JSON.stringify({ benchmarks }, null, 2)}
+        </textarea>
+        <textarea readOnly className="resize text-black">
+          {JSON.stringify({ cohortMetrics }, null, 2)}
+        </textarea>
+
         <textarea
+          className="resize text-black"
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
-${data
+${userResults
   .map(
     (d) =>
       `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
@@ -149,7 +163,7 @@ ${data
             </Tr>
           </thead>
           <tbody>
-            {data.map((d) => (
+            {userResults.map((d) => (
               <Tr key={d.data.member.author_id}>
                 <Td>
                   <Link
