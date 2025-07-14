@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { useUser } from "#~/utils";
 import { Logout } from "#~/basics/logout";
 
@@ -23,6 +23,7 @@ export function DiscordLayout({
   const user = useUser();
   const location = useLocation();
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const { guildId } = useParams();
 
   // Filter to only show manageable guilds (where Euno is installed) in the server selector
   const manageableGuilds = guilds.filter((guild) => guild.hasBot);
@@ -79,7 +80,7 @@ export function DiscordLayout({
         {/* Settings gear at bottom */}
         <div className="pb-3">
           <Link
-            to="/settings"
+            to={`/app/${guildId}/settings`}
             className={`mx-3 flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
               isActive("/settings")
                 ? "rounded-xl bg-indigo-600"
