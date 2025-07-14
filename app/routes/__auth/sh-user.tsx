@@ -162,7 +162,7 @@ text {
               <PolarRadiusAxis />
               <Tooltip />
               <Radar
-                name="Channels"
+                name="Messages"
                 dataKey="messages"
                 stroke="#8884d8"
                 fill="#8884d8"
