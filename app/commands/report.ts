@@ -6,14 +6,12 @@ import { ReportReasons } from "./track/reportCache";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { commandStats } from "#~/helpers/metrics";
 
-export const command = new ContextMenuCommandBuilder()
+const command = new ContextMenuCommandBuilder()
   .setName("Report")
   .setType(ApplicationCommandType.Message)
   .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
 
-export const handler = async (
-  interaction: MessageContextMenuCommandInteraction,
-) => {
+const handler = async (interaction: MessageContextMenuCommandInteraction) => {
   await trackPerformance(
     "reportCommand",
     async () => {
@@ -84,3 +82,5 @@ export const handler = async (
     },
   );
 };
+
+export const Command = { handler, command };

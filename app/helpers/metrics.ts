@@ -9,6 +9,7 @@ import type {
   UserContextMenuCommandInteraction,
 } from "discord.js";
 import { amplitudeKey } from "#~/helpers/env.server";
+import { log } from "#~/helpers/observability";
 
 type AmplitudeValue = string | number | boolean;
 type EmitEventData = Record<string, AmplitudeValue | AmplitudeValue[]>;
@@ -148,7 +149,7 @@ const emitEvent = (
   { data, userId }: { data?: EmitEventData; userId?: string } = {},
 ) => {
   if (!amplitudeKey) {
-    console.log({
+    log("info", "Metrics", "event emitted", {
       user_id: userId,
       event_type: eventName,
       event_properties: data,

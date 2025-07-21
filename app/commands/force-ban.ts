@@ -5,14 +5,12 @@ import { ApplicationCommandType } from "discord-api-types/v10";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { commandStats } from "#~/helpers/metrics";
 
-export const command = new ContextMenuCommandBuilder()
+const command = new ContextMenuCommandBuilder()
   .setName("Force Ban")
   .setType(ApplicationCommandType.User)
   .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers);
 
-export const handler = async (
-  interaction: UserContextMenuCommandInteraction,
-) => {
+const handler = async (interaction: UserContextMenuCommandInteraction) => {
   await trackPerformance(
     "forceBanCommand",
     async () => {
@@ -91,3 +89,5 @@ export const handler = async (
     },
   );
 };
+
+export const Command = { handler, command };

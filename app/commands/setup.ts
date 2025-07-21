@@ -5,13 +5,10 @@ import { SETTINGS, setSettings, registerGuild } from "#~/models/guilds.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { commandStats } from "#~/helpers/metrics";
 
-export const command = new SlashCommandBuilder()
+const command = new SlashCommandBuilder()
   .setName("setup")
   .setDescription("Set up necessities for using the bot")
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  // TODO: update permissions so non-mods can never use it
-  // maybe implement as "adder must init immediately"?
-  // .setDefaultPermission(true);
   .addRoleOption((x) =>
     x
       .setName("moderator")
@@ -32,7 +29,7 @@ export const command = new SlashCommandBuilder()
       ),
   ) as SlashCommandBuilder;
 
-export const handler = async (interaction: ChatInputCommandInteraction) => {
+const handler = async (interaction: ChatInputCommandInteraction) => {
   await trackPerformance(
     "setupCommand",
     async () => {
@@ -108,3 +105,5 @@ ${error.toString()}
     },
   );
 };
+
+export const Command = { handler, command };
