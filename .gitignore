@@ -13,3 +13,4 @@ k8s-context
 tsconfig.tsbuildinfo
 .react-router
 tailwind.css
+userInfoCache.json

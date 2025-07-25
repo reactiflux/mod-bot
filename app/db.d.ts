@@ -61,6 +61,13 @@ export interface Users {
   id: string;
 }
 
+export interface UserThreads {
+  created_at: Generated<string>;
+  guild_id: string;
+  thread_id: string;
+  user_id: string;
+}
+
 export interface DB {
   channel_info: ChannelInfo;
   guild_subscriptions: GuildSubscriptions;
@@ -68,5 +75,6 @@ export interface DB {
   message_stats: MessageStats;
   sessions: Sessions;
   tickets_config: TicketsConfig;
+  user_threads: UserThreads;
   users: Users;
 }
