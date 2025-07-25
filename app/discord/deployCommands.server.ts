@@ -18,6 +18,7 @@ import {
 } from "#~/helpers/discord";
 import { applicationId, isProd } from "#~/helpers/env.server";
 import { calculateChangedCommands } from "#~/helpers/discordCommands";
+import { log, trackPerformance } from "#~/helpers/observability.js";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers
@@ -231,15 +232,34 @@ export const deployTestCommands = async (
   );
 };
 
+const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
+  return {
+    command,
+    handler: (interaction: Parameters<T["handler"]>[0]) => {
+      trackPerformance(`withPerf HoF ${command.name}`, async () => {
+        try {
+          // @ts-expect-error Unclear why this isn't working but it seems fine
+          await handler(interaction);
+        } catch (e) {
+          log("debug", `perf`, "rethrowing error", { error: e });
+          throw e;
+        }
+      });
+    },
+  };
+};
+
 const commands = new Map<string, AnyCommand>();
 export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
   if (Array.isArray(config)) {
     config.forEach((c) => {
-      commands.set(c.command.name, c);
+      // @ts-expect-error Higher order functions are weird
+      commands.set(c.command.name, withPerf(c));
     });
     return;
   }
-  commands.set(config.command.name, config);
+  // @ts-expect-error Higher order functions are weird
+  commands.set(config.command.name, withPerf(config));
 };
 const matchCommand = (customId: string) => {
   const config = commands.get(customId);

@@ -31,7 +31,7 @@ const rest = new REST({ version: "10" }).setToken(discordToken);
 
 const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
-export default [
+export const Command = [
   {
     command: new SlashCommandBuilder()
       .setName("tickets-channel")

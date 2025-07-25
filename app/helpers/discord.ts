@@ -155,7 +155,7 @@ export type AnyCommand =
 
 export type MessageContextCommand = {
   command: ContextMenuCommandBuilder;
-  handler: (interaction: MessageContextMenuCommandInteraction) => void;
+  handler: (interaction: MessageContextMenuCommandInteraction) => Promise<void>;
 };
 export const isMessageContextCommand = (
   config: AnyCommand,
@@ -165,7 +165,7 @@ export const isMessageContextCommand = (
 
 export type UserContextCommand = {
   command: ContextMenuCommandBuilder;
-  handler: (interaction: UserContextMenuCommandInteraction) => void;
+  handler: (interaction: UserContextMenuCommandInteraction) => Promise<void>;
 };
 export const isUserContextCommand = (
   config: AnyCommand,
@@ -175,14 +175,14 @@ export const isUserContextCommand = (
 
 export type SlashCommand = {
   command: SlashCommandBuilder;
-  handler: (interaction: ChatInputCommandInteraction) => void;
+  handler: (interaction: ChatInputCommandInteraction) => Promise<void>;
 };
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
 
 export type MessageComponentCommand = {
   command: { type: InteractionType.MessageComponent; name: string };
-  handler: (interaction: MessageComponentInteraction) => void;
+  handler: (interaction: MessageComponentInteraction) => Promise<void>;
 };
 export const isMessageComponentCommand = (
   config: AnyCommand,
@@ -192,7 +192,7 @@ export const isMessageComponentCommand = (
 
 export type ModalCommand = {
   command: { type: InteractionType.ModalSubmit; name: string };
-  handler: (interaction: ModalSubmitInteraction) => void;
+  handler: (interaction: ModalSubmitInteraction) => Promise<void>;
 };
 export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&

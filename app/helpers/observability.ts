@@ -36,61 +36,11 @@ export const log = (
 };
 
 // Performance tracking helper
-export const trackPerformance = async <T>(
+export const trackPerformance = <T>(
   operation: string,
-  fn: () => Promise<T>,
+  fn: () => T,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context: Record<string, any> = {},
-): Promise<T> => {
-  const startTime = Date.now();
-  const startHrTime = process.hrtime.bigint();
-
-  try {
-    log("info", "Performance", `Starting ${operation}`, {
-      operation,
-      context: JSON.stringify(context),
-    });
-
-    const result = await fn();
-
-    const duration = Date.now() - startTime;
-    const hrDuration = Number(process.hrtime.bigint() - startHrTime) / 1000000; // Convert to milliseconds
-
-    log("info", "Performance", `Completed ${operation}`, {
-      operation,
-      duration_ms: duration,
-      hr_duration_ms: hrDuration,
-      success: true,
-      context: JSON.stringify(context),
-    });
-
-    // Track performance metrics in Sentry
-    Sentry.addBreadcrumb({
-      category: "performance",
-      message: `${operation} completed`,
-      level: "info",
-      data: {
-        operation,
-        duration_ms: duration,
-        hr_duration_ms: hrDuration,
-        context: JSON.stringify(context),
-      },
-    });
-
-    return result;
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    const hrDuration = Number(process.hrtime.bigint() - startHrTime) / 1000000;
-
-    log("info", "Performance", `Failed ${operation}`, {
-      operation,
-      duration_ms: duration,
-      hr_duration_ms: hrDuration,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      context,
-    });
-
-    throw error;
-  }
+): T => {
+  return Sentry.startSpan({ name: operation, attributes: context }, fn);
 };

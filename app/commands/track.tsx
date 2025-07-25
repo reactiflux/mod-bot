@@ -7,14 +7,12 @@ import { reacord } from "#~/discord/client.server";
 import { reportUser } from "#~/helpers/modLog";
 import { ReportReasons } from "#~/commands/track/reportCache";
 
-export const command = new ContextMenuCommandBuilder()
+const command = new ContextMenuCommandBuilder()
   .setName("Track")
   .setType(ApplicationCommandType.Message)
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages);
 
-export const handler = async (
-  interaction: MessageContextMenuCommandInteraction,
-) => {
+const handler = async (interaction: MessageContextMenuCommandInteraction) => {
   const { targetMessage: message, user } = interaction;
 
   const reportPromise = reportUser({
@@ -49,3 +47,5 @@ export const handler = async (
     </>,
   );
 };
+
+export const Command = { handler, command };

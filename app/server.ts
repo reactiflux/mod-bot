@@ -10,11 +10,11 @@ import { applicationKey } from "#~/helpers/env.server";
 import discordBot from "#~/discord/gateway";
 import { registerCommand } from "#~/discord/deployCommands.server";
 
-import * as forceBan from "#~/commands/force-ban";
-import * as setup from "#~/commands/setup";
-import * as report from "#~/commands/report";
-import * as track from "#~/commands/track";
-import setupTicket from "#~/commands/setupTickets";
+import { Command as forceBan } from "#~/commands/force-ban";
+import { Command as setup } from "#~/commands/setup";
+import { Command as report } from "#~/commands/report";
+import { Command as track } from "#~/commands/track";
+import { Command as setupTicket } from "#~/commands/setupTickets";
 
 export const app = express();
 
@@ -54,6 +54,7 @@ app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
  * Initialize Discord gateway.
  */
 discordBot();
+
 /**
  * Register Discord commands.
  */
