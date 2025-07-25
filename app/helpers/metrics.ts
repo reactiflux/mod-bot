@@ -166,5 +166,11 @@ const emitEvent = (
     }),
   };
 
-  fetch(`https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`);
+  (async () => {
+    try {
+      await fetch(`https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`);
+    } catch (error) {
+      log("error", "Metrics", "Failed to emit event", { error: error.message });
+    }
+  })();
 };
