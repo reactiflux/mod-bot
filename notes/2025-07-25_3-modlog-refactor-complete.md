@@ -7,20 +7,24 @@ Successfully refactored the moderation logging system from per-message threads t
 ## Key Changes Implemented
 
 ### Database Layer
+
 - **Migration**: `20250725192908_user_threads.ts` - Creates user_threads table with unique composite key (user_id, guild_id)
 - **Model**: `app/models/userThreads.server.ts` - CRUD operations with full observability integration
 - **Schema**: user_id, guild_id, thread_id, created_at with unique constraint
 
 ### Core Logic Changes
+
 - **Thread Creation**: `makeUserThread()` creates threads with "Username Moderation History" naming
-- **Thread Management**: `getOrCreateUserThread()` handles lookup/creation with database persistence 
+- **Thread Management**: `getOrCreateUserThread()` handles lookup/creation with database persistence
 - **Notification System**: Main channel posts link to user thread instead of full content
 - **Report Flow**: Detailed reports posted in user threads, notifications in main channel
 
 ### Integration Points Verified
+
 All existing features maintain compatibility through the `reportUser()` API:
+
 - **Report Command**: Anonymous reporting via context menu
-- **Track Command**: Staff message tracking  
+- **Track Command**: Staff message tracking
 - **Automod**: Spam detection and auto-moderation
 - **Escalate System**: All resolution types (restrict, kick, ban, warning, timeout)
 

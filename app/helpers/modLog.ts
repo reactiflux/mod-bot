@@ -4,6 +4,7 @@ import type {
   User,
   APIEmbed,
   AnyThreadChannel,
+  TextChannel,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
 import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
@@ -45,9 +46,10 @@ interface Reported {
   latestReport?: Message;
 }
 
-const makeUserThread = (message: Message, user: User) => {
-  return message.startThread({
+const makeUserThread = (channel: TextChannel, user: User) => {
+  return channel.threads.create({
     name: `${user.username} Moderation History`,
+    type: ChannelType.PrivateThread,
   });
 };
 
@@ -80,11 +82,8 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
     throw new Error("Invalid mod log channel");
   }
 
-  // Create a placeholder message to start the thread from
-  const placeholder = await modLog.send(
-    `**${user.username}** Moderation History`,
-  );
-  const thread = await makeUserThread(placeholder, user);
+  // Create freestanding private thread
+  const thread = await makeUserThread(modLog, user);
 
   // Store or update the thread reference
   if (existingThread) {
@@ -126,7 +125,6 @@ export const reportUser = async ({
 
     // Get or create persistent user thread
     const thread = await getOrCreateUserThread(message, message.author);
-    await escalationControls(message, thread, modRoleId);
 
     if (cached.logs.some((l) => l.message.id === message.id)) {
       // If we've already logged exactly this message, don't log it again as a
@@ -190,7 +188,6 @@ export const reportUser = async ({
 
   // Get or create persistent user thread first
   const thread = await getOrCreateUserThread(message, message.author);
-  await escalationControls(message, thread, modRoleId);
 
   // Post notification in main channel linking to user thread
   const notificationMessage = await modLog.send({
@@ -206,7 +203,10 @@ export const reportUser = async ({
     staff,
   });
 
+  // Send combined detailed report with moderator controls
   await thread.send(logBody);
+  await escalationControls(message, thread, modRoleId);
+
   const latestReport = await thread.send(makeReportMessage(newReport));
 
   return {
@@ -287,7 +287,10 @@ const constructLog = async ({
   return {
     content: truncateMessage(`${preface}
 ${extra}${reportedMessage}
-${warnings.join("\n")}`).trim(),
+${warnings.join("\n")}
+
+---
+**Moderator controls follow below** ⬇️`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
