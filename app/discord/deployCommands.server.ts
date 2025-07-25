@@ -235,13 +235,14 @@ export const deployTestCommands = async (
 const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
   return {
     command,
-    handler: (interaction: Parameters<T["handler"]>) => {
+    handler: (interaction: Parameters<T["handler"]>[0]) => {
       trackPerformance(`withPerf HoF ${command.name}`, async () => {
         try {
           // @ts-expect-error Unclear why this isn't working but it seems fine
           await handler(interaction);
         } catch (e) {
           log("debug", `perf`, "rethrowing error", { error: e });
+          throw e;
         }
       });
     },

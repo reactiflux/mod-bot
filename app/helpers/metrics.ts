@@ -168,9 +168,11 @@ const emitEvent = (
 
   (async () => {
     try {
-      await fetch(`https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`);
+      await fetch(
+        `https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`,
+      );
     } catch (error) {
-      log("error", "Metrics", "Failed to emit event", { error: error.message });
+      log("error", "Metrics", "Failed to emit event", { error });
     }
   })();
 };
