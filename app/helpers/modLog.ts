@@ -26,6 +26,11 @@ import {
 } from "#~/helpers/discord";
 import { truncateMessage } from "#~/helpers/string";
 import { escalationControls } from "#~/helpers/escalate";
+import {
+  getUserThread,
+  createUserThread,
+  updateUserThread,
+} from "#~/models/userThreads.server";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -40,10 +45,55 @@ interface Reported {
   latestReport?: Message;
 }
 
-const makeLogThread = (message: Message, user: User) => {
+const makeUserThread = (message: Message, user: User) => {
   return message.startThread({
-    name: `${user.username} – ${format(message.createdAt, "P")}`,
+    name: `${user.username} Moderation History`,
   });
+};
+
+const getOrCreateUserThread = async (message: Message, user: User) => {
+  const { guild } = message;
+  if (!guild) throw new Error("Message has no guild");
+
+  // Check if we already have a thread for this user
+  const existingThread = await getUserThread(user.id, guild.id);
+
+  if (existingThread) {
+    try {
+      // Verify the thread still exists and is accessible
+      const thread = await guild.channels.fetch(existingThread.thread_id);
+      if (thread?.isThread()) {
+        return thread;
+      }
+    } catch (error) {
+      console.log(
+        "[getOrCreateUserThread] Existing thread not accessible, will create new one:",
+        error,
+      );
+    }
+  }
+
+  // Create new thread and store in database
+  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+  const modLog = await guild.channels.fetch(modLogId);
+  if (!modLog || modLog.type !== ChannelType.GuildText) {
+    throw new Error("Invalid mod log channel");
+  }
+
+  // Create a placeholder message to start the thread from
+  const placeholder = await modLog.send(
+    `**${user.username}** Moderation History`,
+  );
+  const thread = await makeUserThread(placeholder, user);
+
+  // Store or update the thread reference
+  if (existingThread) {
+    await updateUserThread(user.id, guild.id, thread.id);
+  } else {
+    await createUserThread(user.id, guild.id, thread.id);
+  }
+
+  return thread;
 };
 
 // const warningMessages = new ();
@@ -74,11 +124,9 @@ export const reportUser = async ({
     // If we already logged for ~ this message, post to the existing thread
     const { logMessage: cachedMessage, logs } = cached;
 
-    let thread = cachedMessage.thread;
-    if (!thread || !cachedMessage.hasThread) {
-      thread = await makeLogThread(cachedMessage, message.author);
-      await escalationControls(message, thread, modRoleId);
-    }
+    // Get or create persistent user thread
+    const thread = await getOrCreateUserThread(message, message.author);
+    await escalationControls(message, thread, modRoleId);
 
     if (cached.logs.some((l) => l.message.id === message.id)) {
       // If we've already logged exactly this message, don't log it again as a
@@ -140,25 +188,30 @@ export const reportUser = async ({
 
   console.log("[reportUser]", "new message reported");
 
+  // Get or create persistent user thread first
+  const thread = await getOrCreateUserThread(message, message.author);
+  await escalationControls(message, thread, modRoleId);
+
+  // Post notification in main channel linking to user thread
+  const notificationMessage = await modLog.send({
+    content: `New report for <@${message.author.id}> - see discussion in <#${thread.id}>`,
+  });
+  trackReport(notificationMessage, newReport);
+
+  // Send detailed report info to the user thread
   const logBody = await constructLog({
     extra,
     logs: newLogs,
     previousWarnings: queryCacheMetadata(message),
     staff,
   });
-  const warningMessage = await modLog.send(logBody);
-  trackReport(warningMessage, newReport);
 
-  const thread = await makeLogThread(warningMessage, message.author);
-  await escalationControls(message, thread, modRoleId);
-
-  const firstReportMessage = makeReportMessage(newReport);
-
-  const latestReport = await thread.send(firstReportMessage);
+  await thread.send(logBody);
+  const latestReport = await thread.send(makeReportMessage(newReport));
 
   return {
     warnings: 1,
-    message: warningMessage,
+    message: notificationMessage,
     latestReport,
     thread,
     allReportedMessages: newLogs,
