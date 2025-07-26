@@ -14,7 +14,7 @@ import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { ModResponse } from "#~/commands/reacord/ModResponse";
 import { type ComponentEventReplyOptions, type ReacordInstance } from "reacord";
-import { ReportReasons } from "#~/commands/track/reportCache.js";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 export async function escalationControls(
   reportedMessage: Message,

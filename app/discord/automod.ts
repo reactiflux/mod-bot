@@ -4,7 +4,7 @@ import { isStaff } from "#~/helpers/discord";
 import { reportUser } from "#~/helpers/modLog";
 import { client } from "./client.server";
 import { isSpam } from "#~/helpers/isSpam";
-import { ReportReasons } from "#~/commands/track/reportCache.js";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 const AUTO_SPAM_THRESHOLD = 3;
 

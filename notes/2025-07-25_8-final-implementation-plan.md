@@ -136,7 +136,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 import type { DB } from "#~/db.server";
 import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { ReportReasons } from "#~/commands/track/reportCache";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 export type ReportedMessage = DB["reported_messages"];
 

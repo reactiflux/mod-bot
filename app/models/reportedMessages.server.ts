@@ -1,9 +1,24 @@
+import type { Message, User } from "discord.js";
+
 import type { DB } from "#~/db.server";
 import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { ReportReasons } from "#~/commands/track/reportCache";
 
 export type ReportedMessage = DB["reported_messages"];
+
+export interface Report {
+  reason: ReportReasons;
+  message: Message;
+  extra?: string;
+  staff: User | false;
+}
+
+export const enum ReportReasons {
+  anonReport = "anonReport",
+  track = "track",
+  modResolution = "modResolution",
+  spam = "spam",
+}
 
 export async function recordReport(data: {
   reportedMessageId: string;

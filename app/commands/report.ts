@@ -2,7 +2,7 @@ import type { MessageContextMenuCommandInteraction } from "discord.js";
 import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
 import { reportUser } from "#~/helpers/modLog";
-import { ReportReasons } from "./track/reportCache";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { commandStats } from "#~/helpers/metrics";
 

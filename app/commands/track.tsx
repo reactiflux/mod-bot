@@ -5,7 +5,7 @@ import { Button } from "reacord";
 import { reacord } from "#~/discord/client.server";
 
 import { reportUser } from "#~/helpers/modLog";
-import { ReportReasons } from "#~/commands/track/reportCache";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Track")

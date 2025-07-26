@@ -9,7 +9,7 @@ import type {
 import { MessageType, ChannelType } from "discord.js";
 import { formatDistanceToNowStrict } from "date-fns";
 
-import { ReportReasons, type Report } from "#~/commands/track/reportCache.js";
+import { ReportReasons, type Report } from "#~/models/reportedMessages.server";
 import {
   recordReport,
   getReportsForMessage,
