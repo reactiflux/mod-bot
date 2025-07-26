@@ -8,7 +8,7 @@ export const command = new SlashCommandBuilder()
 
 export const handler = async (interaction: CommandInteraction) => {
   await interaction.reply({
-    ephemeral: true,
+    flags: "Ephemeral",
     content: "ok",
   });
 };
