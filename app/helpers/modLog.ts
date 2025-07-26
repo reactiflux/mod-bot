@@ -32,6 +32,7 @@ import {
   updateUserThread,
 } from "#~/models/userThreads.server";
 import { retry } from "./misc";
+import { log } from "./observability";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -113,6 +114,8 @@ export const reportUser = async ({
 
     // Check if this exact message has already been reported
     const existingReports = await getReportsForMessage(message.id, guild.id);
+
+    const { modLog } = await fetchSettings(guild.id, [SETTINGS.modLog]);
     const alreadyReported = existingReports.find(
       (r) => r.reported_message_id === message.id,
     );
@@ -163,6 +166,7 @@ export const reportUser = async ({
 
     // Send the detailed log message to thread
     const logMessage = await thread.send(logBody);
+    logMessage.forward(modLog);
 
     // Try to record the report in database
     const recordResult = await recordReport({
@@ -183,8 +187,9 @@ export const reportUser = async ({
     // In this case, we'll keep the detailed log we already sent (since it's already there)
     // but add a short duplicate message and return updated stats
     if (!recordResult.wasInserted) {
-      console.log(
-        "[reportUser]",
+      log(
+        "warn",
+        "reportUser",
         "duplicate detected at database level after sending detailed log",
       );
       throw new Error("Race condition detected in reportUser, retrying…");
