@@ -3,6 +3,7 @@ import type { Message, User } from "discord.js";
 import type { DB } from "#~/db.server";
 import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
+import { client } from "#~/discord/client.server";
 
 export type ReportedMessage = DB["reported_messages"];
 
@@ -96,11 +97,6 @@ export async function getReportsForUser(userId: string, guildId: string) {
   return trackPerformance(
     "getReportsForUser",
     async () => {
-      log("debug", "ReportedMessage", "Fetching reports for user", {
-        userId,
-        guildId,
-      });
-
       const reports = await db
         .selectFrom("reported_messages")
         .selectAll()
@@ -108,36 +104,36 @@ export async function getReportsForUser(userId: string, guildId: string) {
         .where("guild_id", "=", guildId)
         .execute();
 
-      log("debug", "ReportedMessage", `Found ${reports.length} reports`, {
-        userId,
-        guildId,
-      });
       return reports;
     },
     { userId, guildId },
   );
 }
 
-export async function getReportsForMessage(messageId: string, guildId: string) {
+export async function getReportsForMessage(
+  messageId: string,
+  guildId: string,
+  includeDeleted: boolean = false,
+) {
   return trackPerformance(
     "getReportsForMessage",
     async () => {
-      log("debug", "ReportedMessage", "Fetching reports for message", {
-        messageId,
-        guildId,
-      });
-
-      const reports = await db
+      let query = db
         .selectFrom("reported_messages")
         .selectAll()
         .where("reported_message_id", "=", messageId)
-        .where("guild_id", "=", guildId)
-        .orderBy("created_at", "desc")
-        .execute();
+        .where("guild_id", "=", guildId);
+
+      if (!includeDeleted) {
+        query = query.where("deleted_at", "is", null);
+      }
+
+      const reports = await query.orderBy("created_at", "desc").execute();
 
       log("debug", "ReportedMessage", `Found ${reports.length} reports`, {
         messageId,
         guildId,
+        includeDeleted,
       });
       return reports;
     },
@@ -149,17 +145,13 @@ export async function getUserReportStats(userId: string, guildId: string) {
   return trackPerformance(
     "getUserReportStats",
     async () => {
-      log("debug", "ReportedMessage", "Calculating stats for user", {
-        userId,
-        guildId,
-      });
-
       const [totalReports, uniqueMessages, uniqueChannels] = await Promise.all([
         db
           .selectFrom("reported_messages")
           .select(db.fn.count("id").as("count"))
           .where("reported_user_id", "=", userId)
           .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null) // Only count non-deleted messages
           .executeTakeFirstOrThrow(),
 
         db
@@ -169,6 +161,7 @@ export async function getUserReportStats(userId: string, guildId: string) {
           )
           .where("reported_user_id", "=", userId)
           .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null) // Only count non-deleted messages
           .executeTakeFirstOrThrow(),
 
         db
@@ -178,6 +171,7 @@ export async function getUserReportStats(userId: string, guildId: string) {
           )
           .where("reported_user_id", "=", userId)
           .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null) // Only count non-deleted messages
           .executeTakeFirstOrThrow(),
       ]);
 
@@ -188,15 +182,58 @@ export async function getUserReportStats(userId: string, guildId: string) {
         allReports: [], // Legacy compatibility - could fetch if needed
       };
 
-      log("debug", "ReportedMessage", "Calculated stats", {
-        userId,
-        guildId,
-        stats,
-      });
       return stats;
     },
     { userId, guildId },
   );
+}
+
+/**
+ * Gets unique message IDs for a user that haven't been deleted yet
+ */
+async function getUniqueNonDeletedMessages(userId: string, guildId: string) {
+  return db
+    .selectFrom("reported_messages")
+    .select(["reported_message_id", "reported_channel_id"])
+    .distinct()
+    .where("reported_user_id", "=", userId)
+    .where("guild_id", "=", guildId)
+    .where("deleted_at", "is", null)
+    .execute();
+}
+
+/**
+ * Deletes a single Discord message and marks it as deleted in database
+ */
+async function deleteSingleMessage(
+  messageId: string,
+  channelId: string,
+  guildId: string,
+) {
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !("messages" in channel)) {
+      throw new Error("Channel not found or not a text channel");
+    }
+
+    const message = await channel.messages.fetch(messageId);
+    await message.delete();
+    await markMessageAsDeleted(messageId, guildId);
+
+    log("debug", "ReportedMessage", "Deleted message", { messageId });
+    return { success: true, messageId };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unknown Message")) {
+      await markMessageAsDeleted(messageId, guildId);
+      return { success: true, messageId };
+    }
+
+    log("warn", "ReportedMessage", "Failed to delete message", {
+      messageId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false, messageId, error };
+  }
 }
 
 export async function deleteAllReportedForUser(
@@ -206,51 +243,47 @@ export async function deleteAllReportedForUser(
   return trackPerformance(
     "deleteAllReportedForUser",
     async () => {
-      log("info", "ReportedMessage", "Deleting all reported messages", {
-        userId,
-        guildId,
-      });
+      // Get unique messages that haven't been deleted yet (using SQL DISTINCT)
+      const uniqueMessages = await getUniqueNonDeletedMessages(userId, guildId);
 
-      const reports = await getReportsForUser(userId, guildId);
+      if (uniqueMessages.length === 0) {
+        log("info", "ReportedMessage", "No messages to delete", {
+          userId,
+          guildId,
+        });
+        return { total: 0, deleted: 0 };
+      }
 
-      const deleteResults = await Promise.allSettled(
-        reports.map(async (report) => {
-          try {
-            // Import here to avoid circular dependency
-            const { client } = await import("#~/discord/client.server");
-            const channel = await client.channels.fetch(
-              report.reported_channel_id,
-            );
-            if (!channel || !("messages" in channel)) {
-              throw new Error("Channel not found or not a text channel");
-            }
-            const message = await channel.messages.fetch(
-              report.reported_message_id,
-            );
-            await message.delete();
-            log("debug", "ReportedMessage", "Deleted message", {
-              messageId: report.reported_message_id,
-            });
-          } catch (error) {
-            log("warn", "ReportedMessage", "Failed to delete message", {
-              messageId: report.reported_message_id,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }),
-      );
+      // Delete messages sequentially to avoid rate limits and race conditions
+      let deleted = 0;
+      const errors: Array<{ messageId: string; error: unknown }> = [];
 
-      const deleted = deleteResults.filter(
-        (r) => r.status === "fulfilled",
-      ).length;
+      for (const {
+        reported_message_id,
+        reported_channel_id,
+      } of uniqueMessages) {
+        const result = await deleteSingleMessage(
+          reported_message_id,
+          reported_channel_id,
+          guildId,
+        );
+
+        if (result.success) {
+          deleted++;
+        } else {
+          errors.push({ messageId: reported_message_id, error: result.error });
+        }
+      }
+
       log("info", "ReportedMessage", "Deletion complete", {
         userId,
         guildId,
-        total: reports.length,
+        total: uniqueMessages.length,
         deleted,
+        failed: errors.length,
       });
 
-      return { total: reports.length, deleted };
+      return { total: uniqueMessages.length, deleted };
     },
     { userId, guildId },
   );
@@ -272,5 +305,26 @@ export async function deleteReport(reportId: string) {
         .execute();
     },
     { reportId },
+  );
+}
+
+/**
+ * Marks a specific reported message as deleted
+ */
+export async function markMessageAsDeleted(messageId: string, guildId: string) {
+  return trackPerformance(
+    "markMessageAsDeleted",
+    async () => {
+      const result = await db
+        .updateTable("reported_messages")
+        .set("deleted_at", new Date().toISOString())
+        .where("reported_message_id", "=", messageId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null) // Only update if not already marked as deleted
+        .execute();
+
+      return { updatedCount: result.length };
+    },
+    { messageId, guildId },
   );
 }

@@ -11,7 +11,7 @@ export const EscalationCommands = [
       name: "escalate-delete",
     },
     handler: async (interaction) => {
-      interaction.deferReply();
+      await interaction.deferReply();
       const reportedUserId = interaction.customId.split("|")[1];
       const guildId = interaction.guildId!;
 
@@ -20,9 +20,8 @@ export const EscalationCommands = [
         interaction.user.id,
       );
       if (!member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "Insufficient permissions",
-          ephemeral: true,
         });
       }
 

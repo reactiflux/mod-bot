@@ -44,6 +44,7 @@ export interface MessageStats {
 
 export interface ReportedMessages {
   created_at: Generated<string>;
+  deleted_at: string | null;
   extra: string | null;
   guild_id: string;
   id: string;
