@@ -144,6 +144,9 @@ export async function startActivityTracking(client: Client) {
   });
 
   client.on(Events.MessageDelete, async (msg) => {
+    if (msg.system || msg.author?.bot) {
+      return;
+    }
     await trackPerformance(
       "processMessageDelete",
       async () => {
