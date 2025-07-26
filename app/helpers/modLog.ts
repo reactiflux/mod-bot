@@ -9,13 +9,12 @@ import type {
 import { MessageType, ChannelType } from "discord.js";
 import { formatDistanceToNowStrict } from "date-fns";
 
+import { ReportReasons, type Report } from "#~/commands/track/reportCache.js";
 import {
-  queryReportCache,
-  queryCacheMetadata,
-  trackReport,
-  ReportReasons,
-  type Report,
-} from "#~/commands/track/reportCache.js";
+  recordReport,
+  getReportsForMessage,
+  getUserReportStats,
+} from "#~/models/reportedMessages.server";
 
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
@@ -109,105 +108,81 @@ export const reportUser = async ({
 > => {
   const { guild } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
-  const cached = queryReportCache(message);
-  const newReport: Report = { message, reason, staff };
+
+  // Check if this exact message has already been reported
+  const existingReports = await getReportsForMessage(message.id, guild.id);
+  const alreadyReported = existingReports.some((r) => r.reason === reason);
 
   console.log(
     "[reportUser]",
-    `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
+    `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
   );
-
-  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
-
-  if (cached) {
-    // If we already logged for ~ this message, post to the existing thread
-    const { logMessage: cachedMessage, logs } = cached;
-
-    // Get or create persistent user thread
-    const thread = await getOrCreateUserThread(message, message.author);
-
-    if (cached.logs.some((l) => l.message.id === message.id)) {
-      // If we've already logged exactly this message, don't log it again as a
-      // separate report.
-      const latestReport = // Don't reply in thread if this is a resolved vote
-        reason === ReportReasons.modResolution
-          ? undefined
-          : await cached.logMessage.reply(makeReportMessage(newReport));
-      console.log("[reportUser]", "exact message already logged");
-      return {
-        warnings: logs.length,
-        message: cachedMessage,
-        latestReport,
-        thread,
-        allReportedMessages: logs,
-      };
-    }
-
-    console.log("[reportUser]", "new message reported");
-    trackReport(cachedMessage, newReport);
-    const { uniqueChannels, uniqueMessages, reportCount } =
-      queryCacheMetadata(message);
-
-    const [latestReport] = await Promise.all([
-      // Don't reply in thread if this is a resolved vote
-      reason === ReportReasons.modResolution
-        ? Promise.resolve(undefined)
-        : cached.logMessage.reply(makeReportMessage(newReport)),
-      cachedMessage.edit(
-        cachedMessage.content
-          .replace(
-            /for \d different messages/,
-            `for ${uniqueMessages} different messages`,
-          )
-          .replace(/in \d channels/, `in ${uniqueChannels} channels`)
-          .replace(/warned \d times/, `warned ${reportCount} times`) || "",
-      ),
-    ]);
-    return {
-      warnings: reportCount,
-      message: cachedMessage,
-      latestReport,
-      thread,
-      allReportedMessages: cached.logs,
-    };
-  }
-
-  // If this is new, send a new message
-  const modLog = await guild.channels.fetch(modLogId);
-  if (!modLog) {
-    throw new Error("Channel configured for use as mod log not found");
-  }
-  if (modLog.type !== ChannelType.GuildText) {
-    throw new Error(
-      "Invalid channel configured for use as mod log, must be guild text",
-    );
-  }
-  const newLogs: Report[] = [{ message, reason, staff }];
-
-  console.log("[reportUser]", "new message reported");
 
   // Get or create persistent user thread first
   const thread = await getOrCreateUserThread(message, message.author);
 
+  if (alreadyReported && reason !== ReportReasons.modResolution) {
+    // Message already reported with this reason, just add to thread
+    const latestReport = await thread.send(
+      makeReportMessage({ message, reason, staff }),
+    );
+    console.log("[reportUser]", "exact message already logged");
+
+    const userStats = await getUserReportStats(message.author.id, guild.id);
+    return {
+      warnings: userStats.reportCount,
+      message: thread.lastMessage!,
+      latestReport,
+      thread,
+      allReportedMessages: [], // Could fetch if needed
+    };
+  }
+
+  console.log("[reportUser]", "new message reported");
+
+  // Get user stats for constructing the log
+  const previousWarnings = await getUserReportStats(
+    message.author.id,
+    guild.id,
+  );
+
   // Send detailed report info to the user thread
   const logBody = await constructLog({
     extra,
-    logs: newLogs,
-    previousWarnings: queryCacheMetadata(message),
+    logs: [{ message, reason, staff }],
+    previousWarnings,
     staff,
   });
 
-  // Send combined detailed report with moderator controls
-  const log = await thread.send(logBody);
+  // Send the detailed log message to thread
+  const logMessage = await thread.send(logBody);
 
-  await log.forward(modLog);
-  trackReport(log, newReport);
+  // Record the report in database
+  await recordReport({
+    reportedMessageId: message.id,
+    reportedChannelId: message.channel.id,
+    reportedUserId: message.author.id,
+    guildId: guild.id,
+    logMessageId: logMessage.id,
+    logChannelId: thread.id,
+    reason,
+    staffId: staff ? staff.id : undefined,
+    staffUsername: staff ? staff.username : undefined,
+    extra,
+  });
+
+  // Add the specific report message to thread
+  const latestReport =
+    reason === ReportReasons.modResolution
+      ? undefined
+      : await thread.send(makeReportMessage({ message, reason, staff }));
 
   return {
-    warnings: 1,
-    message: log,
+    warnings: previousWarnings.reportCount + 1,
+    message: logMessage,
+    latestReport,
     thread,
-    allReportedMessages: newLogs,
+    allReportedMessages: [], // Could fetch from database if needed
   };
 };
 
@@ -228,7 +203,7 @@ const constructLog = async ({
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
-  previousWarnings: NonNullable<ReturnType<typeof queryCacheMetadata>>;
+  previousWarnings: Awaited<ReturnType<typeof getUserReportStats>>;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1);
   if (!lastReport || !lastReport.message.guild) {
