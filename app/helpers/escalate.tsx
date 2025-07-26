@@ -26,7 +26,6 @@ export async function escalationControls(
 ) {
   reacord.createChannelMessage(thread.id).render(
     <>
-      Moderator controls
       <Button
         label="Delete all reported messages"
         style="danger"

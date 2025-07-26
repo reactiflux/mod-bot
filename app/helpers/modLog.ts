@@ -7,7 +7,7 @@ import type {
   TextChannel,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
-import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 
 import {
   queryReportCache,
@@ -48,8 +48,7 @@ interface Reported {
 
 const makeUserThread = (channel: TextChannel, user: User) => {
   return channel.threads.create({
-    name: `${user.username} Moderation History`,
-    type: ChannelType.PrivateThread,
+    name: `${user.username} logs`,
   });
 };
 
@@ -76,7 +75,10 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
   }
 
   // Create new thread and store in database
-  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+  const { modLog: modLogId, moderator } = await fetchSettings(guild.id, [
+    SETTINGS.modLog,
+    SETTINGS.moderator,
+  ]);
   const modLog = await guild.channels.fetch(modLogId);
   if (!modLog || modLog.type !== ChannelType.GuildText) {
     throw new Error("Invalid mod log channel");
@@ -84,6 +86,7 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
 
   // Create freestanding private thread
   const thread = await makeUserThread(modLog, user);
+  await escalationControls(message, thread, moderator);
 
   // Store or update the thread reference
   if (existingThread) {
@@ -114,10 +117,7 @@ export const reportUser = async ({
     `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
   );
 
-  const { modLog: modLogId, moderator: modRoleId } = await fetchSettings(
-    guild.id,
-    [SETTINGS.modLog, SETTINGS.moderator],
-  );
+  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
 
   if (cached) {
     // If we already logged for ~ this message, post to the existing thread
@@ -132,7 +132,7 @@ export const reportUser = async ({
       const latestReport = // Don't reply in thread if this is a resolved vote
         reason === ReportReasons.modResolution
           ? undefined
-          : await thread.send(makeReportMessage(newReport));
+          : await cached.logMessage.reply(makeReportMessage(newReport));
       console.log("[reportUser]", "exact message already logged");
       return {
         warnings: logs.length,
@@ -152,7 +152,7 @@ export const reportUser = async ({
       // Don't reply in thread if this is a resolved vote
       reason === ReportReasons.modResolution
         ? Promise.resolve(undefined)
-        : thread.send(makeReportMessage(newReport)),
+        : cached.logMessage.reply(makeReportMessage(newReport)),
       cachedMessage.edit(
         cachedMessage.content
           .replace(
@@ -189,12 +189,6 @@ export const reportUser = async ({
   // Get or create persistent user thread first
   const thread = await getOrCreateUserThread(message, message.author);
 
-  // Post notification in main channel linking to user thread
-  const notificationMessage = await modLog.send({
-    content: `New report for <@${message.author.id}> - see discussion in <#${thread.id}>`,
-  });
-  trackReport(notificationMessage, newReport);
-
   // Send detailed report info to the user thread
   const logBody = await constructLog({
     extra,
@@ -204,15 +198,14 @@ export const reportUser = async ({
   });
 
   // Send combined detailed report with moderator controls
-  await thread.send(logBody);
-  await escalationControls(message, thread, modRoleId);
+  const log = await thread.send(logBody);
 
-  const latestReport = await thread.send(makeReportMessage(newReport));
+  await log.forward(modLog);
+  trackReport(log, newReport);
 
   return {
     warnings: 1,
-    message: notificationMessage,
-    latestReport,
+    message: log,
     thread,
     allReportedMessages: newLogs,
   };
@@ -224,9 +217,7 @@ const makeReportMessage = ({ message, reason, staff }: Report) => {
   );
 
   return {
-    content: `- ${constructDiscordLink(message)} ${
-      staff ? ` ${staff.username} ` : ""
-    }${ReadableReasons[reason]}`,
+    content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
     embeds: embeds.length === 0 ? undefined : embeds,
   };
 };
@@ -272,25 +263,19 @@ const constructLog = async ({
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
     : quoteAndEscape(message.content).trim();
-  const warnings = previousWarnings.allReports.map(
-    ({ message: logMessage }) => {
-      return `[${format(logMessage.createdAt, differenceInHours(logMessage.createdAt, new Date()) > 24 ? "PP kk:mmX" : "kk:mmX")}](${constructDiscordLink(
-        logMessage,
-      )}) (<t:${Math.floor(logMessage.createdAt.getTime() / 1000)}:R>)`;
-    },
-  );
 
-  const embeds = [describeAttachments(message.attachments)].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
+  const { content: report, embeds: reactions = [] } =
+    makeReportMessage(lastReport);
 
+  const embeds = [
+    describeAttachments(message.attachments),
+    ...reactions,
+  ].filter((e): e is APIEmbed => Boolean(e));
   return {
     content: truncateMessage(`${preface}
 ${extra}${reportedMessage}
-${warnings.join("\n")}
-
----
-**Moderator controls follow below** ⬇️`).trim(),
+${report}
+- ${constructDiscordLink(message)}`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
