@@ -16,7 +16,7 @@ export async function recordReport(data: {
   staffId?: string;
   staffUsername?: string;
   extra?: string;
-}): Promise<void> {
+}): Promise<{ wasInserted: boolean }> {
   return trackPerformance(
     "recordReport",
     async () => {
@@ -26,27 +26,52 @@ export async function recordReport(data: {
         reason: data.reason,
       });
 
-      await db
-        .insertInto("reported_messages")
-        .values({
-          id: crypto.randomUUID(),
-          reported_message_id: data.reportedMessageId,
-          reported_channel_id: data.reportedChannelId,
-          reported_user_id: data.reportedUserId,
-          guild_id: data.guildId,
-          log_message_id: data.logMessageId,
-          log_channel_id: data.logChannelId,
-          reason: data.reason,
-          staff_id: data.staffId,
-          staff_username: data.staffUsername,
-          extra: data.extra,
-        })
-        .execute();
+      try {
+        await db
+          .insertInto("reported_messages")
+          .values({
+            id: crypto.randomUUID(),
+            reported_message_id: data.reportedMessageId,
+            reported_channel_id: data.reportedChannelId,
+            reported_user_id: data.reportedUserId,
+            guild_id: data.guildId,
+            log_message_id: data.logMessageId,
+            log_channel_id: data.logChannelId,
+            reason: data.reason,
+            staff_id: data.staffId,
+            staff_username: data.staffUsername,
+            extra: data.extra,
+          })
+          .execute();
 
-      log("info", "ReportedMessage", "Report recorded", {
-        reportedUserId: data.reportedUserId,
-        guildId: data.guildId,
-      });
+        log("info", "ReportedMessage", "Report recorded", {
+          reportedUserId: data.reportedUserId,
+          guildId: data.guildId,
+        });
+
+        return { wasInserted: true };
+      } catch (error) {
+        // Check if this is a unique constraint violation
+        if (
+          error instanceof Error &&
+          error.message.includes("UNIQUE constraint failed")
+        ) {
+          log(
+            "debug",
+            "ReportedMessage",
+            "Report already exists (unique constraint)",
+            {
+              reportedUserId: data.reportedUserId,
+              guildId: data.guildId,
+              reason: data.reason,
+            },
+          );
+          return { wasInserted: false };
+        }
+
+        // Re-throw other errors
+        throw error;
+      }
     },
     { reportedUserId: data.reportedUserId, guildId: data.guildId },
   );

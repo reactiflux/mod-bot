@@ -31,6 +31,7 @@ import {
   createUserThread,
   updateUserThread,
 } from "#~/models/userThreads.server";
+import { retry } from "./misc";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -106,84 +107,101 @@ export const reportUser = async ({
 }: Omit<Report, "date">): Promise<
   Reported & { allReportedMessages: Report[] }
 > => {
-  const { guild } = message;
-  if (!guild) throw new Error("Tried to report a message without a guild");
+  return await retry(3, async () => {
+    const { guild } = message;
+    if (!guild) throw new Error("Tried to report a message without a guild");
 
-  // Check if this exact message has already been reported
-  const existingReports = await getReportsForMessage(message.id, guild.id);
-  const alreadyReported = existingReports.some((r) => r.reason === reason);
-
-  console.log(
-    "[reportUser]",
-    `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
-  );
-
-  // Get or create persistent user thread first
-  const thread = await getOrCreateUserThread(message, message.author);
-
-  if (alreadyReported && reason !== ReportReasons.modResolution) {
-    // Message already reported with this reason, just add to thread
-    const latestReport = await thread.send(
-      makeReportMessage({ message, reason, staff }),
+    // Check if this exact message has already been reported
+    const existingReports = await getReportsForMessage(message.id, guild.id);
+    const alreadyReported = existingReports.find(
+      (r) => r.reported_message_id === message.id,
     );
-    console.log("[reportUser]", "exact message already logged");
 
-    const userStats = await getUserReportStats(message.author.id, guild.id);
+    console.log(
+      "[reportUser]",
+      `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
+    );
+
+    // Get or create persistent user thread first
+    const thread = await getOrCreateUserThread(message, message.author);
+
+    if (alreadyReported && reason !== ReportReasons.modResolution) {
+      // Message already reported with this reason, just add to thread
+      const priorLogMessage = await thread.messages.fetch(
+        alreadyReported.log_message_id,
+      );
+      const latestReport = await priorLogMessage.reply(
+        makeReportMessage({ message, reason, staff }),
+      );
+      console.log("[reportUser]", "exact message already logged");
+
+      const userStats = await getUserReportStats(message.author.id, guild.id);
+      return {
+        warnings: userStats.reportCount,
+        message: thread.lastMessage!,
+        latestReport,
+        thread,
+        allReportedMessages: [], // Could fetch if needed
+      };
+    }
+
+    console.log("[reportUser]", "new message reported");
+
+    // Get user stats for constructing the log
+    const previousWarnings = await getUserReportStats(
+      message.author.id,
+      guild.id,
+    );
+
+    // Send detailed report info to the user thread
+    const logBody = await constructLog({
+      extra,
+      logs: [{ message, reason, staff }],
+      previousWarnings,
+      staff,
+    });
+
+    // Send the detailed log message to thread
+    const logMessage = await thread.send(logBody);
+
+    // Try to record the report in database
+    const recordResult = await recordReport({
+      reportedMessageId: message.id,
+      reportedChannelId: message.channel.id,
+      reportedUserId: message.author.id,
+      guildId: guild.id,
+      logMessageId: logMessage.id,
+      logChannelId: thread.id,
+      reason,
+      staffId: staff ? staff.id : undefined,
+      staffUsername: staff ? staff.username : undefined,
+      extra,
+    });
+
+    // If the record was not inserted due to unique constraint (duplicate),
+    // this means another process already reported the same message while we were preparing the log.
+    // In this case, we'll keep the detailed log we already sent (since it's already there)
+    // but add a short duplicate message and return updated stats
+    if (!recordResult.wasInserted) {
+      console.log(
+        "[reportUser]",
+        "duplicate detected at database level after sending detailed log",
+      );
+      throw new Error("Race condition detected in reportUser, retrying…");
+    }
+
+    // For new reports, the detailed log already includes the reason info,
+    // so we don't need a separate short message
+    const latestReport = undefined;
+
     return {
-      warnings: userStats.reportCount,
-      message: thread.lastMessage!,
+      warnings: previousWarnings.reportCount + 1,
+      message: logMessage,
       latestReport,
       thread,
-      allReportedMessages: [], // Could fetch if needed
+      allReportedMessages: [], // Could fetch from database if needed
     };
-  }
-
-  console.log("[reportUser]", "new message reported");
-
-  // Get user stats for constructing the log
-  const previousWarnings = await getUserReportStats(
-    message.author.id,
-    guild.id,
-  );
-
-  // Send detailed report info to the user thread
-  const logBody = await constructLog({
-    extra,
-    logs: [{ message, reason, staff }],
-    previousWarnings,
-    staff,
   });
-
-  // Send the detailed log message to thread
-  const logMessage = await thread.send(logBody);
-
-  // Record the report in database
-  await recordReport({
-    reportedMessageId: message.id,
-    reportedChannelId: message.channel.id,
-    reportedUserId: message.author.id,
-    guildId: guild.id,
-    logMessageId: logMessage.id,
-    logChannelId: thread.id,
-    reason,
-    staffId: staff ? staff.id : undefined,
-    staffUsername: staff ? staff.username : undefined,
-    extra,
-  });
-
-  // Add the specific report message to thread
-  const latestReport =
-    reason === ReportReasons.modResolution
-      ? undefined
-      : await thread.send(makeReportMessage({ message, reason, staff }));
-
-  return {
-    warnings: previousWarnings.reportCount + 1,
-    message: logMessage,
-    latestReport,
-    thread,
-    allReportedMessages: [], // Could fetch from database if needed
-  };
 };
 
 const makeReportMessage = ({ message, reason, staff }: Report) => {
