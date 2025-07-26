@@ -15,6 +15,7 @@ import { Command as setup } from "#~/commands/setup";
 import { Command as report } from "#~/commands/report";
 import { Command as track } from "#~/commands/track";
 import { Command as setupTicket } from "#~/commands/setupTickets";
+import { EscalationCommands } from "#~/commands/escalationControls";
 
 export const app = express();
 
@@ -63,3 +64,4 @@ registerCommand(report);
 registerCommand(forceBan);
 registerCommand(track);
 registerCommand(setupTicket);
+registerCommand(EscalationCommands);
