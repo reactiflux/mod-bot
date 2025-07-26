@@ -9,7 +9,11 @@ import type {
 import { MessageType, ChannelType } from "discord.js";
 import { formatDistanceToNowStrict } from "date-fns";
 
-import { ReportReasons, type Report } from "#~/models/reportedMessages.server";
+import {
+  deleteReport,
+  ReportReasons,
+  type Report,
+} from "#~/models/reportedMessages.server";
 import {
   recordReport,
   getReportsForMessage,
@@ -68,9 +72,11 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
         return thread;
       }
     } catch (error) {
-      console.log(
-        "[getOrCreateUserThread] Existing thread not accessible, will create new one:",
-        error,
+      log(
+        "warn",
+        "getOrCreateUserThread",
+        "Existing thread not accessible, will create new one",
+        { error },
       );
     }
   }
@@ -120,8 +126,9 @@ export const reportUser = async ({
       (r) => r.reported_message_id === message.id,
     );
 
-    console.log(
-      "[reportUser]",
+    log(
+      "info",
+      "reportUser",
       `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
     );
 
@@ -130,13 +137,42 @@ export const reportUser = async ({
 
     if (alreadyReported && reason !== ReportReasons.modResolution) {
       // Message already reported with this reason, just add to thread
-      const priorLogMessage = await thread.messages.fetch(
-        alreadyReported.log_message_id,
-      );
-      const latestReport = await priorLogMessage.reply(
-        makeReportMessage({ message, reason, staff }),
-      );
-      console.log("[reportUser]", "exact message already logged");
+      let priorLogMessage: Message<true>, latestReport: Message<true>;
+      try {
+        priorLogMessage = await thread.messages.fetch(
+          alreadyReported.log_message_id,
+        );
+        latestReport = await priorLogMessage.reply(
+          makeReportMessage({ message, reason, staff }),
+        );
+      } catch (e) {
+        // If the error is because the message doesn't exist, post to the thread
+        log("warn", "reportUser", "message not found, posting to thread", {
+          error: e,
+        });
+        if (e instanceof Error && e.message.includes("Unknown Message")) {
+          latestReport = await thread.send(
+            await constructLog({
+              extra,
+              logs: [{ message, reason, staff }],
+              staff,
+            }),
+          );
+          await deleteReport(alreadyReported.id);
+          await recordReport({
+            reportedMessageId: message.id,
+            reportedChannelId: message.channel.id,
+            reportedUserId: message.author.id,
+            guildId: guild.id,
+            logMessageId: latestReport.id,
+            logChannelId: thread.id,
+            reason,
+          });
+        } else {
+          throw e;
+        }
+      }
+      log("info", "reportUser", "exact message already logged");
 
       const userStats = await getUserReportStats(message.author.id, guild.id);
       return {
@@ -148,7 +184,7 @@ export const reportUser = async ({
       };
     }
 
-    console.log("[reportUser]", "new message reported");
+    log("info", "reportUser", "new message reported");
 
     // Get user stats for constructing the log
     const previousWarnings = await getUserReportStats(
@@ -160,7 +196,6 @@ export const reportUser = async ({
     const logBody = await constructLog({
       extra,
       logs: [{ message, reason, staff }],
-      previousWarnings,
       staff,
     });
 
@@ -222,11 +257,9 @@ const makeReportMessage = ({ message, reason, staff }: Report) => {
 
 const constructLog = async ({
   logs,
-  previousWarnings,
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
-  previousWarnings: Awaited<ReturnType<typeof getUserReportStats>>;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1);
   if (!lastReport || !lastReport.message.guild) {
@@ -252,9 +285,7 @@ const constructLog = async ({
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  }) warned ${previousWarnings.reportCount + 1} times recently for ${previousWarnings.uniqueMessages + 1} different messages, posted in ${
-    previousWarnings.uniqueChannels + 1
-  } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
+  }) posted ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   // If it has the data for a poll, use a specialized formatting function

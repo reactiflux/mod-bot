@@ -132,6 +132,7 @@ export async function getReportsForMessage(messageId: string, guildId: string) {
         .selectAll()
         .where("reported_message_id", "=", messageId)
         .where("guild_id", "=", guildId)
+        .orderBy("created_at", "desc")
         .execute();
 
       log("debug", "ReportedMessage", `Found ${reports.length} reports`, {
@@ -252,5 +253,24 @@ export async function deleteAllReportedForUser(
       return { total: reports.length, deleted };
     },
     { userId, guildId },
+  );
+}
+
+/**
+ * Deletes a report from the database. Should only be used if the corresponding log message accompanying the report has been deleted.
+ *
+ * @param reportId - The ID of the report to delete.
+ * @returns A promise that resolves when the report is deleted.
+ */
+export async function deleteReport(reportId: string) {
+  return trackPerformance(
+    "deleteReport",
+    async () => {
+      await db
+        .deleteFrom("reported_messages")
+        .where("id", "=", reportId)
+        .execute();
+    },
+    { reportId },
   );
 }
