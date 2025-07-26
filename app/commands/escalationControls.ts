@@ -11,6 +11,7 @@ export const EscalationCommands = [
       name: "escalate-delete",
     },
     handler: async (interaction) => {
+      interaction.deferReply();
       const reportedUserId = interaction.customId.split("|")[1];
       const guildId = interaction.guildId!;
 
@@ -27,14 +28,13 @@ export const EscalationCommands = [
 
       try {
         const result = await deleteAllReportedForUser(reportedUserId, guildId);
-        await interaction.reply(
+        await interaction.editReply(
           `Messages deleted by ${interaction.user.username} (${result.deleted}/${result.total} successful)`,
         );
       } catch (error) {
         console.error("Error deleting reported messages:", error);
-        await interaction.reply({
+        await interaction.editReply({
           content: "Failed to delete messages",
-          ephemeral: true,
         });
       }
     },
