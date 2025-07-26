@@ -8,8 +8,6 @@ export async function getUserThread(userId: string, guildId: string) {
   return trackPerformance(
     "getUserThread",
     async () => {
-      log("debug", "UserThread", "Fetching user thread", { userId, guildId });
-
       const thread = await db
         .selectFrom("user_threads")
         .selectAll()
@@ -34,30 +32,17 @@ export async function createUserThread(
   guildId: string,
   threadId: string,
 ): Promise<void> {
-  return trackPerformance(
+  await trackPerformance(
     "createUserThread",
-    async () => {
-      log("info", "UserThread", "Creating user thread", {
-        userId,
-        guildId,
-        threadId,
-      });
-
-      await db
+    () =>
+      db
         .insertInto("user_threads")
         .values({
           user_id: userId,
           guild_id: guildId,
           thread_id: threadId,
         })
-        .execute();
-
-      log("info", "UserThread", "Created user thread", {
-        userId,
-        guildId,
-        threadId,
-      });
-    },
+        .execute(),
     { userId, guildId, threadId },
   );
 }
@@ -67,28 +52,15 @@ export async function updateUserThread(
   guildId: string,
   threadId: string,
 ): Promise<void> {
-  return trackPerformance(
+  await trackPerformance(
     "updateUserThread",
-    async () => {
-      log("info", "UserThread", "Updating user thread", {
-        userId,
-        guildId,
-        threadId,
-      });
-
-      await db
+    () =>
+      db
         .updateTable("user_threads")
         .set({ thread_id: threadId })
         .where("user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .execute();
-
-      log("info", "UserThread", "Updated user thread", {
-        userId,
-        guildId,
-        threadId,
-      });
-    },
+        .execute(),
     { userId, guildId, threadId },
   );
 }
