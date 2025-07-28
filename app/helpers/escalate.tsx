@@ -1,7 +1,11 @@
-import { ChannelType, PermissionsBitField } from "discord.js";
+import {
+  ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from "discord.js";
 import type { Message, TextChannel, ThreadChannel, User } from "discord.js";
 
-import { reacord } from "#~/discord/client.server";
 import { quoteAndEscape } from "#~/helpers/discord";
 import { reportUser } from "#~/helpers/modLog";
 import { resolutions } from "#~/helpers/modResponse";
@@ -9,101 +13,62 @@ import { resolutions } from "#~/helpers/modResponse";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { ModResponse } from "#~/commands/reacord/ModResponse";
-import {
-  Button,
-  type ComponentEventReplyOptions,
-  type ReacordInstance,
-} from "reacord";
-import {
-  deleteAllReported,
-  ReportReasons,
-} from "#~/commands/track/reportCache.js";
+import { type ComponentEventReplyOptions, type ReacordInstance } from "reacord";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 export async function escalationControls(
   reportedMessage: Message,
   thread: ThreadChannel,
-  modRoleId: string,
+  _modRoleId: string,
 ) {
-  reacord.createChannelMessage(thread.id).render(
-    <>
-      Moderator controls
-      <Button
-        label="Delete all reported messages"
-        style="danger"
-        onClick={async (e) => {
-          const { guild } = reportedMessage;
-          const actor = await guild?.members.fetch(e.user.id);
-          if (
-            !actor?.permissions.has(PermissionsBitField.Flags.ManageMessages)
-          ) {
-            return;
-          }
-          await Promise.allSettled([
-            // ...reportedMessages.map((m) => m.delete()),
-            deleteAllReported(reportedMessage),
-            e.reply(`deleted by ${e.user.username}`),
-          ]);
-        }}
-      />
-      <Button
-        onClick={async (e) => {
-          if (!e.guild?.member.roles?.includes(modRoleId)) {
-            return;
-          }
-          console.log(
-            "escalationControls",
-            `${reportedMessage.author.username} kicked by ${e.user.username}`,
-          );
-          await Promise.allSettled([
-            reportedMessage.member?.kick(),
-            e.reply(
-              `<@${reportedMessage.author.id}> (${reportedMessage.author.username}) kicked by ${e.user.username}`,
-            ),
-          ]);
-        }}
-        style="secondary"
-        label="Kick"
-      />
-      <Button
-        onClick={async (e) => {
-          if (!e.guild?.member.roles?.includes(modRoleId)) {
-            return;
-          }
-          console.log(
-            "escalationControls",
-            `${reportedMessage.author.username} banned by ${e.user.username}`,
-          );
-          await Promise.allSettled([
-            reportedMessage.guild?.bans.create(reportedMessage.author),
-            e.reply(
-              `<@${reportedMessage.author.id}> (${reportedMessage.author.username}) banned by ${e.user.username}`,
-            ),
-          ]);
-        }}
-        style="secondary"
-        label="Ban"
-      />
-    </>,
-  );
-  reacord.createChannelMessage(thread.id).render(
-    <>
-      Anyone can escalate, which will notify moderators and call for a vote on
-      how to respond.
-      <Button
-        onClick={async (e) => {
-          const member = await thread.guild.members.fetch(e.user.id);
-          await Promise.all([
-            thread.send(
-              `Report escalated by <@${member.id}>, <@&${modRoleId}> please respond.`,
-            ),
-            escalate(e.reply, member.user, reportedMessage, thread, modRoleId),
-          ]);
-        }}
-        style="primary"
-        label="Escalate"
-      />
-    </>,
-  );
+  const reportedUserId = reportedMessage.author.id;
+
+  await thread.send({
+    content: "Moderator controls",
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`escalate-delete|${reportedUserId}`)
+          .setLabel("Delete all reported messages")
+          .setStyle(ButtonStyle.Danger),
+
+        new ButtonBuilder()
+          .setCustomId(`escalate-kick|${reportedUserId}`)
+          .setLabel("Kick")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`escalate-ban|${reportedUserId}`)
+          .setLabel("Ban")
+          .setStyle(ButtonStyle.Secondary),
+      ),
+
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`escalate-restrict|${reportedUserId}`)
+          .setLabel("Restrict")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`escalate-timeout|${reportedUserId}`)
+          .setLabel("Timeout")
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+  });
+
+  await thread.send({
+    content:
+      "Anyone can escalate, which will notify moderators and call for a vote on how to respond.",
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`escalate-escalate|${reportedUserId}`)
+          .setLabel("Escalate")
+          .setStyle(ButtonStyle.Primary),
+      ),
+    ],
+  });
 }
 
 export async function escalate(

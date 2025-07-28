@@ -42,6 +42,22 @@ export interface MessageStats {
   word_count: number;
 }
 
+export interface ReportedMessages {
+  created_at: Generated<string>;
+  deleted_at: string | null;
+  extra: string | null;
+  guild_id: string;
+  id: string;
+  log_channel_id: string;
+  log_message_id: string;
+  reason: string;
+  reported_channel_id: string;
+  reported_message_id: string;
+  reported_user_id: string;
+  staff_id: string | null;
+  staff_username: string | null;
+}
+
 export interface Sessions {
   data: string | null;
   expires: string | null;
@@ -61,12 +77,21 @@ export interface Users {
   id: string;
 }
 
+export interface UserThreads {
+  created_at: Generated<string>;
+  guild_id: string;
+  thread_id: string;
+  user_id: string;
+}
+
 export interface DB {
   channel_info: ChannelInfo;
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   message_stats: MessageStats;
+  reported_messages: ReportedMessages;
   sessions: Sessions;
   tickets_config: TicketsConfig;
+  user_threads: UserThreads;
   users: Users;
 }

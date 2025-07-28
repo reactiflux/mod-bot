@@ -23,6 +23,7 @@ export default [
       "node_modules",
       "public",
       ".react-router",
+      "vite.config.ts.timestamp*",
     ],
   },
   {

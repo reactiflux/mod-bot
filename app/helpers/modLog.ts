@@ -4,17 +4,21 @@ import type {
   User,
   APIEmbed,
   AnyThreadChannel,
+  TextChannel,
 } from "discord.js";
 import { MessageType, ChannelType } from "discord.js";
-import { format, formatDistanceToNowStrict, differenceInHours } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 
 import {
-  queryReportCache,
-  queryCacheMetadata,
-  trackReport,
+  deleteReport,
   ReportReasons,
   type Report,
-} from "#~/commands/track/reportCache.js";
+} from "#~/models/reportedMessages.server";
+import {
+  recordReport,
+  getReportsForMessage,
+  getUserReportStats,
+} from "#~/models/reportedMessages.server";
 
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
@@ -26,6 +30,13 @@ import {
 } from "#~/helpers/discord";
 import { truncateMessage } from "#~/helpers/string";
 import { escalationControls } from "#~/helpers/escalate";
+import {
+  getUserThread,
+  createUserThread,
+  updateUserThread,
+} from "#~/models/userThreads.server";
+import { retry } from "./misc";
+import { log } from "./observability";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -40,10 +51,58 @@ interface Reported {
   latestReport?: Message;
 }
 
-const makeLogThread = (message: Message, user: User) => {
-  return message.startThread({
-    name: `${user.username} – ${format(message.createdAt, "P")}`,
+const makeUserThread = (channel: TextChannel, user: User) => {
+  return channel.threads.create({
+    name: `${user.username} logs`,
   });
+};
+
+const getOrCreateUserThread = async (message: Message, user: User) => {
+  const { guild } = message;
+  if (!guild) throw new Error("Message has no guild");
+
+  // Check if we already have a thread for this user
+  const existingThread = await getUserThread(user.id, guild.id);
+
+  if (existingThread) {
+    try {
+      // Verify the thread still exists and is accessible
+      const thread = await guild.channels.fetch(existingThread.thread_id);
+      if (thread?.isThread()) {
+        return thread;
+      }
+    } catch (error) {
+      log(
+        "warn",
+        "getOrCreateUserThread",
+        "Existing thread not accessible, will create new one",
+        { error },
+      );
+    }
+  }
+
+  // Create new thread and store in database
+  const { modLog: modLogId, moderator } = await fetchSettings(guild.id, [
+    SETTINGS.modLog,
+    SETTINGS.moderator,
+  ]);
+  const modLog = await guild.channels.fetch(modLogId);
+  if (!modLog || modLog.type !== ChannelType.GuildText) {
+    throw new Error("Invalid mod log channel");
+  }
+
+  // Create freestanding private thread
+  const thread = await makeUserThread(modLog, user);
+  await escalationControls(message, thread, moderator);
+
+  // Store or update the thread reference
+  if (existingThread) {
+    await updateUserThread(user.id, guild.id, thread.id);
+  } else {
+    await createUserThread(user.id, guild.id, thread.id);
+  }
+
+  return thread;
 };
 
 // const warningMessages = new ();
@@ -55,114 +114,134 @@ export const reportUser = async ({
 }: Omit<Report, "date">): Promise<
   Reported & { allReportedMessages: Report[] }
 > => {
-  const { guild } = message;
-  if (!guild) throw new Error("Tried to report a message without a guild");
-  const cached = queryReportCache(message);
-  const newReport: Report = { message, reason, staff };
+  return await retry(3, async () => {
+    const { guild } = message;
+    if (!guild) throw new Error("Tried to report a message without a guild");
 
-  console.log(
-    "[reportUser]",
-    `${message.author.username}, ${reason}. ${cached ? "cached" : "not cached"}.`,
-  );
+    // Check if this exact message has already been reported
+    const existingReports = await getReportsForMessage(message.id, guild.id);
 
-  const { modLog: modLogId, moderator: modRoleId } = await fetchSettings(
-    guild.id,
-    [SETTINGS.modLog, SETTINGS.moderator],
-  );
+    const { modLog } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+    const alreadyReported = existingReports.find(
+      (r) => r.reported_message_id === message.id,
+    );
 
-  if (cached) {
-    // If we already logged for ~ this message, post to the existing thread
-    const { logMessage: cachedMessage, logs } = cached;
+    log(
+      "info",
+      "reportUser",
+      `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
+    );
 
-    let thread = cachedMessage.thread;
-    if (!thread || !cachedMessage.hasThread) {
-      thread = await makeLogThread(cachedMessage, message.author);
-      await escalationControls(message, thread, modRoleId);
-    }
+    // Get or create persistent user thread first
+    const thread = await getOrCreateUserThread(message, message.author);
 
-    if (cached.logs.some((l) => l.message.id === message.id)) {
-      // If we've already logged exactly this message, don't log it again as a
-      // separate report.
-      const latestReport = // Don't reply in thread if this is a resolved vote
-        reason === ReportReasons.modResolution
-          ? undefined
-          : await thread.send(makeReportMessage(newReport));
-      console.log("[reportUser]", "exact message already logged");
+    if (alreadyReported && reason !== ReportReasons.modResolution) {
+      // Message already reported with this reason, just add to thread
+      let priorLogMessage: Message<true>, latestReport: Message<true>;
+      try {
+        priorLogMessage = await thread.messages.fetch(
+          alreadyReported.log_message_id,
+        );
+        latestReport = await priorLogMessage.reply(
+          makeReportMessage({ message, reason, staff }),
+        );
+      } catch (e) {
+        // If the error is because the message doesn't exist, post to the thread
+        log("warn", "reportUser", "message not found, posting to thread", {
+          error: e,
+        });
+        if (e instanceof Error && e.message.includes("Unknown Message")) {
+          latestReport = await thread.send(
+            await constructLog({
+              extra,
+              logs: [{ message, reason, staff }],
+              staff,
+            }),
+          );
+          await deleteReport(alreadyReported.id);
+          await recordReport({
+            reportedMessageId: message.id,
+            reportedChannelId: message.channel.id,
+            reportedUserId: message.author.id,
+            guildId: guild.id,
+            logMessageId: latestReport.id,
+            logChannelId: thread.id,
+            reason,
+          });
+        } else {
+          throw e;
+        }
+      }
+      log("info", "reportUser", "exact message already logged");
+
+      const userStats = await getUserReportStats(message.author.id, guild.id);
       return {
-        warnings: logs.length,
-        message: cachedMessage,
+        warnings: userStats.reportCount,
+        message: thread.lastMessage!,
         latestReport,
         thread,
-        allReportedMessages: logs,
+        allReportedMessages: [], // Could fetch if needed
       };
     }
 
-    console.log("[reportUser]", "new message reported");
-    trackReport(cachedMessage, newReport);
-    const { uniqueChannels, uniqueMessages, reportCount } =
-      queryCacheMetadata(message);
+    log("info", "reportUser", "new message reported");
 
-    const [latestReport] = await Promise.all([
-      // Don't reply in thread if this is a resolved vote
-      reason === ReportReasons.modResolution
-        ? Promise.resolve(undefined)
-        : thread.send(makeReportMessage(newReport)),
-      cachedMessage.edit(
-        cachedMessage.content
-          .replace(
-            /for \d different messages/,
-            `for ${uniqueMessages} different messages`,
-          )
-          .replace(/in \d channels/, `in ${uniqueChannels} channels`)
-          .replace(/warned \d times/, `warned ${reportCount} times`) || "",
-      ),
-    ]);
+    // Get user stats for constructing the log
+    const previousWarnings = await getUserReportStats(
+      message.author.id,
+      guild.id,
+    );
+
+    // Send detailed report info to the user thread
+    const logBody = await constructLog({
+      extra,
+      logs: [{ message, reason, staff }],
+      staff,
+    });
+
+    // Send the detailed log message to thread
+    const logMessage = await thread.send(logBody);
+    logMessage.forward(modLog);
+
+    // Try to record the report in database
+    const recordResult = await recordReport({
+      reportedMessageId: message.id,
+      reportedChannelId: message.channel.id,
+      reportedUserId: message.author.id,
+      guildId: guild.id,
+      logMessageId: logMessage.id,
+      logChannelId: thread.id,
+      reason,
+      staffId: staff ? staff.id : undefined,
+      staffUsername: staff ? staff.username : undefined,
+      extra,
+    });
+
+    // If the record was not inserted due to unique constraint (duplicate),
+    // this means another process already reported the same message while we were preparing the log.
+    // In this case, we'll keep the detailed log we already sent (since it's already there)
+    // but add a short duplicate message and return updated stats
+    if (!recordResult.wasInserted) {
+      log(
+        "warn",
+        "reportUser",
+        "duplicate detected at database level after sending detailed log",
+      );
+      throw new Error("Race condition detected in reportUser, retrying…");
+    }
+
+    // For new reports, the detailed log already includes the reason info,
+    // so we don't need a separate short message
+    const latestReport = undefined;
+
     return {
-      warnings: reportCount,
-      message: cachedMessage,
+      warnings: previousWarnings.reportCount + 1,
+      message: logMessage,
       latestReport,
       thread,
-      allReportedMessages: cached.logs,
+      allReportedMessages: [], // Could fetch from database if needed
     };
-  }
-
-  // If this is new, send a new message
-  const modLog = await guild.channels.fetch(modLogId);
-  if (!modLog) {
-    throw new Error("Channel configured for use as mod log not found");
-  }
-  if (modLog.type !== ChannelType.GuildText) {
-    throw new Error(
-      "Invalid channel configured for use as mod log, must be guild text",
-    );
-  }
-  const newLogs: Report[] = [{ message, reason, staff }];
-
-  console.log("[reportUser]", "new message reported");
-
-  const logBody = await constructLog({
-    extra,
-    logs: newLogs,
-    previousWarnings: queryCacheMetadata(message),
-    staff,
   });
-  const warningMessage = await modLog.send(logBody);
-  trackReport(warningMessage, newReport);
-
-  const thread = await makeLogThread(warningMessage, message.author);
-  await escalationControls(message, thread, modRoleId);
-
-  const firstReportMessage = makeReportMessage(newReport);
-
-  const latestReport = await thread.send(firstReportMessage);
-
-  return {
-    warnings: 1,
-    message: warningMessage,
-    latestReport,
-    thread,
-    allReportedMessages: newLogs,
-  };
 };
 
 const makeReportMessage = ({ message, reason, staff }: Report) => {
@@ -171,20 +250,16 @@ const makeReportMessage = ({ message, reason, staff }: Report) => {
   );
 
   return {
-    content: `- ${constructDiscordLink(message)} ${
-      staff ? ` ${staff.username} ` : ""
-    }${ReadableReasons[reason]}`,
+    content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
     embeds: embeds.length === 0 ? undefined : embeds,
   };
 };
 
 const constructLog = async ({
   logs,
-  previousWarnings,
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
-  previousWarnings: NonNullable<ReturnType<typeof queryCacheMetadata>>;
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1);
   if (!lastReport || !lastReport.message.guild) {
@@ -210,31 +285,26 @@ const constructLog = async ({
 
   const preface = `<@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  }) warned ${previousWarnings.reportCount + 1} times recently for ${previousWarnings.uniqueMessages + 1} different messages, posted in ${
-    previousWarnings.uniqueChannels + 1
-  } channels ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
+  }) posted ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   // If it has the data for a poll, use a specialized formatting function
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
     : quoteAndEscape(message.content).trim();
-  const warnings = previousWarnings.allReports.map(
-    ({ message: logMessage }) => {
-      return `[${format(logMessage.createdAt, differenceInHours(logMessage.createdAt, new Date()) > 24 ? "PP kk:mmX" : "kk:mmX")}](${constructDiscordLink(
-        logMessage,
-      )}) (<t:${Math.floor(logMessage.createdAt.getTime() / 1000)}:R>)`;
-    },
-  );
 
-  const embeds = [describeAttachments(message.attachments)].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
+  const { content: report, embeds: reactions = [] } =
+    makeReportMessage(lastReport);
 
+  const embeds = [
+    describeAttachments(message.attachments),
+    ...reactions,
+  ].filter((e): e is APIEmbed => Boolean(e));
   return {
     content: truncateMessage(`${preface}
 ${extra}${reportedMessage}
-${warnings.join("\n")}`).trim(),
+${report}
+- ${constructDiscordLink(message)}`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };

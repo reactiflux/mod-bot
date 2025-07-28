@@ -5,7 +5,10 @@ import { Button } from "reacord";
 import { reacord } from "#~/discord/client.server";
 
 import { reportUser } from "#~/helpers/modLog";
-import { ReportReasons } from "#~/commands/track/reportCache";
+import {
+  ReportReasons,
+  markMessageAsDeleted,
+} from "#~/models/reportedMessages.server";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Track")
@@ -35,7 +38,9 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
           const { latestReport, thread } = await reportPromise;
 
           await Promise.allSettled([
-            message.delete(),
+            message
+              .delete()
+              .then(() => markMessageAsDeleted(message.id, message.guild!.id)),
             latestReport?.reply({
               allowedMentions: { users: [] },
               content: `deleted by ${user.username}`,
