@@ -303,8 +303,7 @@ const constructLog = async ({
   return {
     content: truncateMessage(`${preface}
 ${extra}${reportedMessage}
-${report}
-- ${constructDiscordLink(message)}`).trim(),
+${report} · ${constructDiscordLink(message)}`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
