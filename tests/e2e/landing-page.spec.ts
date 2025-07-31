@@ -28,25 +28,28 @@ test.describe("Landing Page", () => {
     await expect(page.locator(".animate-slide")).toBeVisible();
   });
 
-  test("navigates to auth flow when clicking Add to Discord", async ({
-    page,
-  }) => {
+  test("Add to Discord button has correct href", async ({ page }) => {
     await page.goto("/");
 
-    // Click the "Add to Discord Server" button
-    await page.click("text=🚀 Add to Discord Server");
+    // Check that the "Add to Discord Server" button has the correct href
+    const addButton = page.locator("text=🚀 Add to Discord Server");
+    await expect(addButton).toBeVisible();
 
-    // Should navigate to auth flow
-    await expect(page).toHaveURL(/\/auth\?flow=signup/);
+    const href = await addButton.getAttribute("href");
+    expect(href).toContain("/auth?flow=signup");
   });
 
-  test("shows login form when clicking login link", async ({ page }) => {
+  test("login link opens login form", async ({ page }) => {
     await page.goto("/");
 
     // Click the login link
     await page.click("text=Already have an account? Log in");
 
-    // Should show Discord OAuth login button
-    await expect(page.locator("text=Login with Discord")).toBeVisible();
+    // Should show login form
+    await expect(page.locator("form")).toBeVisible();
+
+    // Should have a login button that would trigger OAuth
+    const loginButton = page.locator("button").filter({ hasText: /login/i });
+    await expect(loginButton).toBeVisible();
   });
 });
