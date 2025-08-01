@@ -7,6 +7,21 @@ import express from "express";
 // This only exists after a production build, when this file is copied into Docker
 import { app as rrApp } from "./build/server/index.js";
 
+const retry = async (count, func) => {
+  let lastError;
+  for (let i = 0; i < count; i++) {
+    try {
+      return await func(i, count);
+    } catch (e) {
+      if (!(e instanceof Error)) {
+        throw e;
+      }
+      lastError = e;
+    }
+  }
+  throw lastError;
+};
+
 const app = express();
 
 console.log("Starting production webserver");
@@ -32,7 +47,35 @@ const errorHandler = (error) => {
 process.on("uncaughtException", errorHandler);
 process.on("unhandledRejection", errorHandler);
 
-const PORT = process.env.PORT || "3000";
-app.listen(PORT, "0.0.0.0", async () => {
-  console.log("INI", "Now listening on port", PORT);
-});
+const preferredPort = parseInt(process.env.PORT || "3000", 10);
+
+try {
+  const actualPort = await retry(5, async (attempt) => {
+    const port = preferredPort + attempt;
+    return new Promise((resolve, reject) => {
+      const server = app.listen(port, "0.0.0.0", () => {
+        console.log(`Server started on port ${port}`);
+        resolve(port);
+      });
+
+      server.on("error", (error) => {
+        if (error.code === "EADDRINUSE") {
+          console.log(`Port ${port} is busy, trying next port...`);
+          reject(error);
+        } else {
+          reject(error);
+        }
+      });
+    });
+  });
+
+  // Set the actual port in environment for child processes and export for tests
+  process.env.PORT = actualPort.toString();
+  process.env.BASE_URL = `http://localhost:${actualPort}`;
+
+  // Output the URL in a format that Playwright can detect
+  console.log(`Server running at http://localhost:${actualPort}`);
+} catch (error) {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+}
