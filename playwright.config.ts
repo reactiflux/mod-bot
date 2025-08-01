@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+// Load environment variables from .env file
+config();
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -72,5 +76,11 @@ export default defineConfig({
     timeout: 120 * 1000,
     stdout: "pipe",
     stderr: "pipe",
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      // Ensure NODE_ENV is set for the dev server
+      NODE_ENV: process.env.NODE_ENV || "development",
+    } as Record<string, string>,
   },
 });

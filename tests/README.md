@@ -10,7 +10,13 @@ This project uses Playwright for end-to-end testing with real Discord authentica
    npx playwright install
    ```
 
-2. **Capture real Discord authentication (one-time setup):**
+2. **Ensure `.env` file exists:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Discord app credentials
+   ```
+
+3. **Capture real Discord authentication (one-time setup):**
    ```bash
    npm run capture-auth
    ```
@@ -87,6 +93,12 @@ ls -la test-auth-data.json
 - Make sure your Discord app is configured correctly in `.env`
 - Check that port 3001 is available
 - Verify your Discord app's redirect URI includes `http://localhost:3001/callback`
+
+### Environment variables not loading
+If you see errors about missing Discord credentials:
+- Ensure `.env` file exists in the project root: `ls -la .env`
+- Check the file contains required variables: `cat .env.example`
+- Try running tests explicitly with env: `dotenv -e .env -- npm run test:e2e`
 
 ## Security Notes
 
