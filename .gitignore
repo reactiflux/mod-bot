@@ -20,3 +20,6 @@ vite.config.ts*
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Test auth data (contains real tokens)
+test-auth-data.json
