@@ -16,6 +16,7 @@ import express from "express";
 import open from "open";
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
+import fs from "fs/promises";
 
 // Import our app modules
 const __filename = fileURLToPath(import.meta.url);
@@ -23,14 +24,10 @@ const __dirname = dirname(__filename);
 process.chdir(join(__dirname, ".."));
 
 // Dynamic imports to handle ES modules
-const { default: db } = await import("../app/db.server.js");
-const { createUser, getUserByExternalId } = await import(
-  "../app/models/user.server.js"
-);
-const { fetchUser } = await import("../app/models/discord.server.js");
-const { applicationId, discordSecret } = await import(
-  "../app/helpers/env.server.js"
-);
+import db from "#~/db.server.js";
+import { createUser, getUserByExternalId } from "#~/models/user.server.js";
+import { fetchUser } from "#~/models/discord.server.js";
+import { applicationId, discordSecret } from "#~/helpers/env.server.js";
 
 const config = {
   client: {
@@ -198,7 +195,6 @@ async function storeAuthInDatabase() {
     createdAt: new Date().toISOString(),
   };
 
-  const fs = await import("fs/promises");
   await fs.writeFile("test-auth-data.json", JSON.stringify(authData, null, 2));
 
   console.log("\n✅ Authentication data saved to test-auth-data.json");
