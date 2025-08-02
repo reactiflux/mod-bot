@@ -26,12 +26,7 @@ const __dirname = dirname(__filename);
 process.chdir(join(__dirname, ".."));
 
 // We'll import these dynamically after process.cwd() is set
-let db,
-  createUser,
-  getUserByExternalId,
-  fetchUser,
-  applicationId,
-  discordSecret;
+let db, applicationId, discordSecret;
 let config, authorization;
 const CALLBACK_PORT = 3001;
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`;
