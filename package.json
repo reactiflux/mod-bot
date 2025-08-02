@@ -15,6 +15,7 @@
     "test:e2e:ui": "dotenv -e .env -- playwright test --ui",
     "test:e2e:headed": "dotenv -e .env -- playwright test --headed",
     "capture-auth": "node scripts/capture-auth.js",
+    "test-session-borrowing": "node scripts/test-session-borrowing.js",
     "build": "run-s build:*",
     "lint": "eslint --no-warn-ignored --cache --cache-location ./node_modules/.cache/eslint .",
     "format": "prettier --write .",

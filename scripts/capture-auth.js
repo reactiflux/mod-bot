@@ -10,6 +10,7 @@
  * 4. Stores it in the database for use in tests
  */
 
+import "dotenv/config";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import express from "express";
@@ -17,38 +18,112 @@ import open from "open";
 import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 import fs from "fs/promises";
+import Database from "better-sqlite3";
 
 // Import our app modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 process.chdir(join(__dirname, ".."));
 
-// Dynamic imports to handle ES modules
-import db from "#~/db.server.js";
-import { createUser, getUserByExternalId } from "#~/models/user.server.js";
-import { fetchUser } from "#~/models/discord.server.js";
-import { applicationId, discordSecret } from "#~/helpers/env.server.js";
-
-const config = {
-  client: {
-    id: applicationId,
-    secret: discordSecret,
-  },
-  auth: {
-    tokenHost: "https://discord.com",
-    tokenPath: "/api/oauth2/token",
-    authorizePath: "/api/oauth2/authorize",
-    revokePath: "/api/oauth2/revoke",
-  },
-};
-
-const authorization = new AuthorizationCode(config);
+// We'll import these dynamically after process.cwd() is set
+let db,
+  createUser,
+  getUserByExternalId,
+  fetchUser,
+  applicationId,
+  discordSecret;
+let config, authorization;
 const CALLBACK_PORT = 3001;
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`;
 
 let server;
 let capturedToken = null;
 let capturedUser = null;
+
+async function initializeModules() {
+  console.log("🔧 Loading application modules...");
+
+  try {
+    // Simple approach - just get config from environment variables
+    applicationId = process.env.DISCORD_APP_ID;
+    discordSecret = process.env.DISCORD_SECRET;
+
+    if (!applicationId || !discordSecret) {
+      throw new Error(
+        "Missing DISCORD_APP_ID or DISCORD_SECRET environment variables",
+      );
+    }
+
+    // Use SQLite directly
+    db = new Database("mod-bot.sqlite3");
+
+    config = {
+      client: {
+        id: applicationId,
+        secret: discordSecret,
+      },
+      auth: {
+        tokenHost: "https://discord.com",
+        tokenPath: "/api/oauth2/token",
+        authorizePath: "/api/oauth2/authorize",
+        revokePath: "/api/oauth2/revoke",
+      },
+    };
+
+    authorization = new AuthorizationCode(config);
+    console.log("✅ Modules loaded successfully");
+  } catch (error) {
+    console.error("❌ Failed to load modules:", error.message);
+    console.error(
+      "Make sure you have .env file with DISCORD_APP_ID and DISCORD_SECRET",
+    );
+    throw error;
+  }
+}
+
+// Helper functions to replace the app module imports
+async function fetchDiscordUser(token) {
+  const response = await fetch("https://discord.com/api/users/@me", {
+    headers: {
+      Authorization: `Bearer ${token.access_token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Discord API error: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.json();
+}
+
+async function createUserInDb(email, externalId) {
+  const userId = randomUUID();
+  const stmt = db.prepare(`
+    INSERT INTO users (id, email, external_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  stmt.run(
+    userId,
+    email,
+    externalId,
+    new Date().toISOString(),
+    new Date().toISOString(),
+  );
+  return userId;
+}
+
+async function getUserByExternalIdFromDb(externalId) {
+  const stmt = db.prepare(`
+    SELECT id, email, external_id 
+    FROM users 
+    WHERE external_id = ?
+  `);
+
+  return stmt.get(externalId);
+}
 
 async function startCallbackServer() {
   const app = express();
@@ -74,7 +149,7 @@ async function startCallbackServer() {
         console.log("🎉 Token received successfully!");
 
         // Fetch user info from Discord
-        const discordUser = await fetchUser(token);
+        const discordUser = await fetchDiscordUser(token);
         console.log(
           `👤 Authenticated as: ${discordUser.username} (${discordUser.email})`,
         );
@@ -152,18 +227,12 @@ async function storeAuthInDatabase() {
 
   // Check if user already exists
   let userId;
-  try {
-    const existingUser = await getUserByExternalId(capturedUser.id);
-    if (existingUser) {
-      userId = existingUser.id;
-      console.log(`👤 Using existing user: ${existingUser.id}`);
-    }
-  } catch (error) {
-    // User doesn't exist, will create below
-  }
-
-  if (!userId) {
-    userId = await createUser(capturedUser.email, capturedUser.id);
+  const existingUser = await getUserByExternalIdFromDb(capturedUser.id);
+  if (existingUser) {
+    userId = existingUser.id;
+    console.log(`👤 Using existing user: ${existingUser.id}`);
+  } else {
+    userId = await createUserInDb(capturedUser.email, capturedUser.id);
     console.log(`👤 Created new user: ${userId}`);
   }
 
@@ -174,14 +243,16 @@ async function storeAuthInDatabase() {
     discordToken: capturedToken.toJSON(),
   };
 
-  await db
-    .insertInto("sessions")
-    .values({
-      id: sessionId,
-      data: JSON.stringify(sessionData),
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-    })
-    .execute();
+  const sessionStmt = db.prepare(`
+    INSERT INTO sessions (id, data, expires)
+    VALUES (?, ?, ?)
+  `);
+
+  sessionStmt.run(
+    sessionId,
+    JSON.stringify(sessionData),
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+  );
 
   console.log(`💾 Session created: ${sessionId}`);
 
@@ -208,6 +279,9 @@ async function main() {
   console.log("=====================================\n");
 
   try {
+    // Initialize modules first
+    await initializeModules();
+
     // Start the callback server
     await startCallbackServer();
 

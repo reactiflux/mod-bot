@@ -22,7 +22,12 @@ test.describe("Authenticated User Flows", () => {
 
     // Set the session cookies
     const cookies = testUser.sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -51,7 +56,12 @@ test.describe("Authenticated User Flows", () => {
     const testUser = await createTestUser(testUserEmail);
 
     const cookies = testUser.sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -83,7 +93,12 @@ test.describe("Authenticated User Flows", () => {
     const testUser = await createTestUser(testUserEmail);
 
     const cookies = testUser.sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -109,7 +124,12 @@ test.describe("Authenticated User Flows", () => {
     const testUser = await createTestUser(testUserEmail);
 
     const cookies = testUser.sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,

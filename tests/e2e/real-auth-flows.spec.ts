@@ -29,7 +29,12 @@ test.describe("Real Authentication Flows", () => {
 
     // Set the session cookies
     const cookies = sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -72,7 +77,12 @@ test.describe("Real Authentication Flows", () => {
     const userInfo = await getCapturedUserInfo();
 
     const cookies = sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -109,7 +119,12 @@ test.describe("Real Authentication Flows", () => {
     const userInfo = await getCapturedUserInfo();
 
     const cookies = sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,
@@ -152,7 +167,12 @@ test.describe("Real Authentication Flows", () => {
     const userInfo = await getCapturedUserInfo();
 
     const cookies = sessionCookie.split("; ").map((cookie) => {
-      const [name, value] = cookie.split("=");
+      const firstEqualsIndex = cookie.indexOf("=");
+      if (firstEqualsIndex === -1) {
+        throw new Error(`Invalid cookie format: ${cookie}`);
+      }
+      const name = cookie.substring(0, firstEqualsIndex);
+      const value = cookie.substring(firstEqualsIndex + 1);
       return {
         name,
         value,

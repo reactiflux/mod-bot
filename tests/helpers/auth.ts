@@ -3,6 +3,11 @@ import { createCookieSessionStorage, createSessionStorage } from "react-router";
 import db from "#~/db.server";
 import { createUser } from "#~/models/user.server";
 import { sessionSecret } from "#~/helpers/env.server";
+import {
+  createRealAuthSession,
+  loadCapturedAuthData,
+  hasValidCapturedAuth,
+} from "./real-auth";
 
 const { commitSession: commitCookieSession, getSession: getCookieSession } =
   createCookieSessionStorage({
@@ -69,11 +74,33 @@ export interface TestUser {
 
 /**
  * Creates a test user and returns authentication cookies for use in tests
+ * Uses real Discord OAuth tokens when available, falls back to mock data
  */
 export async function createTestUser(
   email: string = "test@example.com",
   externalId: string = "123456789",
 ): Promise<TestUser> {
+  // Check if we have captured real auth data available
+  const hasRealAuth = await hasValidCapturedAuth();
+
+  if (hasRealAuth) {
+    // Use real authentication data
+    const authData = await loadCapturedAuthData();
+    const sessionCookie = await createRealAuthSession();
+
+    return {
+      id: authData.userId,
+      email: authData.userEmail,
+      externalId: authData.userExternalId,
+      sessionCookie,
+    };
+  }
+
+  // Fallback to creating a mock user (original behavior)
+  console.warn(
+    "⚠️  No real auth data found. Using mock user. Run 'npm run capture-auth' for real Discord tokens.",
+  );
+
   // Create the user in the database
   const userId = await createUser(email, externalId);
 
@@ -115,11 +142,32 @@ export async function createTestUser(
 
 /**
  * Creates an admin test user with additional permissions
+ * Uses real Discord OAuth tokens when available, falls back to mock data
  */
 export async function createTestAdmin(
   email: string = "admin@example.com",
   externalId: string = "987654321",
 ): Promise<TestUser> {
+  // Check if we have captured real auth data available
+  const hasRealAuth = await hasValidCapturedAuth();
+
+  if (hasRealAuth) {
+    // Use real authentication data (same as regular user for now)
+    const authData = await loadCapturedAuthData();
+    const sessionCookie = await createRealAuthSession();
+
+    return {
+      id: authData.userId,
+      email: authData.userEmail,
+      externalId: authData.userExternalId,
+      sessionCookie,
+    };
+  }
+
+  // Fallback to creating a mock admin user
+  console.warn(
+    "⚠️  No real auth data found. Using mock admin user. Run 'npm run capture-auth' for real Discord tokens.",
+  );
   return createTestUser(email, externalId);
 }
 
@@ -174,4 +222,28 @@ export async function createSessionForUser(userId: string): Promise<string> {
   ]);
 
   return [cookieCookie, dbCookie].join("; ");
+}
+
+/**
+ * Creates a test user using ONLY real Discord OAuth tokens
+ * Throws an error if no captured auth data is available
+ */
+export async function createRealTestUser(): Promise<TestUser> {
+  const hasRealAuth = await hasValidCapturedAuth();
+
+  if (!hasRealAuth) {
+    throw new Error(
+      "No real auth data found. Please run 'npm run capture-auth' first to authenticate with Discord.",
+    );
+  }
+
+  const authData = await loadCapturedAuthData();
+  const sessionCookie = await createRealAuthSession();
+
+  return {
+    id: authData.userId,
+    email: authData.userEmail,
+    externalId: authData.userExternalId,
+    sessionCookie,
+  };
 }

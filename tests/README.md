@@ -34,10 +34,25 @@ npm run test:e2e:ui               # Run with Playwright UI
 npm run test:e2e:headed           # Run in headed mode (visible browser)
 ```
 
-### Authenticated Tests (requires captured auth)
+### Authenticated Tests (automatic real auth)
 
 ```bash
-FORCE_AUTH_TESTS=1 npm run test:e2e   # Run including real auth tests
+npm run test:e2e                 # Uses real Discord tokens if available, mock data if not
+FORCE_AUTH_TESTS=1 npm run test:e2e   # Run including real auth tests (legacy)
+```
+
+### Using Real Auth in Your Tests
+
+The auth helpers now automatically use real Discord tokens when available:
+
+```typescript
+import { createTestUser, createRealTestUser } from "../helpers/auth";
+
+// This will use real Discord tokens if available, mock data if not
+const user = await createTestUser();
+
+// This requires real Discord tokens and will throw an error if not available
+const realUser = await createRealTestUser();
 ```
 
 ## Test Structure
@@ -64,20 +79,32 @@ FORCE_AUTH_TESTS=1 npm run test:e2e   # Run including real auth tests
 5. Creates a user in the database and stores the token
 6. Saves auth data to `test-auth-data.json`
 
-### Real Auth Helper (`tests/helpers/real-auth.ts`)
+### Auth Helpers
+
+#### Real Auth Helper (`tests/helpers/real-auth.ts`)
 
 - `loadCapturedAuthData()` - Loads the captured auth data
 - `createRealAuthSession()` - Creates session cookies using real tokens
 - `hasValidCapturedAuth()` - Checks if captured auth is available and valid
 - `getCapturedUserInfo()` - Gets user info from captured auth
 
+#### Main Auth Helper (`tests/helpers/auth.ts`)
+
+- `createTestUser()` - **Now automatically uses real Discord tokens when available**, falls back to mock data
+- `createTestAdmin()` - **Now automatically uses real Discord tokens when available**, falls back to mock data
+- `createRealTestUser()` - **New function** that requires real Discord tokens (throws error if not available)
+- `createSessionForUser()` - Creates session cookies for an existing user ID
+- `cleanupTestUsers()` - Cleans up test users from the database
+
 ### Benefits of This Approach
 
 - ✅ **Real authentication** - Uses actual Discord OAuth tokens
+- ✅ **Automatic fallback** - Tests automatically use real tokens when available, mock data when not
 - ✅ **No external dependencies** - Doesn't require mock servers or Discord app simulation
 - ✅ **Reliable** - No hanging processes or external app conflicts
 - ✅ **Secure** - Auth data is stored locally and ignored by git
 - ✅ **Flexible** - Can test both authenticated and unauthenticated flows
+- ✅ **Backward compatible** - Existing tests work without changes
 
 ## Troubleshooting
 
