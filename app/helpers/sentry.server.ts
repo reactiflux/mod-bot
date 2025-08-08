@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/node";
 import { isProd, sentryIngest } from "#~/helpers/env.server";
 
-Sentry.init({
+const sentryOptions = {
   dsn: sentryIngest,
   environment: isProd() ? "production" : "development",
   integrations: [
@@ -14,6 +14,10 @@ Sentry.init({
   // We recommend adjusting this value in production
   tracesSampleRate: isProd() ? 0.2 : 1,
   sendDefaultPii: true,
-});
+};
+
+console.log("Sentry initialized:", sentryOptions);
+
+Sentry.init(sentryOptions);
 
 export default Sentry;

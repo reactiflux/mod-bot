@@ -141,6 +141,8 @@ jobs:
             --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
             --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
             --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
+            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
+            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \ 
             --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }}
           kubectl apply -k .
 
