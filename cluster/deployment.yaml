@@ -61,6 +61,18 @@ spec:
                   name: modbot-env
                   key: DISCORD_TEST_GUILD
 
+            - name: SENTRY_INGEST
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: SENTRY_INGEST
+
+            - name: SENTRY_RELEASES
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: SENTRY_RELEASES
+
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
