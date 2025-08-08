@@ -22,6 +22,7 @@ import {
   applicationId,
   discordSecret,
   sessionSecret,
+  isProd,
 } from "#~/helpers/env.server";
 
 export type Sessions = DB["sessions"];
@@ -57,7 +58,7 @@ const {
     path: "/",
     sameSite: "lax",
     secrets: [sessionSecret],
-    secure: process.env.NODE_ENV === "production",
+    secure: isProd(),
   },
 });
 export type CookieSession = Awaited<ReturnType<typeof getCookieSession>>;

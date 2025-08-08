@@ -1,9 +1,9 @@
 import * as Sentry from "@sentry/node";
-import { isProd } from "#~/helpers/env.server";
+import { isProd, sentryIngest } from "#~/helpers/env.server";
 
 Sentry.init({
-  dsn: process.env.SENTRY_INGEST,
-  environment: process.env.NODE_ENV || "development",
+  dsn: sentryIngest,
+  environment: isProd() ? "production" : "development",
   integrations: [
     new Sentry.Integrations.OnUncaughtException(),
     new Sentry.Integrations.OnUnhandledRejection(),
