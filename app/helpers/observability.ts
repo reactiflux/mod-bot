@@ -19,20 +19,6 @@ export const log = (
 
   // Use structured logging for better parsing
   console.log(JSON.stringify(logEntry));
-
-  // Also log to Sentry for error tracking and performance monitoring
-  if (level === "error") {
-    Sentry.captureException(new Error(message), {
-      tags: typeof service === "string" ? { service } : service,
-      extra: context,
-    });
-  } else if (level === "warn") {
-    Sentry.captureMessage(message, {
-      level: "warning",
-      tags: typeof service === "string" ? { service } : service,
-      extra: context,
-    });
-  }
 };
 
 // Performance tracking helper
