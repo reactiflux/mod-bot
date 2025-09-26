@@ -190,6 +190,7 @@ export const Command = [
         name: `${user.username} – ${format(new Date(), "PP kk:mmX")}`,
         autoArchiveDuration: 60 * 24 * 7,
         type: ChannelType.PrivateThread,
+        invitable: false,
       });
       await thread.send({
         content: `<@${user.id}>, this is a private space only visible to you and the <@&${config.role_id}> role.`,
