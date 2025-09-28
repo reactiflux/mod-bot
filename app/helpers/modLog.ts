@@ -236,7 +236,7 @@ export const reportUser = async ({
           : singleLine;
       const stats = await getMessageStats(message);
       await thread.parent.send(
-        `-# > ${truncatedMessage}\n-# ${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code`,
+        `> ${truncatedMessage}\n-# ${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code`,
       );
     }
 
