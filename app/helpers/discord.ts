@@ -1,3 +1,9 @@
+import {
+  parseMarkdownBlocks,
+  getChars,
+  getWords,
+} from "#~/helpers/messageParsing";
+import { partition } from "lodash-es";
 import type {
   Message,
   GuildMember,
@@ -21,6 +27,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import prettyBytes from "pretty-bytes";
+import { trackPerformance } from "./observability";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -197,3 +204,83 @@ export type ModalCommand = {
 export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.ModalSubmit;
+
+type CodeStats = {
+  chars: number;
+  words: number;
+  lines: number;
+  lang: string | undefined;
+};
+/**
+ * getMessageStats is a helper to retrieve common metrics from a message
+ * @param msg A Discord Message or PartialMessage object
+ * @returns { chars: number; words: number; lines: number; lang?: string }
+ */
+export async function getMessageStats(msg: Message | PartialMessage) {
+  return trackPerformance(
+    "startActivityTracking: getMessageStats",
+    async () => {
+      const { content } = await msg.fetch();
+
+      const blocks = parseMarkdownBlocks(content);
+
+      // TODO: groupBy would be better here, but this was easier to keep typesafe
+      const [textblocks, nontextblocks] = partition(
+        blocks,
+        (b) => b.type === "text",
+      );
+      const [links, codeblocks] = partition(
+        nontextblocks,
+        (b) => b.type === "link",
+      );
+
+      const linkStats = links.map((link) => link.url);
+
+      const { wordCount, charCount } = [...links, ...textblocks].reduce(
+        (acc, block) => {
+          const content =
+            block.type === "link" ? (block.label ?? "") : block.content;
+          const words = getWords(content).length;
+          const chars = getChars(content).length;
+          return {
+            wordCount: acc.wordCount + words,
+            charCount: acc.charCount + chars,
+          };
+        },
+        { wordCount: 0, charCount: 0 },
+      );
+
+      const codeStats = codeblocks.map((block): CodeStats => {
+        switch (block.type) {
+          case "fencedcode": {
+            const content = block.code.join("\n");
+            return {
+              chars: getChars(content).length,
+              words: getWords(content).length,
+              lines: block.code.length,
+              lang: block.lang,
+            };
+          }
+          case "inlinecode": {
+            return {
+              chars: getChars(block.code).length,
+              words: getWords(block.code).length,
+              lines: 1,
+              lang: undefined,
+            };
+          }
+        }
+      });
+
+      const values = {
+        char_count: charCount,
+        word_count: wordCount,
+        code_stats: codeStats,
+        link_stats: linkStats,
+        react_count: msg.reactions.cache.size,
+        sent_at: msg.createdTimestamp,
+      };
+      return values;
+    },
+  );
+}

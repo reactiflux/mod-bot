@@ -25,6 +25,7 @@ import {
   constructDiscordLink,
   describeAttachments,
   describeReactions,
+  getMessageStats,
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
@@ -199,23 +200,45 @@ export const reportUser = async ({
       staff,
     });
 
+    // If it has the data for a poll, use a specialized formatting function
+    const reportedMessage = message.poll
+      ? quoteAndEscapePoll(message.poll)
+      : quoteAndEscape(message.content).trim();
     // Send the detailed log message to thread
-    const logMessage = await thread.send(logBody);
-    logMessage.forward(modLog);
+    const [logMessage] = await Promise.all([
+      thread.send(logBody),
+      thread.send(reportedMessage),
+    ]);
 
     // Try to record the report in database
-    const recordResult = await recordReport({
-      reportedMessageId: message.id,
-      reportedChannelId: message.channel.id,
-      reportedUserId: message.author.id,
-      guildId: guild.id,
-      logMessageId: logMessage.id,
-      logChannelId: thread.id,
-      reason,
-      staffId: staff ? staff.id : undefined,
-      staffUsername: staff ? staff.username : undefined,
-      extra,
-    });
+    const [recordResult] = await Promise.all([
+      recordReport({
+        reportedMessageId: message.id,
+        reportedChannelId: message.channel.id,
+        reportedUserId: message.author.id,
+        guildId: guild.id,
+        logMessageId: logMessage.id,
+        logChannelId: thread.id,
+        reason,
+        staffId: staff ? staff.id : undefined,
+        staffUsername: staff ? staff.username : undefined,
+        extra,
+      }),
+      logMessage.forward(modLog),
+    ]);
+    if (thread.parent?.isSendable()) {
+      const singleLine = message.cleanContent
+        .slice(0, 50)
+        .replaceAll("\n", "\\n");
+      const truncatedMessage =
+        message.cleanContent.length > 50
+          ? `${singleLine.slice(0, 50)}…`
+          : singleLine;
+      const stats = await getMessageStats(message);
+      await thread.parent.send(
+        `> ${truncatedMessage}\n-# ${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code`,
+      );
+    }
 
     // If the record was not inserted due to unique constraint (duplicate),
     // this means another process already reported the same message while we were preparing the log.
@@ -283,18 +306,13 @@ const constructLog = async ({
     throw new Error("No role configured to be used as moderator");
   }
 
-  const preface = `<@${lastReport.message.author.id}> (${
-    lastReport.message.author.username
-  }) posted ${formatDistanceToNowStrict(lastReport.message.createdAt)} before this log (<t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>)`;
-  const extra = origExtra ? `${origExtra}\n` : "";
-
-  // If it has the data for a poll, use a specialized formatting function
-  const reportedMessage = message.poll
-    ? quoteAndEscapePoll(message.poll)
-    : quoteAndEscape(message.content).trim();
-
   const { content: report, embeds: reactions = [] } =
     makeReportMessage(lastReport);
+
+  const preface = `${report} ${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
+    lastReport.message.author.username
+  })`;
+  const extra = origExtra ? `${origExtra}\n` : "";
 
   const embeds = [
     describeAttachments(message.attachments),
@@ -302,8 +320,7 @@ const constructLog = async ({
   ].filter((e): e is APIEmbed => Boolean(e));
   return {
     content: truncateMessage(`${preface}
-${extra}${reportedMessage}
-${report} · ${constructDiscordLink(message)}`).trim(),
+-# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> ago`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
