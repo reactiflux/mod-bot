@@ -1,21 +1,9 @@
 import { Events, ChannelType } from "discord.js";
-import type { Client, Message, PartialMessage, TextChannel } from "discord.js";
+import type { Client, Message, TextChannel } from "discord.js";
 import db from "#~/db.server";
-import {
-  parseMarkdownBlocks,
-  getChars,
-  getWords,
-} from "#~/helpers/messageParsing";
-import { partition } from "lodash-es";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { threadStats } from "#~/helpers/metrics";
-
-export type CodeStats = {
-  chars: number;
-  words: number;
-  lines: number;
-  lang: string | undefined;
-};
+import { getMessageStats } from "#~/helpers/discord.js";
 
 export async function startActivityTracking(client: Client) {
   log("info", "ActivityTracker", "Starting activity tracking", {
@@ -100,6 +88,8 @@ export async function startActivityTracking(client: Client) {
       .insertInto("message_stats")
       .values({
         ...info,
+        code_stats: JSON.stringify(info.code_stats),
+        link_stats: JSON.stringify(info.link_stats),
         message_id: msg.id,
         author_id: msg.author.id,
         guild_id: msg.guildId,
@@ -116,8 +106,8 @@ export async function startActivityTracking(client: Client) {
       channelId: msg.channelId,
       charCount: info.char_count,
       wordCount: info.word_count,
-      hasCode: info.code_stats !== "[]",
-      hasLinks: info.link_stats !== "[]",
+      hasCode: info.code_stats.length > 0,
+      hasLinks: info.link_stats.length > 0,
     });
 
     // Track message in business analytics
@@ -131,7 +121,13 @@ export async function startActivityTracking(client: Client) {
         const info = await getMessageStats(msg);
         if (!info) return;
 
-        await updateStatsById(msg.id).set(info).execute();
+        await updateStatsById(msg.id)
+          .set({
+            ...info,
+            code_stats: JSON.stringify(info.code_stats),
+            link_stats: JSON.stringify(info.link_stats),
+          })
+          .execute();
 
         log("debug", "ActivityTracker", "Message stats updated", {
           messageId: msg.id,
@@ -204,75 +200,6 @@ export async function startActivityTracking(client: Client) {
 
 function updateStatsById(id: string) {
   return db.updateTable("message_stats").where("message_id", "=", id);
-}
-
-async function getMessageStats(msg: Message | PartialMessage) {
-  return trackPerformance(
-    "startActivityTracking: getMessageStats",
-    async () => {
-      const { content } = await msg.fetch();
-
-      const blocks = parseMarkdownBlocks(content);
-
-      // TODO: groupBy would be better here, but this was easier to keep typesafe
-      const [textblocks, nontextblocks] = partition(
-        blocks,
-        (b) => b.type === "text",
-      );
-      const [links, codeblocks] = partition(
-        nontextblocks,
-        (b) => b.type === "link",
-      );
-
-      const linkStats = links.map((link) => link.url);
-
-      const { wordCount, charCount } = [...links, ...textblocks].reduce(
-        (acc, block) => {
-          const content =
-            block.type === "link" ? (block.label ?? "") : block.content;
-          const words = getWords(content).length;
-          const chars = getChars(content).length;
-          return {
-            wordCount: acc.wordCount + words,
-            charCount: acc.charCount + chars,
-          };
-        },
-        { wordCount: 0, charCount: 0 },
-      );
-
-      const codeStats = codeblocks.map((block): CodeStats => {
-        switch (block.type) {
-          case "fencedcode": {
-            const content = block.code.join("\n");
-            return {
-              chars: getChars(content).length,
-              words: getWords(content).length,
-              lines: block.code.length,
-              lang: block.lang,
-            };
-          }
-          case "inlinecode": {
-            return {
-              chars: getChars(block.code).length,
-              words: getWords(block.code).length,
-              lines: 1,
-              lang: undefined,
-            };
-          }
-        }
-      });
-
-      const values = {
-        char_count: charCount,
-        word_count: wordCount,
-        code_stats: JSON.stringify(codeStats),
-        link_stats: JSON.stringify(linkStats),
-        react_count: msg.reactions.cache.size,
-        sent_at: msg.createdTimestamp,
-      };
-      return values;
-    },
-  );
 }
 
 export async function reportByGuild(guildId: string) {
