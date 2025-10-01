@@ -27,15 +27,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw data({ message: "Payment verification failed" }, { status: 400 });
   }
 
-  // Update subscription to paid tier
+  // Calculate subscription period end (30 days from now)
+  const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  // Update subscription to paid tier with real Stripe data
   await SubscriptionService.createOrUpdateSubscription({
     guild_id: guildId,
-    stripe_customer_id: `cus_${guildId}`, // TODO: Get from Stripe session
+    stripe_customer_id: stripeSession.customer || undefined,
+    stripe_subscription_id: stripeSession.subscription || undefined,
     product_tier: "paid",
     status: "active",
-    current_period_end: new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(), // 30 days from now
+    current_period_end: currentPeriodEnd.toISOString(),
   });
 
   const subscription = await SubscriptionService.getGuildSubscription(guildId);

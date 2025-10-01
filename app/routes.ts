@@ -17,4 +17,6 @@ export default [
   route("upgrade", "routes/upgrade.tsx"),
   route("payment/success", "routes/payment.success.tsx"),
   route("payment/cancel", "routes/payment.cancel.tsx"),
+  route("webhooks/stripe", "routes/webhooks.stripe.tsx"),
+  route("export-data", "routes/export-data.tsx"),
 ] satisfies RouteConfig;

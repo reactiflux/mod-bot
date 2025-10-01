@@ -1,6 +1,8 @@
-import { data, Form, useLoaderData } from "react-router";
+import { data, Form, redirect, useLoaderData } from "react-router";
 
+import { log } from "#~/helpers/observability";
 import { requireUser } from "#~/models/session.server";
+import { StripeService } from "#~/models/stripe.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
 
 import type { Route } from "./+types/upgrade";
@@ -25,7 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  await requireUser(request);
+  const user = await requireUser(request);
   const formData = await request.formData();
   const guildId = formData.get("guild_id") as string;
 
@@ -33,15 +35,44 @@ export async function action({ request }: Route.ActionArgs) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
   }
 
-  // Redirect to your existing Stripe redirect route
-  const redirectUrl = `/redirects/stripe?guild_id=${guildId}`;
-
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: redirectUrl,
-    },
+  log("info", "Upgrade", "Creating Stripe checkout session", {
+    guildId,
+    userId: user.id,
   });
+
+  try {
+    // Get base URL from request
+    const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+
+    // Create Stripe checkout session
+    const checkoutUrl = await StripeService.createCheckoutSession(
+      guildId,
+      baseUrl,
+      user.email ?? undefined,
+    );
+
+    log("info", "Upgrade", "Redirecting to Stripe checkout", {
+      guildId,
+      userId: user.id,
+    });
+
+    // Redirect to Stripe checkout
+    return redirect(checkoutUrl);
+  } catch (error) {
+    log("error", "Upgrade", "Failed to create checkout session", {
+      guildId,
+      userId: user.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    throw data(
+      {
+        message: "Failed to create checkout session. Please try again later.",
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export default function Upgrade() {
