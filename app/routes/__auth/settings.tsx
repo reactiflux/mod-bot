@@ -33,11 +33,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     SubscriptionService.getProductTier(guildId),
   );
 
+  const subscription = await trackPerformance(
+    "subscriptions.getGuildSubscription",
+    () => SubscriptionService.getGuildSubscription(guildId),
+  );
+
   const { roles, channels } = await fetchGuildData(guildId);
 
   return {
     guildId,
     tier,
+    subscription,
     roles,
     channels,
     currentSettings,
@@ -45,11 +51,60 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export default function Settings({
-  loaderData: { guildId, roles, channels, currentSettings, tier },
+  loaderData: { guildId, roles, channels, currentSettings, tier, subscription },
 }: Route.ComponentProps) {
   return (
     <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
       <div className="space-y-8">
+        {/* Subscription Status */}
+        {subscription && (
+          <div className="overflow-hidden rounded-lg bg-white shadow">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-base font-semibold leading-6 text-gray-900">
+                Subscription Status
+              </h3>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Current Plan</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {tier === "paid" ? "Pro" : "Free"}{" "}
+                    {subscription.status === "active" && tier === "paid" && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                        Active
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {subscription.current_period_end && tier === "paid" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Renewal Date</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(
+                        subscription.current_period_end,
+                      ).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {tier === "paid" && subscription.stripe_subscription_id && (
+                  <div className="mt-4 border-t border-gray-200 pt-4">
+                    <p className="text-xs text-gray-500">
+                      To cancel your subscription or update payment details,
+                      please email{" "}
+                      <a
+                        href="mailto:support@euno.reactiflux.com"
+                        className="text-indigo-600 hover:text-indigo-500"
+                      >
+                        support@euno.reactiflux.com
+                      </a>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Form */}
         <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
           <GuildSettingsForm
             guildId={guildId}
@@ -63,6 +118,8 @@ export default function Settings({
             }}
           />
         </div>
+
+        {/* Upgrade CTA for Free Users */}
         {tier === "free" && <Upgrade guildId={guildId} />}
       </div>
     </div>

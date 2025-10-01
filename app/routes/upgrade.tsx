@@ -60,17 +60,31 @@ export async function action({ request }: Route.ActionArgs) {
     // Redirect to Stripe checkout
     return redirect(checkoutUrl);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     log("error", "Upgrade", "Failed to create checkout session", {
       guildId,
       userId: user.id,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     });
 
-    throw data(
-      {
-        message: "Failed to create checkout session. Please try again later.",
-      },
-      { status: 500 },
+    // Check for specific Stripe configuration errors
+    if (
+      errorMessage.includes("STRIPE_SECRET_KEY") ||
+      errorMessage.includes("STRIPE_PRICE_ID")
+    ) {
+      return redirect(
+        `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
+          "Payment system is currently being configured. Please try again later or contact support.",
+        )}`,
+      );
+    }
+
+    // Generic error
+    return redirect(
+      `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
+        "Failed to create checkout session. Please try again later.",
+      )}`,
     );
   }
 }
