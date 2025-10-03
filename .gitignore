@@ -15,3 +15,10 @@ tsconfig.tsbuildinfo
 tailwind.css
 userInfoCache.json
 *timestamp*
+vite.config.ts*
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/.playwright-mcp/
