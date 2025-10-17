@@ -6,15 +6,15 @@ import { sql } from "kysely";
 
 type MessageStats = DB["message_stats"];
 
-// // Default allowed channel categories for analytics
-// const ALLOWED_CATEGORIES: string[] = [
-//   "Need Help",
-//   "React General",
-//   "Advanced Topics",
-// ];
+// Default allowed channel categories for analytics
+const ALLOWED_CATEGORIES: string[] = [
+  "Need Help",
+  "React General",
+  "Advanced Topics",
+];
 
-// // Default allowed channels (currently empty but can be configured)
-// const ALLOWED_CHANNELS: string[] = [];
+// Default allowed channels (currently empty but can be configured)
+const ALLOWED_CHANNELS: string[] = [];
 
 /**
  * Creates a base query for message_stats filtered by guild, date range, and optionally user
@@ -58,12 +58,12 @@ export async function getUserMessageAnalytics(
         .fn("date", [eb("sent_at", "/", lit(1000)), sql.lit("unixepoch")])
         .as("date"),
     ])
-    // .where((eb) =>
-    //   eb.or([
-    //     eb("channel_id", "in", ALLOWED_CHANNELS),
-    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
-    //   ]),
-    // )
+    .where((eb) =>
+      eb.or([
+        eb("channel_id", "in", ALLOWED_CHANNELS),
+        eb("channel_category", "in", ALLOWED_CATEGORIES),
+      ]),
+    )
     .orderBy("date", "asc")
     .groupBy("date");
 
@@ -73,12 +73,12 @@ export async function getUserMessageAnalytics(
       fn.count<number>("channel_category").as("messages"),
       "channel_category",
     ])
-    // .where((eb) =>
-    //   eb.or([
-    //     eb("channel_id", "in", ALLOWED_CHANNELS),
-    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
-    //   ]),
-    // )
+    .where((eb) =>
+      eb.or([
+        eb("channel_id", "in", ALLOWED_CHANNELS),
+        eb("channel_category", "in", ALLOWED_CATEGORIES),
+      ]),
+    )
     .groupBy("channel_category");
 
   // Build channel stats query
@@ -94,14 +94,16 @@ export async function getUserMessageAnalytics(
       "channel.id",
       "message_stats.channel_id",
     )
-    // .where((eb) =>
-    //   eb.or([
-    //     eb("channel_id", "in", ALLOWED_CHANNELS),
-    //     eb("channel_category", "in", ALLOWED_CATEGORIES),
-    //   ]),
-    // )
+    .where((eb) =>
+      eb.or([
+        eb("channel_id", "in", ALLOWED_CHANNELS),
+        eb("channel_category", "in", ALLOWED_CATEGORIES),
+      ]),
+    )
     .orderBy("messages", "desc")
     .groupBy("channel_id");
+
+  console.log("sql:", { compiled: dailyQuery.compile() });
 
   const [dailyResults, categoryBreakdown, channelBreakdown, userInfo] =
     await Promise.all([
@@ -154,17 +156,17 @@ export async function getTopParticipants(
     ]);
 
   // Apply channel filtering inline
-  // const filteredQuery = baseQuery.where((eb) =>
-  //   eb.or([
-  //     eb("channel_id", "in", ALLOWED_CHANNELS),
-  //     eb("channel_category", "in", ALLOWED_CATEGORIES),
-  //   ]),
-  // );
+  const filteredQuery = baseQuery.where((eb) =>
+    eb.or([
+      eb("channel_id", "in", ALLOWED_CHANNELS),
+      eb("channel_category", "in", ALLOWED_CATEGORIES),
+    ]),
+  );
 
   // get shortlist using inline selectors
   const topMembersQuery = db
-    // .with("interval_message_stats", () => filteredQuery)
-    .with("interval_message_stats", () => baseQuery)
+    .with("interval_message_stats", () => filteredQuery)
+    // .with("interval_message_stats", () => baseQuery)
     .selectFrom("interval_message_stats")
     .select(({ fn }) => [
       "author_id",
@@ -187,8 +189,8 @@ export async function getTopParticipants(
   const topMembers = await topMembersQuery.execute();
 
   const dailyParticipationQuery = db
-    // .with("interval_message_stats", () => filteredQuery)
-    .with("interval_message_stats", () => baseQuery)
+    .with("interval_message_stats", () => filteredQuery)
+    // .with("interval_message_stats", () => baseQuery)
     .selectFrom("interval_message_stats")
     .select(({ fn }) => [
       "author_id",
