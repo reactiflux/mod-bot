@@ -212,12 +212,24 @@ export async function initOauthLogin({
   });
 }
 
-export async function completeOauthLogin(
-  origin: string,
-  code: string,
-  reqCookie: string,
-  state?: string,
-) {
+export async function completeOauthLogin(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const cookie = request.headers.get("Cookie");
+
+  if (!code) {
+    console.error("No code provided by Discord");
+    return redirect("/");
+  }
+  if (!cookie) {
+    console.error("No cookie found when responding to Discord oauth");
+    throw redirect("/login", 500);
+  }
+
+  const origin: string = url.origin;
+  const reqCookie: string = cookie;
+  const state: string | undefined = url.searchParams.get("state") ?? undefined;
+
   const [cookieSession, dbSession] = await Promise.all([
     getCookieSession(reqCookie),
     getDbSession(reqCookie),
@@ -229,11 +241,11 @@ export async function completeOauthLogin(
 
   // Parse state to get UUID and redirectTo
   let cookieState;
-  let stateRedirectTo = "/guilds";
+  let stateRedirectTo = "/app";
   try {
     const parsedState = JSON.parse(cookieStateStr || "{}");
     cookieState = parsedState.uuid;
-    stateRedirectTo = decodeURIComponent(parsedState.redirectTo) || "/guilds";
+    stateRedirectTo = decodeURIComponent(parsedState.redirectTo) || "/app";
   } catch (e) {
     console.error("Failed to parse state:", e);
     throw redirect("/login");
@@ -293,9 +305,10 @@ export async function completeOauthLogin(
     throw redirect("/login");
   }
 
-  dbSession.set(CookieSessionKeys.userId, userId);
   // @ts-expect-error token.toJSON() isn't in the types but it works
   dbSession.set(CookieSessionKeys.discordToken, token.toJSON());
+  dbSession.set(CookieSessionKeys.userId, userId);
+
   // Clean up session data
   cookieSession.unset(DbSessionKeys.authState);
   cookieSession.unset(DbSessionKeys.authFlow);
@@ -307,14 +320,14 @@ export async function completeOauthLogin(
     finalRedirectTo = `/onboard?guild_id=${guildId}`;
   }
 
-  const [cookie, dbCookie] = await Promise.all([
+  const [clientCookie, dbCookie] = await Promise.all([
     commitCookieSession(cookieSession, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     }),
     commitDbSession(dbSession),
   ]);
   const headers = new Headers();
-  headers.append("Set-Cookie", cookie);
+  headers.append("Set-Cookie", clientCookie);
   headers.append("Set-Cookie", dbCookie);
 
   return redirect(finalRedirectTo, { headers });

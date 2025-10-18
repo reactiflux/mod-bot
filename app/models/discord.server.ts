@@ -187,7 +187,7 @@ export const fetchGuilds = async (
   const botGuildIds = new Set(botGuilds.keys());
   const userGuildIds = new Set(userGuilds.keys());
 
-  const manageableGuilds = intersection(botGuildIds, userGuildIds);
+  const manageableGuilds = intersection(userGuildIds, botGuildIds);
   const invitableGuilds = complement(userGuildIds, botGuildIds);
 
   return [

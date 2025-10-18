@@ -2,10 +2,9 @@ import { Outlet, useLocation, useLoaderData } from "react-router";
 import type { Route } from "./+types/__auth";
 import { Login } from "#~/basics/login";
 import { useOptionalUser } from "#~/utils";
-import { getUser, retrieveDiscordToken } from "#~/models/session.server";
+import { getUser } from "#~/models/session.server";
 import { fetchGuilds } from "#~/models/discord.server";
-import { rest } from "#~/discord/api.js";
-import { REST } from "@discordjs/rest";
+import { ssrDiscordSdk, userDiscordSdkFromRequest } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { DiscordLayout } from "#~/components/DiscordLayout";
 import TTLCache from "@isaacs/ttlcache";
@@ -41,14 +40,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     }
 
     // Get user's Discord token for user-specific guild fetching
-    const userToken = await retrieveDiscordToken(request);
-    const userRest = new REST({ version: "10", authPrefix: "Bearer" }).setToken(
-      userToken.token.access_token as string,
-    );
+    const userRest = await userDiscordSdkFromRequest(request);
 
     // Fetch guilds using both user token and bot token
     const guilds = await trackPerformance("discord.fetchGuilds", () =>
-      fetchGuilds(userRest, rest),
+      fetchGuilds(userRest, ssrDiscordSdk),
     );
 
     // Cache the result
@@ -72,13 +68,6 @@ export default function Auth() {
   const user = useOptionalUser();
   const { pathname, search, hash } = useLocation();
   const { guilds } = useLoaderData<typeof loader>();
-
-  console.log("🏠 Auth component rendering:", {
-    hasUser: !!user,
-    guildsCount: guilds?.length || 0,
-    guilds,
-    pathname,
-  });
 
   if (!user) {
     return (

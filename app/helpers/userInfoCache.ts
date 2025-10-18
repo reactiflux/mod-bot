@@ -1,5 +1,5 @@
 import { LRUCache } from "lru-cache";
-import { rest } from "#~/discord/api.js";
+import { ssrDiscordSdk } from "#~/discord/api.js";
 import { Routes } from "discord.js";
 import fs from "node:fs/promises";
 
@@ -18,7 +18,7 @@ export async function getOrFetchUser(id: string) {
   if (cache.has(id)) return cache.get(id);
 
   // @ts-expect-error FIXME: are there types available? schema validation?
-  const { username, global_name } = await rest.get(Routes.user(id));
+  const { username, global_name } = await ssrDiscordSdk.get(Routes.user(id));
   const result = { id, username, global_name } as DiscordUser;
   cache.set(id, result);
   console.log("Fetched user from Discord API:", id);

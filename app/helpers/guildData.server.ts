@@ -1,5 +1,5 @@
 import { Routes } from "discord-api-types/v10";
-import { rest } from "#~/discord/api.js";
+import { ssrDiscordSdk } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export interface GuildRole {
@@ -34,8 +34,10 @@ export async function fetchGuildData(guildId: string): Promise<GuildData> {
       "discord.fetchGuildData",
       () =>
         Promise.all([
-          rest.get(Routes.guildRoles(guildId)) as Promise<GuildRole[]>,
-          rest.get(Routes.guildChannels(guildId)) as Promise<GuildChannel[]>,
+          ssrDiscordSdk.get(Routes.guildRoles(guildId)) as Promise<GuildRole[]>,
+          ssrDiscordSdk.get(Routes.guildChannels(guildId)) as Promise<
+            GuildChannel[]
+          >,
         ]),
     );
 

@@ -7,7 +7,7 @@ import type {
 } from "discord.js";
 import { InteractionType, Routes } from "discord.js";
 
-import { rest } from "#~/discord/api";
+import { ssrDiscordSdk } from "#~/discord/api";
 import type { AnyCommand } from "#~/helpers/discord";
 import {
   isMessageComponentCommand,
@@ -103,14 +103,14 @@ const applyCommandChanges = async (
   del: (id: string) => `/${string}`,
 ) => {
   await Promise.allSettled(
-    toDelete.map((commandId) => rest.delete(del(commandId))),
+    toDelete.map((commandId) => ssrDiscordSdk.delete(del(commandId))),
   );
 
   if (!didCommandsChange && remoteCount === localCommands.length) {
     return;
   }
 
-  await rest.put(put(), { body: localCommands });
+  await ssrDiscordSdk.put(put(), { body: localCommands });
 };
 
 export const deployProdCommands = async (
@@ -129,7 +129,7 @@ export const deployProdCommands = async (
     }
     return g;
   })();
-  const randomGuildCommands = (await rest.get(
+  const randomGuildCommands = (await ssrDiscordSdk.get(
     Routes.applicationGuildCommands(applicationId, randomGuild.id),
   )) as APIApplicationCommand[];
   if (randomGuildCommands.length > 0) {
@@ -137,13 +137,13 @@ export const deployProdCommands = async (
       // for each guild,
       guilds.map(async (g) => {
         // fetch all commands,
-        const commands = (await rest.get(
+        const commands = (await ssrDiscordSdk.get(
           Routes.applicationGuildCommands(applicationId, g.id),
         )) as APIApplicationCommand[];
         // and delete each one
         await Promise.allSettled(
           commands.map(async (c) =>
-            rest.delete(
+            ssrDiscordSdk.delete(
               Routes.applicationGuildCommand(applicationId, g.id, c.id),
             ),
           ),
@@ -152,7 +152,7 @@ export const deployProdCommands = async (
     );
   }
 
-  const remoteCommands = (await rest.get(
+  const remoteCommands = (await ssrDiscordSdk.get(
     Routes.applicationCommands(applicationId),
   )) as APIApplicationCommand[];
   const { didCommandsChange, toDelete } = calculateChangedCommands(
@@ -188,13 +188,13 @@ export const deployTestCommands = async (
 ) => {
   // Delete all global commands
   // This shouldn't happen, but ensures a consistent state esp in development
-  const globalCommands = (await rest.get(
+  const globalCommands = (await ssrDiscordSdk.get(
     Routes.applicationCommands(applicationId),
   )) as APIApplicationCommand[];
   // and delete each one
   await Promise.allSettled(
     globalCommands.map(async (c) =>
-      rest.delete(Routes.applicationCommand(applicationId, c.id)),
+      ssrDiscordSdk.delete(Routes.applicationCommand(applicationId, c.id)),
     ),
   );
 
@@ -203,7 +203,7 @@ export const deployTestCommands = async (
   console.log(`Deploying test commands to ${guilds.size} guilds…`);
   await Promise.all(
     guilds.map(async (guild) => {
-      const guildCommands = (await rest.get(
+      const guildCommands = (await ssrDiscordSdk.get(
         Routes.applicationGuildCommands(applicationId, guild.id),
       )) as APIApplicationCommand[];
 
