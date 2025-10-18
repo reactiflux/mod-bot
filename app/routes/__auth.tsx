@@ -48,7 +48,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
     // Fetch guilds using both user token and bot token
     const guilds = await trackPerformance("discord.fetchGuilds", () =>
-      fetchGuilds(userRest, rest),
+      fetchGuilds(userRest, ssrDiscordSdk),
     );
 
     // Cache the result
@@ -72,13 +72,6 @@ export default function Auth() {
   const user = useOptionalUser();
   const { pathname, search, hash } = useLocation();
   const { guilds } = useLoaderData<typeof loader>();
-
-  console.log("🏠 Auth component rendering:", {
-    hasUser: !!user,
-    guildsCount: guilds?.length || 0,
-    guilds,
-    pathname,
-  });
 
   if (!user) {
     return (
