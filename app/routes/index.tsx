@@ -46,8 +46,9 @@ const EmojiBackdrop = () => {
 export const loader = async ({ request }: Route.LoaderArgs) => {
   // If user is logged in, redirect to guilds page
   const user = await getUser(request);
+
   if (user) {
-    throw redirect("/guilds");
+    throw redirect("/app");
   }
 
   return null;
