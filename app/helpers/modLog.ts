@@ -6,7 +6,7 @@ import type {
   AnyThreadChannel,
   TextChannel,
 } from "discord.js";
-import { MessageType, ChannelType } from "discord.js";
+import { MessageType, ChannelType, messageLink } from "discord.js";
 import { formatDistanceToNowStrict } from "date-fns";
 
 import {
@@ -236,7 +236,7 @@ export const reportUser = async ({
           : singleLine;
       const stats = await getMessageStats(message);
       await thread.parent.send(
-        `> ${truncatedMessage}\n-# ${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code`,
+        `> ${truncatedMessage}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
       );
     }
 
@@ -320,7 +320,7 @@ const constructLog = async ({
   ].filter((e): e is APIEmbed => Boolean(e));
   return {
     content: truncateMessage(`${preface}
--# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> ago`).trim(),
+-# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
