@@ -73,6 +73,18 @@ spec:
                   name: modbot-env
                   key: SENTRY_RELEASES
 
+            - name: VITE_PUBLIC_POSTHOG_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: VITE_PUBLIC_POSTHOG_KEY
+
+            - name: VITE_PUBLIC_POSTHOG_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: VITE_PUBLIC_POSTHOG_HOST
+
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
