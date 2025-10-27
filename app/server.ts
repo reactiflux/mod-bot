@@ -22,6 +22,11 @@ export const app = express();
 const logger = pinoHttp();
 app.use(logger);
 
+// Suppress Chrome DevTools 404 warnings
+app.get("/.well-known/appspecific/*", (_req, res) => {
+  res.status(204).end();
+});
+
 app.use(
   createRequestHandler({
     // @ts-expect-error - virtual module provided by React Router at build time

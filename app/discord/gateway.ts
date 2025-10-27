@@ -9,8 +9,26 @@ import automod from "#~/discord/automod";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startActivityTracking } from "#~/discord/activityTracker";
 
+// Track if gateway is already initialized to prevent duplicate logins during HMR
+// Use globalThis so the flag persists across module reloads
+declare global {
+  // eslint-disable-next-line no-var
+  var __discordGatewayInitialized: boolean | undefined;
+}
+
 export default function init() {
+  if (globalThis.__discordGatewayInitialized) {
+    log(
+      "info",
+      "Gateway",
+      "Gateway already initialized, skipping duplicate init",
+      {},
+    );
+    return;
+  }
+
   log("info", "Gateway", "Initializing Discord gateway", {});
+  globalThis.__discordGatewayInitialized = true;
 
   login();
 

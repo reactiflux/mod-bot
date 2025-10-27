@@ -8,7 +8,6 @@
   },
   "scripts": {
     "dev": "npm run dev:init; run-p dev:css dev:bot",
-    "dev-client": "npm run dev:init; run-p dev:css dev:web",
     "start": "npm run start:migrate; npm run start:bot",
     "test": "vitest",
     "build": "run-s build:*",
@@ -25,7 +24,7 @@
     "build:app": "react-router build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
     "dev:css": "npm run generate:css -- --watch",
-    "dev:bot": "node --watch --watch-path='./app' index.dev.js",
+    "dev:bot": "node index.dev.js",
     "dev:web": "node index.dev.js",
     "kysely:seed": "kysely --no-outdated-check seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
