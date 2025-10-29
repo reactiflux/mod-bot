@@ -1,11 +1,15 @@
-import type { ComponentEventUser, ComponentEvent } from "reacord";
-import { Button, ActionRow } from "reacord";
+import {
+  ActionRow,
+  Button,
+  type ComponentEvent,
+  type ComponentEventUser,
+} from "reacord";
 
-import type { Resolution } from "#~/helpers/modResponse";
 import {
   humanReadableResolutions,
   resolutions,
   useVotes,
+  type Resolution,
 } from "#~/helpers/modResponse";
 
 const VOTES_TO_APPROVE = 3;
@@ -33,7 +37,7 @@ export const ModResponse = ({
       label={label}
       style={style}
       onClick={async (event) => {
-        if (!event.guild?.member.roles?.includes(modRoleId)) {
+        if (!event.guild?.member.roles.includes(modRoleId)) {
           return;
         }
         try {
@@ -47,6 +51,7 @@ export const ModResponse = ({
           resolution,
           event.user.id,
         );
+
         console.log(
           `recording vote for ${resolution} from ${event.user.username}. ${leader} leads with ${voteCount} (needs ${votesRequired})`,
         );

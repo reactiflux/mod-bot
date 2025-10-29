@@ -39,5 +39,6 @@ export const sentryReleases = getEnv("SENTRY_RELEASES");
 
 export const amplitudeKey = getEnv("AMPLITUDE_API_KEY", true);
 
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 if (!ok) throw new Error("Environment misconfigured");
 console.log("");

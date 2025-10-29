@@ -1,9 +1,12 @@
-import type { ChatInputCommandInteraction } from "discord.js";
-import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import {
+  PermissionFlagsBits,
+  SlashCommandBuilder,
+  type ChatInputCommandInteraction,
+} from "discord.js";
 
-import { SETTINGS, setSettings, registerGuild } from "#~/models/guilds.server";
-import { log, trackPerformance } from "#~/helpers/observability";
 import { commandStats } from "#~/helpers/metrics";
+import { log, trackPerformance } from "#~/helpers/observability";
+import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 
 const command = new SlashCommandBuilder()
   .setName("setup")

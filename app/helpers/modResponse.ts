@@ -25,7 +25,7 @@ export const useVotes = () => {
     (oldVotes: typeof votes, newVote: Resolution, userId: string) => {
       const newVotes = {
         ...oldVotes,
-        [newVote]: uniq((oldVotes[newVote] || []).concat(userId)),
+        [newVote]: uniq(oldVotes[newVote].concat(userId)),
       };
       setVotes(newVotes);
 

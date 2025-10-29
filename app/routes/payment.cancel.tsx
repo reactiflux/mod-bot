@@ -1,6 +1,8 @@
-import type { Route } from "./+types/payment.cancel";
-import { useLoaderData, Link } from "react-router";
+import { Link, useLoaderData } from "react-router";
+
 import { requireUser } from "#~/models/session.server";
+
+import type { Route } from "./+types/payment.cancel";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);

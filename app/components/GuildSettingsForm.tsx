@@ -1,4 +1,5 @@
 import { Form } from "react-router";
+
 import type { GuildRole, ProcessedChannel } from "#~/helpers/guildData.server";
 
 export function GuildSettingsForm({
@@ -34,7 +35,7 @@ export function GuildSettingsForm({
             id="moderator_role"
             name="moderator_role"
             required
-            defaultValue={defaultValues?.moderatorRole || ""}
+            defaultValue={defaultValues?.moderatorRole ?? ""}
             className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">Select a role...</option>
@@ -72,7 +73,7 @@ export function GuildSettingsForm({
             id="mod_log_channel"
             name="mod_log_channel"
             required
-            defaultValue={defaultValues?.modLogChannel || ""}
+            defaultValue={defaultValues?.modLogChannel ?? ""}
             className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">Select a channel...</option>
@@ -83,11 +84,7 @@ export function GuildSettingsForm({
                     #{item.data.name}
                   </option>
                 );
-              } else if (
-                item.type === "category" &&
-                item.children &&
-                item.children.length > 0
-              ) {
+              } else if (item.children && item.children.length > 0) {
                 return (
                   <optgroup
                     key={item.data.id}
@@ -121,7 +118,7 @@ export function GuildSettingsForm({
           <select
             id="restricted_role"
             name="restricted_role"
-            defaultValue={defaultValues?.restrictedRole || ""}
+            defaultValue={defaultValues?.restrictedRole ?? ""}
             className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">Select a role...</option>

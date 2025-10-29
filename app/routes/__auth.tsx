@@ -1,24 +1,27 @@
-import { Outlet, useLocation, useLoaderData } from "react-router";
-import type { Route } from "./+types/__auth";
+import { Outlet, useLoaderData, useLocation } from "react-router";
+
+import TTLCache from "@isaacs/ttlcache";
+
 import { Login } from "#~/basics/login";
-import { useOptionalUser } from "#~/utils";
-import { getUser } from "#~/models/session.server";
-import { fetchGuilds } from "#~/models/discord.server";
+import { DiscordLayout } from "#~/components/DiscordLayout";
 import { ssrDiscordSdk, userDiscordSdkFromRequest } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { DiscordLayout } from "#~/components/DiscordLayout";
-import TTLCache from "@isaacs/ttlcache";
+import { fetchGuilds } from "#~/models/discord.server";
+import { getUser } from "#~/models/session.server";
+import { useOptionalUser } from "#~/utils";
+
+import type { Route } from "./+types/__auth";
 
 // TTL cache for guild data - 5 minute TTL, max 100 users
 const guildCache = new TTLCache<
   string,
-  Array<{
+  {
     id: string;
     name: string;
     icon?: string;
     hasBot: boolean;
     authz: string[];
-  }>
+  }[]
 >({
   ttl: 5 * 60 * 1000, // 5 minutes
   max: 100, // max 100 users cached

@@ -1,18 +1,15 @@
-import Sentry from "#~/helpers/sentry.server";
-import { log, trackPerformance } from "#~/helpers/observability";
-import { botStats } from "#~/helpers/metrics";
-
+import { startActivityTracking } from "#~/discord/activityTracker";
+import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
-
-import automod from "#~/discord/automod";
 import onboardGuild from "#~/discord/onboardGuild";
-import { startActivityTracking } from "#~/discord/activityTracker";
+import { botStats } from "#~/helpers/metrics";
+import { log, trackPerformance } from "#~/helpers/observability";
+import Sentry from "#~/helpers/sentry.server";
 
 // Track if gateway is already initialized to prevent duplicate logins during HMR
 // Use globalThis so the flag persists across module reloads
 declare global {
-  // eslint-disable-next-line no-var
   var __discordGatewayInitialized: boolean | undefined;
 }
 
@@ -30,7 +27,7 @@ export default function init() {
   log("info", "Gateway", "Initializing Discord gateway", {});
   globalThis.__discordGatewayInitialized = true;
 
-  login();
+  void login();
 
   client.on("ready", async () => {
     await trackPerformance(
@@ -68,7 +65,7 @@ export default function init() {
   client.on("threadCreate", (thread) => {
     log("info", "Gateway", "Thread created", {
       threadId: thread.id,
-      guildId: thread.guild?.id,
+      guildId: thread.guild.id,
       channelId: thread.parentId,
       threadName: thread.name,
     });
@@ -79,7 +76,7 @@ export default function init() {
     thread.join().catch((error) => {
       log("error", "Gateway", "Failed to join thread", {
         threadId: thread.id,
-        guildId: thread.guild?.id,
+        guildId: thread.guild.id,
         error: error instanceof Error ? error.message : String(error),
       });
     });

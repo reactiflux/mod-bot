@@ -1,13 +1,14 @@
-import fetch from "node-fetch";
-import queryString from "query-string";
 import type {
-  Message,
-  Guild,
-  ThreadChannel,
   ChatInputCommandInteraction,
+  Guild,
+  Message,
   MessageContextMenuCommandInteraction,
+  ThreadChannel,
   UserContextMenuCommandInteraction,
 } from "discord.js";
+import fetch from "node-fetch";
+import queryString from "query-string";
+
 import { amplitudeKey } from "#~/helpers/env.server";
 import { log } from "#~/helpers/observability";
 
@@ -53,7 +54,7 @@ export const botStats = {
     emitEvent(events.threadCreated, {
       data: {
         threadId: thread.id,
-        guildId: thread.guild?.id ?? "none",
+        guildId: thread.guild.id,
         channelId: thread.parentId ?? "none",
         threadName: thread.name,
       },
@@ -77,7 +78,7 @@ export const commandStats = {
       | MessageContextMenuCommandInteraction
       | UserContextMenuCommandInteraction,
     commandName: string,
-    success: boolean = true,
+    success = true,
     duration?: number,
   ) =>
     emitEvent(events.commandExecuted, {
@@ -160,13 +161,13 @@ const emitEvent = (
   const fields = {
     api_key: amplitudeKey,
     event: JSON.stringify({
-      user_id: userId || "0",
+      user_id: userId ?? "0",
       event_type: eventName,
       event_properties: data,
     }),
   };
 
-  (async () => {
+  void (async () => {
     try {
       await fetch(
         `https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`,

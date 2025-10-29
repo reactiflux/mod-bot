@@ -43,13 +43,5 @@ export const fillDateGaps = <T extends { date: string }>(
   });
 
   // Fill missing dates with zeroed-out data
-  return dateRange.map((date) => {
-    return (
-      dateToEntryMap[date] ||
-      ({
-        date,
-        ...zeroTemplate,
-      } as T)
-    );
-  });
+  return dateRange.map((date) => ({ date, ...zeroTemplate }) as T);
 };

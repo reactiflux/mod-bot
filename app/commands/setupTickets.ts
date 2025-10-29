@@ -1,31 +1,33 @@
-import { TextChannel, type ChatInputCommandInteraction } from "discord.js";
+import { format } from "date-fns";
+import { Routes, TextInputStyle } from "discord-api-types/v10";
 import {
-  ChannelType,
-  ComponentType,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
+  ComponentType,
+  InteractionType,
+  MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  MessageFlags,
-  InteractionType,
-  ModalBuilder,
   TextInputBuilder,
+  type ChatInputCommandInteraction,
+  type TextChannel,
 } from "discord.js";
-import { REST } from "@discordjs/rest";
-import { Routes, TextInputStyle } from "discord-api-types/v10";
 
-import { discordToken } from "#~/helpers/env.server";
-import { SETTINGS, fetchSettings } from "#~/models/guilds.server";
-import { format } from "date-fns";
-import type {
-  AnyCommand,
-  MessageComponentCommand,
-  ModalCommand,
-  SlashCommand,
-} from "#~/helpers/discord";
-import { quoteMessageContent } from "#~/helpers/discord";
+import { REST } from "@discordjs/rest";
+
 import db from "#~/db.server.js";
+import {
+  quoteMessageContent,
+  type AnyCommand,
+  type MessageComponentCommand,
+  type ModalCommand,
+  type SlashCommand,
+} from "#~/helpers/discord";
+import { discordToken } from "#~/helpers/env.server";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 const rest = new REST({ version: "10" }).setToken(discordToken);
 
@@ -70,7 +72,7 @@ export const Command = [
       const pingableRole = interaction.options.getRole("role");
       const ticketChannel = interaction.options.getChannel("channel");
       const buttonText =
-        interaction.options.getString("button-text") || DEFAULT_BUTTON_TEXT;
+        interaction.options.getString("button-text") ?? DEFAULT_BUTTON_TEXT;
 
       if (ticketChannel && ticketChannel.type !== ChannelType.GuildText) {
         await interaction.reply({
@@ -146,7 +148,6 @@ export const Command = [
       if (
         !interaction.channel ||
         interaction.channel.type !== ChannelType.GuildText ||
-        !interaction.user ||
         !interaction.guild ||
         !interaction.message
       ) {
@@ -157,7 +158,7 @@ export const Command = [
         return;
       }
       const { channel, fields, user } = interaction;
-      const concern = fields.getField("concern").value;
+      const concern = fields.getTextInputValue("concern");
 
       let config = await db
         .selectFrom("tickets_config")
@@ -183,7 +184,7 @@ export const Command = [
       const ticketsChannel = config.channel_id
         ? ((await interaction.guild.channels.fetch(
             config.channel_id,
-          )) as TextChannel) || channel
+          )) as TextChannel)
         : channel;
 
       const thread = await ticketsChannel.threads.create({
@@ -218,7 +219,7 @@ ${quoteMessageContent(concern)}`);
         ],
       });
 
-      interaction.reply({
+      void interaction.reply({
         content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
         ephemeral: true,
       });
@@ -267,4 +268,4 @@ ${quoteMessageContent(concern)}`);
       return;
     },
   } as MessageComponentCommand,
-] as Array<AnyCommand>;
+] as AnyCommand[];

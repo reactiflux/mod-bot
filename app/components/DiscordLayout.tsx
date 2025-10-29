@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
-import { useUser } from "#~/utils";
+
 import { Logout } from "#~/basics/logout";
+import { useUser } from "#~/utils";
 
 interface DiscordLayoutProps {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
-  guilds: Array<{
+  guilds: {
     id: string;
     name: string;
     icon?: string;
     hasBot: boolean;
     authz: string[];
-  }>;
+  }[];
 }
 
 export function DiscordLayout({

@@ -1,26 +1,16 @@
-import type {
-  Message,
-  MessageCreateOptions,
-  User,
-  APIEmbed,
-  AnyThreadChannel,
-  TextChannel,
-} from "discord.js";
-import { MessageType, ChannelType, messageLink } from "discord.js";
 import { formatDistanceToNowStrict } from "date-fns";
-
 import {
-  deleteReport,
-  ReportReasons,
-  type Report,
-} from "#~/models/reportedMessages.server";
-import {
-  recordReport,
-  getReportsForMessage,
-  getUserReportStats,
-} from "#~/models/reportedMessages.server";
+  ChannelType,
+  messageLink,
+  MessageType,
+  type AnyThreadChannel,
+  type APIEmbed,
+  type Message,
+  type MessageCreateOptions,
+  type TextChannel,
+  type User,
+} from "discord.js";
 
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
   constructDiscordLink,
   describeAttachments,
@@ -29,13 +19,23 @@ import {
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
-import { truncateMessage } from "#~/helpers/string";
 import { escalationControls } from "#~/helpers/escalate";
+import { truncateMessage } from "#~/helpers/string";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
-  getUserThread,
+  deleteReport,
+  getReportsForMessage,
+  getUserReportStats,
+  recordReport,
+  ReportReasons,
+  type Report,
+} from "#~/models/reportedMessages.server";
+import {
   createUserThread,
+  getUserThread,
   updateUserThread,
 } from "#~/models/userThreads.server";
+
 import { retry } from "./misc";
 import { log } from "./observability";
 
@@ -285,7 +285,7 @@ const constructLog = async ({
   logs: Report[];
 }): Promise<MessageCreateOptions> => {
   const lastReport = logs.at(-1);
-  if (!lastReport || !lastReport.message.guild) {
+  if (!lastReport?.message.guild) {
     throw new Error("Something went wrong when trying to retrieve last report");
   }
   const { moderator } = await fetchSettings(lastReport.message.guild.id, [

@@ -1,6 +1,7 @@
 import "dotenv/config";
-import * as vite from "vite";
+
 import express from "express";
+import * as vite from "vite";
 
 const app = express();
 
@@ -69,7 +70,7 @@ viteDevServer.watcher.on("change", async (file) => {
   }
 });
 
-const PORT = process.env.PORT || "3000";
+const PORT = process.env.PORT ?? "3000";
 app.listen(PORT, async () => {
   console.log("INI", "Now listening on port", PORT);
 });

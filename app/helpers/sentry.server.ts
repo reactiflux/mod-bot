@@ -1,8 +1,9 @@
 import * as Sentry from "@sentry/node";
+
 import { isProd, sentryIngest } from "#~/helpers/env.server";
 
 // Only initialize Sentry if DSN is valid (not a placeholder like "example.com")
-const isValidDsn = sentryIngest && sentryIngest.startsWith("https://");
+const isValidDsn = sentryIngest.startsWith("https://");
 
 if (isValidDsn) {
   const sentryOptions = {

@@ -133,8 +133,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 
 ```typescript
 // app/models/reportedMessages.server.ts
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
+import db, { type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { ReportReasons } from "#~/models/reportedMessages.server";
 
