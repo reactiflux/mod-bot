@@ -1,9 +1,12 @@
-import { UserContextMenuCommandInteraction } from "discord.js";
-
-import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
-import { log, trackPerformance } from "#~/helpers/observability";
+import {
+  ContextMenuCommandBuilder,
+  PermissionFlagsBits,
+  type UserContextMenuCommandInteraction,
+} from "discord.js";
+
 import { commandStats } from "#~/helpers/metrics";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Force Ban")

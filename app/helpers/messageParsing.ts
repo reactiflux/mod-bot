@@ -23,8 +23,8 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
       // but it's quirky, capture groups are spread and the position and entire
       // string are at the end of the args, we pop them off to get their values
       // which leaves an array of capture groups
-      const orig = captured.pop();
-      const position = captured.pop();
+      const orig = captured.pop() as string;
+      const position = captured.pop() as number;
       // code blocks may be preceded by text, add those first
       const prev = orig.slice(idx, position);
       idx = position;
@@ -42,8 +42,8 @@ export function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
         blocks.push({ type: "inlinecode", code });
       } else if (match.startsWith("[") || match.startsWith("http")) {
         // match is a link
-        const label = captured[0] || undefined;
-        let url = captured[1] || match;
+        const label = (captured[0] as string) || undefined;
+        let url = (captured[1] as string) || match;
         // links in discord may have angle brackets around them to suppress previews
         if (url.startsWith("<") && url.endsWith(">")) url = url.slice(1, -1);
         blocks.push({ type: "link", url, label });

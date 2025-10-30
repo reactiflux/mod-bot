@@ -1,9 +1,14 @@
-import { LRUCache } from "lru-cache";
-import { ssrDiscordSdk } from "#~/discord/api.js";
-import { Routes } from "discord.js";
 import fs from "node:fs/promises";
+import { Routes } from "discord.js";
+import { LRUCache } from "lru-cache";
 
-type DiscordUser = { username: string; global_name: string; id: string };
+import { ssrDiscordSdk } from "#~/discord/api.js";
+
+interface DiscordUser {
+  username: string;
+  global_name: string;
+  id: string;
+}
 
 const cache = new LRUCache<string, DiscordUser>({
   ttl: 1000 * 60 * 60 * 24 * 14, // 14 days
@@ -12,7 +17,7 @@ const cache = new LRUCache<string, DiscordUser>({
 });
 
 const cachefile = "./userInfoCache.json";
-load();
+void load();
 
 export async function getOrFetchUser(id: string) {
   if (cache.has(id)) return cache.get(id);
@@ -22,7 +27,7 @@ export async function getOrFetchUser(id: string) {
   const result = { id, username, global_name } as DiscordUser;
   cache.set(id, result);
   console.log("Fetched user from Discord API:", id);
-  dump();
+  void dump();
   return result;
 }
 

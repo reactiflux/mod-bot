@@ -1,8 +1,5 @@
 export default {
-  "**/*.[tj]s?(x)": [
-    "eslint --no-warn-ignored --fix --max-warnings=0",
-    "prettier --check",
-  ],
+  "**/*.[tj]s?(x)": ["npm run format:fix", "npm run lint:fix"],
   "migrations/*.[tj]s": [
     "npm run start:migrate",
     "npm run generate:db-types",

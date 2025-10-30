@@ -35,7 +35,7 @@ export const SubscriptionService = {
           });
         }
 
-        return result || null;
+        return result ?? null;
       },
       { guildId },
     );
@@ -55,7 +55,7 @@ export const SubscriptionService = {
         log("info", "Subscription", "Creating or updating subscription", {
           guildId: data.guild_id,
           productTier: data.product_tier,
-          status: data.status || "active",
+          status: data.status ?? "active",
           hasStripeCustomer: !!data.stripe_customer_id,
           hasStripeSubscription: !!data.stripe_subscription_id,
           currentPeriodEnd: data.current_period_end,
@@ -99,7 +99,7 @@ export const SubscriptionService = {
             previousTier: existing?.product_tier,
             newTier: data.product_tier,
             previousStatus: existing?.status,
-            newStatus: data.status || "active",
+            newStatus: data.status ?? "active",
           },
         );
       },
@@ -353,11 +353,11 @@ export const SubscriptionService = {
         ]);
 
         const metrics = {
-          totalSubscriptions: total?.count || 0,
-          activeSubscriptions: active?.count || 0,
-          freeSubscriptions: free?.count || 0,
-          paidSubscriptions: paid?.count || 0,
-          inactiveSubscriptions: inactive?.count || 0,
+          totalSubscriptions: total?.count ?? 0,
+          activeSubscriptions: active?.count ?? 0,
+          freeSubscriptions: free?.count ?? 0,
+          paidSubscriptions: paid?.count ?? 0,
+          inactiveSubscriptions: inactive?.count ?? 0,
         };
 
         log("info", "Subscription", "Subscription metrics retrieved", metrics);

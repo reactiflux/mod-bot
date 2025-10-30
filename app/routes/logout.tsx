@@ -1,6 +1,6 @@
-import type { Route } from "./+types/logout";
-
 import { logout } from "#~/models/session.server";
+
+import type { Route } from "./+types/logout";
 
 export default function Logout() {
   return (

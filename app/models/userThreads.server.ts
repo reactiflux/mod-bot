@@ -1,5 +1,4 @@
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
+import db, { type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type UserThread = DB["user_threads"];

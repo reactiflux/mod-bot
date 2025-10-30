@@ -1,5 +1,6 @@
-import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
+import { ActivityType, Client, GatewayIntentBits, Partials } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
+
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 

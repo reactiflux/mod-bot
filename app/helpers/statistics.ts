@@ -156,13 +156,10 @@ export function outliers(
     return data.filter((value) => value < lowerBound || value > upperBound);
   }
 
-  if (method === "zscore") {
-    const mean = ss.mean(data);
-    const stdDev = ss.standardDeviation(data);
-    return data.filter((value) => Math.abs(zScore(value, mean, stdDev)) > 2);
-  }
-
-  return [];
+  // method === "zscore"
+  const mean = ss.mean(data);
+  const stdDev = ss.standardDeviation(data);
+  return data.filter((value) => Math.abs(zScore(value, mean, stdDev)) > 2);
 }
 
 export function movingAverage(data: number[], windowSize: number): number[] {
@@ -180,8 +177,8 @@ export function movingAverage(data: number[], windowSize: number): number[] {
 
 export function histogram(
   data: number[],
-  bins: number = 10,
-): Array<{ bin: string; count: number; frequency: number }> {
+  bins = 10,
+): { bin: string; count: number; frequency: number }[] {
   if (data.length === 0) {
     return [];
   }
@@ -209,7 +206,7 @@ export function histogram(
 
 export function confidence(
   data: number[],
-  level: number = 0.95,
+  level = 0.95,
 ): { mean: number; marginOfError: number; lower: number; upper: number } {
   if (data.length === 0) {
     throw new Error("Cannot calculate confidence interval for empty dataset");

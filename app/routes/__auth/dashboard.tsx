@@ -1,8 +1,10 @@
-import type { Route } from "./+types/dashboard";
-import { data, useSearchParams, Link } from "react-router";
 import type { LabelHTMLAttributes, PropsWithChildren } from "react";
-import { getTopParticipants } from "#~/models/activity.server";
+import { data, Link, useSearchParams } from "react-router";
+
 import { log, trackPerformance } from "#~/helpers/observability";
+import { getTopParticipants } from "#~/models/activity.server";
+
+import type { Route } from "./+types/dashboard";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return trackPerformance(
@@ -18,7 +20,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         start,
         end,
         userAgent: request.headers.get("user-agent"),
-        ip: request.headers.get("x-forwarded-for") || "unknown",
+        ip: request.headers.get("x-forwarded-for") ?? "unknown",
       });
 
       if (!(guildId && start && end)) {
@@ -41,7 +43,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         guildId,
         start,
         end,
-        participantCount: output?.length || 0,
+        participantCount: output.length || 0,
       });
 
       return output;
@@ -60,10 +62,11 @@ const Label = (props: LabelHTMLAttributes<Element>) => (
   </label>
 );
 
-const percent = new Intl.NumberFormat("en-US", {
+const percentFormatter = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 0,
-}).format;
+});
+const percent = percentFormatter.format.bind(percentFormatter);
 
 function RangeForm({ values }: { values: { start?: string; end?: string } }) {
   return (
@@ -149,7 +152,7 @@ ${data
                       search: `?start=${start}&end=${end}`,
                     }}
                   >
-                    {d.data.member.username || d.data.member.author_id}
+                    {d.data.member.username ?? d.data.member.author_id}
                   </Link>
                 </td>
                 <td>{percent(d.metadata.percentZeroDays)}</td>

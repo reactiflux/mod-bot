@@ -9,6 +9,15 @@ npm i
 npm run dev
 ```
 
+## Development
+
+The dev server uses Vite for intelligent hot reloading:
+
+- **Frontend changes** (React components, routes, styles): Vite HMR updates instantly (<1s) without restarting the server
+- **Server changes** (Discord bot, commands, helpers, models): Vite automatically reloads the server module to apply changes
+
+Just run `npm run dev` and edit any file - the right reload strategy is applied automatically!
+
 ## Tech
 
 - [Remix](https://remix.run/docs/en/v1)

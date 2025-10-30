@@ -1,29 +1,26 @@
+import { randomUUID } from "crypto";
 import {
   createCookieSessionStorage,
   createSessionStorage,
-  redirect,
   data,
+  redirect,
 } from "react-router";
-
-import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
-import db from "#~/db.server";
-import type { DB } from "#~/db.server";
+import db, { type DB } from "#~/db.server";
+import {
+  applicationId,
+  discordSecret,
+  isProd,
+  sessionSecret,
+} from "#~/helpers/env.server";
+import { fetchUser } from "#~/models/discord.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
 import {
   createUser,
   getUserByExternalId,
   getUserById,
 } from "#~/models/user.server";
-import { fetchUser } from "#~/models/discord.server";
-import { SubscriptionService } from "#~/models/subscriptions.server";
-
-import {
-  applicationId,
-  discordSecret,
-  sessionSecret,
-  isProd,
-} from "#~/helpers/env.server";
 
 export type Sessions = DB["sessions"];
 
@@ -101,7 +98,7 @@ const {
     await db
       .updateTable("sessions")
       .set("data", JSON.stringify(data))
-      .set("expires", expires?.toString() || null)
+      .set("expires", expires?.toString() ?? null)
       .where("id", "=", id)
       .execute();
   },
@@ -124,7 +121,7 @@ export const DbSessionKeys = {
 
 async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getDbSession(request.headers.get("Cookie"));
-  const userId = session.get(CookieSessionKeys.userId);
+  const userId = session.get(CookieSessionKeys.userId) as string;
   return userId;
 }
 
@@ -235,15 +232,19 @@ export async function completeOauthLogin(request: Request) {
     getDbSession(reqCookie),
   ]);
 
-  const cookieStateStr = cookieSession.get(DbSessionKeys.authState);
-  const flow = cookieSession.get(DbSessionKeys.authFlow) ?? "user";
-  const guildId = cookieSession.get(DbSessionKeys.authGuildId);
+  const cookieStateStr = cookieSession.get(DbSessionKeys.authState) as string;
+  const flow = (cookieSession.get(DbSessionKeys.authFlow) ?? "user") as string;
+  const guildId = cookieSession.get(DbSessionKeys.authGuildId) as string;
 
   // Parse state to get UUID and redirectTo
   let cookieState;
   let stateRedirectTo = "/app";
   try {
-    const parsedState = JSON.parse(cookieStateStr || "{}");
+    const parsedState = JSON.parse(cookieStateStr || "{}") as {
+      uuid: string;
+      redirectTo: string;
+      [k: string]: unknown;
+    };
     cookieState = parsedState.uuid;
     stateRedirectTo = decodeURIComponent(parsedState.redirectTo) || "/app";
   } catch (e) {
@@ -254,7 +255,10 @@ export async function completeOauthLogin(request: Request) {
   // Parse incoming state
   let incomingStateUuid;
   try {
-    const parsedIncomingState = JSON.parse(state || "{}");
+    const parsedIncomingState = JSON.parse(state ?? "{}") as {
+      uuid: string;
+      [k: string]: unknown;
+    };
     incomingStateUuid = parsedIncomingState.uuid;
   } catch (e) {
     // Fallback for legacy/simple state format
@@ -282,9 +286,7 @@ export async function completeOauthLogin(request: Request) {
     // Do nothing
     // TODO: bail out if there's a network/etc error
   }
-  if (!userId) {
-    userId = await createUser(discordUser.email, discordUser.id);
-  }
+  userId ??= await createUser(discordUser.email, discordUser.id);
   if (!userId) {
     throw data(
       { message: `Couldn't find a user or create a new user` },
@@ -335,7 +337,10 @@ export async function completeOauthLogin(request: Request) {
 
 export async function retrieveDiscordToken(request: Request) {
   const dbSession = await getDbSession(request.headers.get("Cookie"));
-  const storedToken = dbSession.get(CookieSessionKeys.discordToken);
+  const storedToken = dbSession.get(CookieSessionKeys.discordToken) as {
+    discordToken: string;
+    [k: string]: unknown;
+  };
   const token = authorization.createToken(storedToken);
   return token;
 }

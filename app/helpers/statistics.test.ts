@@ -1,15 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+
 import {
-  descriptiveStats,
-  correlation,
-  linearRegression,
-  zScore,
-  percentile,
-  outliers,
-  movingAverage,
-  histogram,
   confidence,
+  correlation,
+  descriptiveStats,
+  histogram,
+  linearRegression,
+  movingAverage,
+  outliers,
+  percentile,
   tTest,
+  zScore,
 } from "./statistics";
 
 describe("statistics helpers", () => {

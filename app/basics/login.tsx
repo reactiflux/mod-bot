@@ -1,8 +1,8 @@
-import { Form } from "react-router";
 import type { ButtonHTMLAttributes } from "react";
+import { Form } from "react-router";
 
 interface LoginProps extends ButtonHTMLAttributes<Element> {
-  errors?: { [k: string]: string };
+  errors?: Record<string, string>;
   redirectTo?: string;
 }
 

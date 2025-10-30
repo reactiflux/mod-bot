@@ -1,19 +1,21 @@
 import {
-  ChannelType,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
+  type Message,
+  type TextChannel,
+  type ThreadChannel,
+  type User,
 } from "discord.js";
-import type { Message, TextChannel, ThreadChannel, User } from "discord.js";
+import { type ComponentEventReplyOptions, type ReacordInstance } from "reacord";
 
+import { ModResponse } from "#~/commands/reacord/ModResponse";
 import { quoteAndEscape } from "#~/helpers/discord";
 import { reportUser } from "#~/helpers/modLog";
 import { resolutions } from "#~/helpers/modResponse";
-
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
-import { ModResponse } from "#~/commands/reacord/ModResponse";
-import { type ComponentEventReplyOptions, type ReacordInstance } from "reacord";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { ReportReasons } from "#~/models/reportedMessages.server";
 
 export async function escalationControls(
@@ -136,7 +138,7 @@ export async function escalate(
             ]);
             return;
           case resolutions.warning: {
-            reportUser({
+            void reportUser({
               reason: ReportReasons.modResolution,
               message: reportedMessage,
               staff,
@@ -166,14 +168,14 @@ Your message concerned the moderators enough that they felt it necessary to inte
 
 ${quoteAndEscape(reportedMessage.content)}`);
 
-            reportedMessage.reply(
+            void reportedMessage.reply(
               `This user has been formally warned by the moderators. Please review the community rules.`,
             );
             return;
           }
 
           case resolutions.track:
-            reportUser({
+            void reportUser({
               reason: ReportReasons.modResolution,
               message: reportedMessage,
               staff,
@@ -181,13 +183,13 @@ ${quoteAndEscape(reportedMessage.content)}`);
             return;
 
           case resolutions.timeout:
-            reportUser({
+            void reportUser({
               reason: ReportReasons.modResolution,
               message: reportedMessage,
               staff,
               extra: "✅ Timed out overnight",
             });
-            timeout(reportedMessage.member);
+            void timeout(reportedMessage.member);
 
             return;
         }

@@ -1,7 +1,15 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  type LoaderFunctionArgs,
+  type MetaFunction,
+} from "react-router";
 
 import "./styles/tailwind.css";
+
 import { getUser } from "./models/session.server";
 
 export const meta: MetaFunction = () => [

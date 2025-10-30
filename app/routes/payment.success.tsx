@@ -1,8 +1,10 @@
-import type { Route } from "./+types/payment.success";
-import { data, useLoaderData, Link } from "react-router";
+import { data, Link, useLoaderData } from "react-router";
+
 import { requireUser } from "#~/models/session.server";
-import { SubscriptionService } from "#~/models/subscriptions.server";
 import { StripeService } from "#~/models/stripe.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
+
+import type { Route } from "./+types/payment.success";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
@@ -21,7 +23,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   // Verify Stripe session
   const stripeSession = await StripeService.verifyCheckoutSession(sessionId);
 
-  if (!stripeSession || stripeSession.payment_status !== "paid") {
+  if (stripeSession?.payment_status !== "paid") {
     throw data({ message: "Payment verification failed" }, { status: 400 });
   }
 

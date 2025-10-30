@@ -18,5 +18,5 @@ export const retry = async <T>(
       lastError = e;
     }
   }
-  throw lastError as Error;
+  throw lastError;
 };

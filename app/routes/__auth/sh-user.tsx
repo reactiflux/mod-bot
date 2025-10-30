@@ -1,25 +1,27 @@
-import type { Route } from "./+types/sh-user";
-import { type LoaderFunctionArgs, Link, useSearchParams } from "react-router";
+import { useMemo } from "react";
+import { Link, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import {
-  ComposedChart,
   // Line,
   // Area,
   Bar,
-  XAxis,
-  YAxis,
   CartesianGrid,
-  Tooltip,
+  ComposedChart,
   Legend,
-  // Scatter,
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
   PolarAngleAxis,
+  PolarGrid,
   PolarRadiusAxis,
   Radar,
+  RadarChart,
+  // Scatter,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { useMemo } from "react";
+
 import { getUserMessageAnalytics } from "#~/models/activity.server";
+
+import type { Route } from "./+types/sh-user";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
@@ -105,10 +107,10 @@ text {
           {data.userInfo?.username}
           <small className="text-gray-300">
             {data.userInfo?.global_name &&
-              data.userInfo?.global_name !== data.userInfo?.username && (
+              data.userInfo.global_name !== data.userInfo.username && (
                 <div className="pt-2 text-center text-xl text-gray-300">
                   <small>In {derivedData.daysBetween} days</small> (
-                  {data.userInfo?.global_name}) <small>:</small>
+                  {data.userInfo.global_name}) <small>:</small>
                 </div>
               )}
           </small>

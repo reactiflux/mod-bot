@@ -1,23 +1,24 @@
-import type {
-  APIApplicationCommand,
-  Client,
-  ContextMenuCommandBuilder,
-  OAuth2Guild,
-  SlashCommandBuilder,
+import {
+  InteractionType,
+  Routes,
+  type APIApplicationCommand,
+  type Client,
+  type ContextMenuCommandBuilder,
+  type OAuth2Guild,
+  type SlashCommandBuilder,
 } from "discord.js";
-import { InteractionType, Routes } from "discord.js";
 
 import { ssrDiscordSdk } from "#~/discord/api";
-import type { AnyCommand } from "#~/helpers/discord";
 import {
   isMessageComponentCommand,
   isMessageContextCommand,
   isModalCommand,
   isSlashCommand,
   isUserContextCommand,
+  type AnyCommand,
 } from "#~/helpers/discord";
-import { applicationId, isProd } from "#~/helpers/env.server";
 import { calculateChangedCommands } from "#~/helpers/discordCommands";
+import { applicationId, isProd } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability.js";
 
 /**
@@ -50,18 +51,18 @@ export const deployCommands = async (client: Client) => {
           isMessageContextCommand(config) &&
           interaction.isMessageContextMenuCommand()
         ) {
-          config.handler(interaction);
+          void config.handler(interaction);
           return;
         }
         if (
           isUserContextCommand(config) &&
           interaction.isUserContextMenuCommand()
         ) {
-          config.handler(interaction);
+          void config.handler(interaction);
           return;
         }
         if (isSlashCommand(config) && interaction.isChatInputCommand()) {
-          config.handler(interaction);
+          void config.handler(interaction);
           return;
         }
         throw new Error("Didn't find a handler for an interaction");
@@ -75,7 +76,7 @@ export const deployCommands = async (client: Client) => {
           isMessageComponentCommand(config) &&
           interaction.isMessageComponent()
         ) {
-          config.handler(interaction);
+          void config.handler(interaction);
         }
         return;
       }
@@ -84,7 +85,7 @@ export const deployCommands = async (client: Client) => {
         if (!config) return;
 
         if (isModalCommand(config) && interaction.isModalSubmit()) {
-          config.handler(interaction);
+          void config.handler(interaction);
         }
         return;
       }
@@ -236,7 +237,7 @@ const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
   return {
     command,
     handler: (interaction: Parameters<T["handler"]>[0]) => {
-      trackPerformance(`withPerf HoF ${command.name}`, async () => {
+      void trackPerformance(`withPerf HoF ${command.name}`, async () => {
         try {
           // @ts-expect-error Unclear why this isn't working but it seems fine
           await handler(interaction);
@@ -267,5 +268,5 @@ const matchCommand = (customId: string) => {
     return config;
   }
   const key = [...commands.keys()].find((k) => customId.startsWith(`${k}|`));
-  return commands.get(key || "??");
+  return commands.get(key ?? "??");
 };
