@@ -84,7 +84,11 @@ export function GuildSettingsForm({
                     #{item.data.name}
                   </option>
                 );
-              } else if (item.children && item.children.length > 0) {
+              } else if (
+                item.type === "category" &&
+                item.children &&
+                item.children.length > 0
+              ) {
                 return (
                   <optgroup
                     key={item.data.id}

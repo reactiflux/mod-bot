@@ -15,10 +15,11 @@ export async function loader({ request }: Route.LoaderArgs) {
       // @ts-expect-error because kysely doesn't generate types for these
       db.selectFrom("sqlite_master").where("type", "=", "table").execute(),
       fetch(url.toString(), { method: "HEAD" }).then((r) => {
-        if (!r.ok)
+        if (!r.ok) {
           return Promise.reject(
             new Error(`${r.status} ${r.statusText} ${r.url}`),
           );
+        }
       }),
     ]);
     return new Response("OK");

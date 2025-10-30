@@ -96,7 +96,6 @@ export default [
           checksVoidReturn: { attributes: false, arguments: false },
         },
       ],
-      "@typescript-eslint/no-unnecessary-condition": "warn",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/only-throw-error": "off", // React Router uses throw redirect()
 

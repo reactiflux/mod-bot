@@ -47,6 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   return initOauthLogin({
     request,
-    redirectTo: redirectTo ? JSON.stringify(redirectTo) : "/guilds",
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string
+    redirectTo: redirectTo?.toString() ?? "/guilds",
   });
 }

@@ -213,8 +213,6 @@ export async function getTopParticipants(
   // Group by author and fill date gaps inline
   const groupedData = rawDailyParticipation.reduce((acc, record) => {
     const { author_id, date } = record;
-    // This actually is necessary, the type is fudging a bit for convenience
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!acc[author_id]) acc[author_id] = [];
     acc[author_id].push({ ...record, date: date as string });
     return acc;

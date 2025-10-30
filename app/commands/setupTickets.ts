@@ -13,7 +13,6 @@ import {
   SlashCommandBuilder,
   TextInputBuilder,
   type ChatInputCommandInteraction,
-  type TextChannel,
 } from "discord.js";
 
 import { REST } from "@discordjs/rest";
@@ -181,11 +180,21 @@ export const Command = [
         }
       }
 
+      // If channel_id is configured but fetch returns null (channel deleted),
+      // this will error, which is intended - the configured channel is invalid
       const ticketsChannel = config.channel_id
-        ? ((await interaction.guild.channels.fetch(
-            config.channel_id,
-          )) as TextChannel)
+        ? await interaction.guild.channels.fetch(config.channel_id)
         : channel;
+
+      if (
+        !ticketsChannel?.isTextBased() ||
+        ticketsChannel.type !== ChannelType.GuildText
+      ) {
+        void interaction.reply(
+          "Couldn’t make a ticket! Tell the admins that their ticket channel is misconfigured.",
+        );
+        return;
+      }
 
       const thread = await ticketsChannel.threads.create({
         name: `${user.username} – ${format(new Date(), "PP kk:mmX")}`,
