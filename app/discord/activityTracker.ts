@@ -146,9 +146,6 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processMessageDelete",
       async () => {
-        const info = await getMessageStats(msg);
-        if (!info) return;
-
         await db
           .deleteFrom("message_stats")
           .where("message_id", "=", msg.id)
