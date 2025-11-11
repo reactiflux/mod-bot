@@ -1,7 +1,9 @@
-import type { Route } from "./+types/upgrade";
-import { data, useLoaderData, Form } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
+
 import { requireUser } from "#~/models/session.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
+
+import type { Route } from "./+types/upgrade";
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireUser(request);

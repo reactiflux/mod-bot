@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
+import db, { type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type User = DB["users"];

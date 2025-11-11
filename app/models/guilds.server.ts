@@ -1,5 +1,4 @@
-import db, { SqliteError } from "#~/db.server";
-import type { DB } from "#~/db.server";
+import db, { SqliteError, type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Guild = DB["guilds"];

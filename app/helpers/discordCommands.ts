@@ -1,9 +1,9 @@
-import type {
-  APIApplicationCommand,
-  ContextMenuCommandBuilder,
-  SlashCommandBuilder,
+import {
+  ApplicationCommandType,
+  type APIApplicationCommand,
+  type ContextMenuCommandBuilder,
+  type SlashCommandBuilder,
 } from "discord.js";
-import { ApplicationCommandType } from "discord.js";
 
 import { difference } from "#~/helpers/sets";
 
@@ -28,11 +28,11 @@ export const compareCommands = (
 
     return result;
   }
-  if (json.type === ApplicationCommandType.ChatInput || !json.type) {
+  if (json.type === ApplicationCommandType.ChatInput) {
     const remoteOptions = remoteCommand.options;
     const localOptions = json.options;
 
-    const typeMatches = !json.type || json.type === remoteCommand.type;
+    const typeMatches = json.type === remoteCommand.type;
     if (!typeMatches) {
       return false;
     }

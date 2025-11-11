@@ -1,10 +1,11 @@
 // import { REST } from "@discordjs/rest";
 
-import type { Route } from "./+types/index";
 import { redirect } from "react-router";
 
 import { Login } from "#~/basics/login";
 import { getUser } from "#~/models/session.server";
+
+import type { Route } from "./+types/index";
 
 const EmojiBackdrop = () => {
   return (

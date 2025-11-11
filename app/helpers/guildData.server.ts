@@ -1,4 +1,5 @@
 import { Routes } from "discord-api-types/v10";
+
 import { ssrDiscordSdk } from "#~/discord/api.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -76,7 +77,7 @@ export async function fetchGuildData(guildId: string): Promise<GuildData> {
         .filter((channel) => !channel.parent_id)
         .map((channel) => ({ type: "channel", data: channel }) as const),
       ...categories.map((category) => {
-        const categoryChannels = channelsByCategory.get(category.id) || [];
+        const categoryChannels = channelsByCategory.get(category.id) ?? [];
         return {
           type: "category",
           data: category,

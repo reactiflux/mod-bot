@@ -1,12 +1,14 @@
-import type { Route } from "./+types/onboard";
 import { data } from "react-router";
+
+import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
+import { Upgrade } from "#~/components/Upgrade.js";
+import { fetchGuildData } from "#~/helpers/guildData.server";
+import { log, trackPerformance } from "#~/helpers/observability";
+import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 import { requireUser } from "#~/models/session.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
-import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
-import { fetchGuildData } from "#~/helpers/guildData.server";
-import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
-import { log, trackPerformance } from "#~/helpers/observability";
-import { Upgrade } from "#~/components/Upgrade.js";
+
+import type { Route } from "./+types/onboard";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   await requireUser(request);

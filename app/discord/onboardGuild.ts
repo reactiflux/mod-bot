@@ -1,7 +1,6 @@
-import type { Client, TextChannel } from "discord.js";
-import { ChannelType } from "discord.js";
-import { retry } from "#~/helpers/misc";
+import { ChannelType, type Client, type TextChannel } from "discord.js";
 
+import { retry } from "#~/helpers/misc";
 import { fetchGuild } from "#~/models/guilds.server";
 
 export default async (bot: Client) => {
@@ -24,14 +23,14 @@ export default async (bot: Client) => {
       await retry(5, async (n) => {
         switch (n) {
           case 0:
-            guild.systemChannel!.send(welcomeMessage);
+            void guild.systemChannel!.send(welcomeMessage);
             return;
           case 1:
-            guild.publicUpdatesChannel!.send(welcomeMessage);
+            void guild.publicUpdatesChannel!.send(welcomeMessage);
             return;
           default: {
             if (likelyChannels.size < n - 2) return;
-            likelyChannels.at(n - 2)!.send(welcomeMessage);
+            void likelyChannels.at(n - 2)!.send(welcomeMessage);
             return;
           }
         }

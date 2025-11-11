@@ -1,25 +1,26 @@
 import type { Client } from "discord.js";
 
 import { isStaff } from "#~/helpers/discord";
-import { reportUser } from "#~/helpers/modLog";
-import { client } from "./client.server";
 import { isSpam } from "#~/helpers/isSpam";
+import { reportUser } from "#~/helpers/modLog";
 import {
-  ReportReasons,
   markMessageAsDeleted,
+  ReportReasons,
 } from "#~/models/reportedMessages.server";
+
+import { client } from "./client.server";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
 export default async (bot: Client) => {
   bot.on("messageCreate", async (msg) => {
-    if (msg.author?.id === bot.user?.id || !msg.guild) return;
+    if (msg.author.id === bot.user?.id || !msg.guild) return;
 
     const [member, message] = await Promise.all([
       msg.guild.members.fetch(msg.author.id),
       msg.fetch(),
     ]);
-    if (!message.guild || !member || isStaff(member)) {
+    if (!message.guild || isStaff(member)) {
       return;
     }
 
@@ -28,7 +29,7 @@ export default async (bot: Client) => {
         reportUser({
           reason: ReportReasons.spam,
           message: message,
-          staff: client.user || false,
+          staff: client.user ?? false,
         }),
         message
           .delete()

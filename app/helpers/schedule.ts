@@ -1,5 +1,5 @@
+import { format, parseISO, subDays } from "date-fns";
 import { schedule as scheduleCron } from "node-cron";
-import { subDays, parseISO, format } from "date-fns";
 
 /**
  * getFirstRun ensures that a newly created interval timer runs at consistent

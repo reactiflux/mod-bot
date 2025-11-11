@@ -1,8 +1,9 @@
 import { InteractionType, PermissionsBitField } from "discord.js";
+
 import type { MessageComponentCommand } from "#~/helpers/discord";
+import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { deleteAllReportedForUser } from "#~/models/reportedMessages.server";
-import { timeout, ban, kick, applyRestriction } from "#~/models/discord.server";
 
 export const EscalationCommands = [
   {
@@ -259,4 +260,4 @@ export const EscalationCommands = [
       }
     },
   },
-] as Array<MessageComponentCommand>;
+] as MessageComponentCommand[];

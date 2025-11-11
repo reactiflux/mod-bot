@@ -1,7 +1,7 @@
-import { calculateChangedCommands, compareCommands } from "./discordCommands";
-
-import { ContextMenuCommandBuilder, SlashCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
+import { ContextMenuCommandBuilder, SlashCommandBuilder } from "discord.js";
+
+import { calculateChangedCommands, compareCommands } from "./discordCommands";
 
 const l = {
   slashCommand: new SlashCommandBuilder()

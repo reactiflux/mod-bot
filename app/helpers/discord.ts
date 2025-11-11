@@ -1,32 +1,32 @@
 import {
-  parseMarkdownBlocks,
-  getChars,
-  getWords,
-} from "#~/helpers/messageParsing";
-import { partition } from "lodash-es";
-import type {
-  Message,
-  GuildMember,
-  PartialMessage,
-  Guild,
-  MessageReaction,
-  PartialMessageReaction,
-  MessageContextMenuCommandInteraction,
-  UserContextMenuCommandInteraction,
-  ChatInputCommandInteraction,
-  Poll,
-  APIEmbed,
-  Collection,
-  MessageComponentInteraction,
-  ModalSubmitInteraction,
-} from "discord.js";
-import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
   InteractionType,
   SlashCommandBuilder,
+  type APIEmbed,
+  type ChatInputCommandInteraction,
+  type Collection,
+  type Guild,
+  type GuildMember,
+  type Message,
+  type MessageComponentInteraction,
+  type MessageContextMenuCommandInteraction,
+  type MessageReaction,
+  type ModalSubmitInteraction,
+  type PartialMessage,
+  type PartialMessageReaction,
+  type Poll,
+  type UserContextMenuCommandInteraction,
 } from "discord.js";
+import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
+
+import {
+  getChars,
+  getWords,
+  parseMarkdownBlocks,
+} from "#~/helpers/messageParsing";
+
 import { trackPerformance } from "./observability";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
@@ -160,57 +160,57 @@ export type AnyCommand =
   | MessageComponentCommand
   | ModalCommand;
 
-export type MessageContextCommand = {
+export interface MessageContextCommand {
   command: ContextMenuCommandBuilder;
   handler: (interaction: MessageContextMenuCommandInteraction) => Promise<void>;
-};
+}
 export const isMessageContextCommand = (
   config: AnyCommand,
 ): config is MessageContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.Message;
 
-export type UserContextCommand = {
+export interface UserContextCommand {
   command: ContextMenuCommandBuilder;
   handler: (interaction: UserContextMenuCommandInteraction) => Promise<void>;
-};
+}
 export const isUserContextCommand = (
   config: AnyCommand,
 ): config is UserContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.User;
 
-export type SlashCommand = {
+export interface SlashCommand {
   command: SlashCommandBuilder;
   handler: (interaction: ChatInputCommandInteraction) => Promise<void>;
-};
+}
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
 
-export type MessageComponentCommand = {
+export interface MessageComponentCommand {
   command: { type: InteractionType.MessageComponent; name: string };
   handler: (interaction: MessageComponentInteraction) => Promise<void>;
-};
+}
 export const isMessageComponentCommand = (
   config: AnyCommand,
 ): config is MessageComponentCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.MessageComponent;
 
-export type ModalCommand = {
+export interface ModalCommand {
   command: { type: InteractionType.ModalSubmit; name: string };
   handler: (interaction: ModalSubmitInteraction) => Promise<void>;
-};
+}
 export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.ModalSubmit;
 
-type CodeStats = {
+interface CodeStats {
   chars: number;
   words: number;
   lines: number;
   lang: string | undefined;
-};
+}
 /**
  * getMessageStats is a helper to retrieve common metrics from a message
  * @param msg A Discord Message or PartialMessage object

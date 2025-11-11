@@ -33,25 +33,21 @@ Located at `/migrations/` with timestamp-prefixed files following pattern `YYYYM
 Based on `/app/db.d.ts`, current tables are:
 
 1. **users**
-
    - `id` (uuid, primary key)
    - `email` (text, nullable)
    - `externalId` (text, not null) - Discord user ID
    - `authProvider` (text, defaults to "discord")
 
 2. **sessions**
-
    - `id` (uuid, primary key)
    - `data` (json)
    - `expires` (datetime)
 
 3. **guilds**
-
    - `id` (text, primary key) - Discord guild ID
    - `settings` (json) - Guild configuration
 
 4. **message_stats**
-
    - `author_id` (text)
    - `channel_id` (text)
    - `channel_category` (text, nullable)
@@ -63,13 +59,11 @@ Based on `/app/db.d.ts`, current tables are:
    - `code_stats`, `link_stats` (json)
 
 5. **channel_info**
-
    - `id` (text, nullable)
    - `name` (text, nullable)
    - `category` (text, nullable)
 
 6. **tickets_config**
-
    - `message_id` (text, primary key)
    - `channel_id` (text, nullable)
    - `role_id` (text)
@@ -108,8 +102,7 @@ export async function down(db: Kysely<any>): Promise<void> {
 ### Model Pattern
 
 ```typescript
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
+import db, { type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type TableType = DB["table_name"];
