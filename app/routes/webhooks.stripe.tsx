@@ -1,8 +1,10 @@
-import type { Route } from "./+types/webhooks.stripe";
+import type Stripe from "stripe";
+
+import { log } from "#~/helpers/observability";
 import { StripeService } from "#~/models/stripe.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
-import { log } from "#~/helpers/observability";
-import type Stripe from "stripe";
+
+import type { Route } from "./+types/webhooks.stripe";
 
 /**
  * Stripe webhook handler
@@ -35,32 +37,32 @@ export async function action({ request }: Route.ActionArgs) {
     // Handle the event based on type
     switch (event.type) {
       case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const session = event.data.object;
         await handleCheckoutSessionCompleted(session);
         break;
       }
 
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         await handleSubscriptionUpdated(subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         await handleSubscriptionDeleted(subscription);
         break;
       }
 
       case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object;
         await handleInvoicePaymentSucceeded(invoice);
         break;
       }
 
       case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object;
         await handleInvoicePaymentFailed(invoice);
         break;
       }
@@ -98,7 +100,7 @@ export async function action({ request }: Route.ActionArgs) {
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
 ) {
-  const guildId = session.client_reference_id || session.metadata?.guild_id;
+  const guildId = session.client_reference_id ?? session.metadata?.guild_id;
 
   if (!guildId) {
     log("warn", "Webhook", "Missing guild_id in checkout session", {
@@ -178,7 +180,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     stripe_subscription_id: subscription.id,
     product_tier: subscription.status === "active" ? "paid" : "free",
     status,
-    current_period_end: currentPeriodEnd || undefined,
+    current_period_end: currentPeriodEnd ?? undefined,
   });
 
   log("info", "Webhook", "Subscription update processed successfully", {

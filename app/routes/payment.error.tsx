@@ -1,9 +1,9 @@
-import { useSearchParams, Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 export default function PaymentError() {
   const [searchParams] = useSearchParams();
   const message =
-    searchParams.get("message") ||
+    searchParams.get("message") ??
     "An error occurred during payment processing.";
   const guildId = searchParams.get("guild_id");
 

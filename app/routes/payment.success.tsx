@@ -33,8 +33,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   // Update subscription to paid tier with real Stripe data
   await SubscriptionService.createOrUpdateSubscription({
     guild_id: guildId,
-    stripe_customer_id: stripeSession.customer || undefined,
-    stripe_subscription_id: stripeSession.subscription || undefined,
+    stripe_customer_id: stripeSession.customer ?? undefined,
+    stripe_subscription_id: stripeSession.subscription ?? undefined,
     product_tier: "paid",
     status: "active",
     current_period_end: currentPeriodEnd.toISOString(),

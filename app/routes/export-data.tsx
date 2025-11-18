@@ -1,8 +1,9 @@
-import type { Route } from "./+types/export-data";
-import { requireUser } from "#~/models/session.server";
-import { SubscriptionService } from "#~/models/subscriptions.server";
 import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
+import { requireUser } from "#~/models/session.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
+
+import type { Route } from "./+types/export-data";
 
 /**
  * GDPR Data Export Route
@@ -18,7 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
       log("info", "DataExport", "User requested data export", {
         userId: user.id,
-        guildId: guildId || "none",
+        guildId: guildId ?? "none",
       });
 
       // Check if user has premium access (data export is a paid feature)
@@ -132,7 +133,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
       log("info", "DataExport", "Data export completed successfully", {
         userId: user.id,
-        guildId: guildId || "none",
+        guildId: guildId ?? "none",
         dataSize: JSON.stringify(exportData).length,
       });
 
@@ -170,7 +171,7 @@ export async function action({ request }: Route.ActionArgs) {
 
       log("warn", "DataDelete", "User requested data deletion", {
         userId: user.id,
-        guildId: guildId || "none",
+        guildId: guildId ?? "none",
       });
 
       if (!guildId) {

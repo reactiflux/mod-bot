@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
@@ -11,7 +12,7 @@ const getStripe = () => {
     );
   }
   return new Stripe(apiKey, {
-    apiVersion: "2025-09-30.clover",
+    apiVersion: "2025-10-29.clover",
     typescript: true,
   });
 };
@@ -75,7 +76,7 @@ export const StripeService = {
             sessionId: session.id,
           });
 
-          return session.url || "";
+          return session.url ?? "";
         } catch (error) {
           log("error", "Stripe", "Failed to create checkout session", {
             guildId,
@@ -162,7 +163,7 @@ export const StripeService = {
             email,
             metadata: {
               guild_id: guildId,
-              guild_name: guildName || "",
+              guild_name: guildName ?? "",
             },
           });
 
