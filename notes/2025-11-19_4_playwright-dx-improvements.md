@@ -33,12 +33,14 @@ Added automatic test summary generation using `$GITHUB_STEP_SUMMARY`:
 **Location**: Visible in GitHub Actions run summary (top of run page)
 
 **Content**:
+
 - Test status (success/failure)
 - Test suite name (Payment Flow E2E)
 - Available artifacts list
 - Links to reports
 
 **Implementation**:
+
 ```yaml
 - name: Generate test summary
   if: always()
@@ -48,6 +50,7 @@ Added automatic test summary generation using `$GITHUB_STEP_SUMMARY`:
 ```
 
 **Benefits**:
+
 - Immediate visibility when viewing Actions run
 - No need to dig through logs
 - Markdown formatted, easy to scan
@@ -60,6 +63,7 @@ Changed artifact naming from static to per-run:
 **After**: `name: playwright-report-${{ github.run_id }}`
 
 **Benefits**:
+
 - Prevents artifact conflicts
 - Easier to identify specific run's artifacts
 - Better organization in artifact downloads
@@ -73,6 +77,7 @@ Added bot comments to PRs with full test results:
 **Tool**: `actions/github-script@v7`
 
 **Features**:
+
 - Status emoji (✅/❌/⚠️) based on test result
 - Test suite information (11 tests, Payment Flow)
 - Direct link to GitHub Actions run
@@ -82,11 +87,13 @@ Added bot comments to PRs with full test results:
 - Collapsible artifacts list
 
 **Smart Updates**:
+
 - Finds existing bot comment on subsequent runs
 - Updates in place instead of creating duplicates
 - Always shows latest test status
 
 **Example Comment**:
+
 ```markdown
 ## ✅ Playwright E2E Test Results
 
@@ -95,7 +102,8 @@ Added bot comments to PRs with full test results:
 **Run**: [#123](...)
 
 ### 📊 Reports & Artifacts
-- 🌐 [View HTML Report](...) *(available after merge to main)*
+
+- 🌐 [View HTML Report](...) _(available after merge to main)_
 - 📦 [Download Artifacts](...)
 
 <details>
@@ -107,6 +115,7 @@ Added bot comments to PRs with full test results:
 ```
 
 **Implementation Details**:
+
 ```javascript
 // Find existing comment
 const botComment = comments.find(comment =>
@@ -130,21 +139,25 @@ Deployed HTML reports to GitHub Pages for permanent URLs:
 **Tool**: `peaceiris/actions-gh-pages@v4`
 
 **Configuration**:
+
 - **Source**: `./playwright-report` directory
 - **Destination**: `reports/${{ github.run_number }}`
 - **Keep Files**: `true` (preserves historical reports)
 - **Trigger**: Only on `main` branch
 
 **URL Pattern**:
+
 ```
 https://reactiflux.github.io/mod-bot/reports/{run-number}
 ```
 
 **Example**:
+
 - Run #123 → `https://reactiflux.github.io/mod-bot/reports/123`
 - Run #124 → `https://reactiflux.github.io/mod-bot/reports/124`
 
 **Benefits**:
+
 - Permanent URLs that don't expire
 - Easily shareable with team
 - No GitHub authentication required to view
@@ -152,6 +165,7 @@ https://reactiflux.github.io/mod-bot/reports/{run-number}
 - Historical reports accessible indefinitely
 
 **Implementation**:
+
 ```yaml
 - name: Deploy test report to GitHub Pages
   if: always() && github.ref == 'refs/heads/main'
@@ -181,6 +195,7 @@ https://reactiflux.github.io/mod-bot/reports/{run-number}
 ### After: Automatic Workflow
 
 #### For PR Reviews:
+
 1. Open PR
 2. Scroll to bot comment with test results
 3. Click "View HTML Report" link (after merge)
@@ -190,6 +205,7 @@ https://reactiflux.github.io/mod-bot/reports/{run-number}
 **Friction**: Low
 
 #### For Main Branch Deploys:
+
 1. Test runs automatically on merge
 2. Report deploys to GitHub Pages
 3. Permanent URL immediately available
@@ -203,11 +219,13 @@ https://reactiflux.github.io/mod-bot/reports/{run-number}
 **Scenario**: Need to check test results from 3 weeks ago
 
 **Before**:
+
 - Artifacts may have expired (30-day retention)
 - No way to access report
 - Must check git history and re-run tests
 
 **After**:
+
 - Visit `https://reactiflux.github.io/mod-bot/reports/{run-number}`
 - Full report available permanently
 - No re-run needed
@@ -227,7 +245,7 @@ e2e:
     - name: Run Playwright tests
       run: npm run test:e2e
 
-    - name: Generate test summary  # Phase 1
+    - name: Generate test summary # Phase 1
       if: always()
       run: |
         # Write to $GITHUB_STEP_SUMMARY
@@ -235,13 +253,13 @@ e2e:
     - name: Upload test artifacts
       if: always()
       with:
-        name: playwright-report-${{ github.run_id }}  # Unique name
+        name: playwright-report-${{ github.run_id }} # Unique name
 
-    - name: Deploy test report to GitHub Pages  # Phase 2
+    - name: Deploy test report to GitHub Pages # Phase 2
       if: always() && github.ref == 'refs/heads/main'
       uses: peaceiris/actions-gh-pages@v4
 
-    - name: Comment PR with test results  # Phase 2
+    - name: Comment PR with test results # Phase 2
       if: always() && github.event_name == 'pull_request'
       uses: actions/github-script@v7
 ```
@@ -249,12 +267,14 @@ e2e:
 ### GitHub Pages Setup
 
 **Required**:
+
 1. Repository Settings → Pages
 2. Source: Deploy from a branch
 3. Branch: `gh-pages` (auto-created by action)
 4. Folder: `/` (root)
 
 **Auto-created by action**:
+
 - First deployment creates `gh-pages` branch
 - Subsequent deployments append to `reports/` directory
 - `keep_files: true` prevents overwriting
@@ -262,22 +282,26 @@ e2e:
 ### PR Comment Logic
 
 **Smart Updates**:
+
 - Uses GitHub API to list all PR comments
 - Filters for bot comments containing "Playwright E2E Test Results"
 - Updates if found, creates if not
 - Prevents comment spam on multiple pushes
 
 **Fallback Behavior**:
+
 - If GitHub API fails, workflow continues (doesn't block tests)
 - Uses `if: always()` to run even on test failure
 
 ### Permissions
 
 **Required for GitHub Pages**:
+
 - `GITHUB_TOKEN` (auto-provided, no setup needed)
 - Permissions: `contents: write` (for pushing to gh-pages branch)
 
 **Required for PR Comments**:
+
 - `GITHUB_TOKEN` (auto-provided)
 - Permissions: `pull-requests: write`
 
@@ -287,18 +311,19 @@ e2e:
 
 ### Before vs After
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Time to view results | 2-3 min | 10 sec | 12-18x faster |
-| Clicks to results | 6-8 | 1 | 6-8x fewer |
-| Manual downloads | Required | Optional | 100% reduction |
-| Shareable URLs | No | Yes | ✅ New capability |
-| Historical access | 30 days | Permanent | ∞ retention |
-| PR context visibility | None | Inline | ✅ New capability |
+| Metric                | Before   | After     | Improvement       |
+| --------------------- | -------- | --------- | ----------------- |
+| Time to view results  | 2-3 min  | 10 sec    | 12-18x faster     |
+| Clicks to results     | 6-8      | 1         | 6-8x fewer        |
+| Manual downloads      | Required | Optional  | 100% reduction    |
+| Shareable URLs        | No       | Yes       | ✅ New capability |
+| Historical access     | 30 days  | Permanent | ∞ retention       |
+| PR context visibility | None     | Inline    | ✅ New capability |
 
 ### Usage Patterns
 
 **Expected usage**:
+
 - PR reviews: Check inline comment, only download artifacts on failure
 - Post-merge: Visit GitHub Pages URL for full report
 - Debugging: Download artifacts for screenshots/videos
@@ -347,10 +372,12 @@ e2e:
 ### GitHub Pages Cleanup
 
 Reports accumulate over time. Consider:
+
 - Implementing cleanup job for reports older than 90 days
 - Or accepting storage growth (reports are small, ~5MB each)
 
 **Cleanup script (future)**:
+
 ```yaml
 - name: Clean old reports
   run: |
@@ -406,6 +433,7 @@ Automatically managed by GitHub. No cleanup needed.
 ### Documentation Gaps
 
 Could document:
+
 - How to access GitHub Pages reports
 - How to interpret PR comments
 - How to use artifacts for debugging
