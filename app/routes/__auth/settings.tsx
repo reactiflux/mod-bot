@@ -21,24 +21,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   log("info", "settings", "Settings page accessed", { guildId });
 
   // Fetch current guild settings
-  const currentSettings = await trackPerformance("guilds.fetchSettings", () =>
-    fetchSettings(guildId, [
-      SETTINGS.modLog,
-      SETTINGS.moderator,
-      SETTINGS.restricted,
-    ]),
-  );
-
-  const tier = await trackPerformance("subscriptions.getProductTier", () =>
-    SubscriptionService.getProductTier(guildId),
-  );
-
-  const subscription = await trackPerformance(
-    "subscriptions.getGuildSubscription",
-    () => SubscriptionService.getGuildSubscription(guildId),
-  );
-
-  const { roles, channels } = await fetchGuildData(guildId);
+  const [currentSettings, tier, subscription, { roles, channels }] =
+    await Promise.all([
+      fetchSettings(guildId, [
+        SETTINGS.modLog,
+        SETTINGS.moderator,
+        SETTINGS.restricted,
+      ]),
+      SubscriptionService.getProductTier(guildId),
+      SubscriptionService.getGuildSubscription(guildId),
+      fetchGuildData(guildId),
+    ]);
 
   return {
     guildId,

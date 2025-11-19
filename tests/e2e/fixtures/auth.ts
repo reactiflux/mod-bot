@@ -14,7 +14,8 @@ export const test = base.extend<{
   sessionCookies: Cookie[];
 }>({
   // Database fixture - available in all tests
-  db: async (_, use) => {
+  // eslint-disable-next-line no-empty-pattern
+  db: async ({}, use) => {
     const dbFixture = new DbFixture();
     await use(dbFixture);
     // Cleanup after test

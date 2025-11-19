@@ -1,6 +1,6 @@
-import { useLoaderData } from "react-router";
 import fs from "fs";
 import path from "path";
+import { useLoaderData } from "react-router";
 
 export async function loader() {
   // Read the Privacy Policy markdown file
