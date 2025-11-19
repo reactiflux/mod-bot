@@ -180,7 +180,7 @@ test.describe("Payment Flow", () => {
       await authenticatedPage.waitForLoadState("networkidle");
 
       // Fill in Stripe test card details
-      // Note: Stripe checkout uses iframes for card input fields
+      // Note: Stripe checkout has direct input fields, not iframes
       const emailInput = authenticatedPage.getByLabel("Email", {
         exact: false,
       });
@@ -189,18 +189,29 @@ test.describe("Payment Flow", () => {
       }
 
       // Fill in card number (test card: 4242 4242 4242 4242)
-      const cardNumberFrame = authenticatedPage.frameLocator(
-        'iframe[title*="Secure card"]',
-      );
-      await cardNumberFrame
-        .getByPlaceholder(/card number/i)
-        .fill("4242424242424242");
+      await authenticatedPage.locator("#cardNumber").fill("4242424242424242");
 
       // Fill in expiry date (any future date)
-      await cardNumberFrame.getByPlaceholder(/expiry/i).fill("12/34");
+      await authenticatedPage.locator("#cardExpiry").fill("12/34");
 
       // Fill in CVC
-      await cardNumberFrame.getByPlaceholder(/cvc/i).fill("123");
+      await authenticatedPage.locator("#cardCvc").fill("123");
+
+      // Fill in cardholder name (required field)
+      await authenticatedPage
+        .getByPlaceholder("Full name on card")
+        .fill("Test User");
+
+      // Fill in ZIP code (required for US)
+      await authenticatedPage.getByPlaceholder("ZIP").fill("12345");
+
+      // Uncheck "Save my information" to avoid needing phone number for Link
+      const saveInfoCheckbox = authenticatedPage.getByRole("checkbox", {
+        name: /save my information/i,
+      });
+      if (await saveInfoCheckbox.isChecked()) {
+        await saveInfoCheckbox.uncheck();
+      }
 
       // Submit the payment
       await authenticatedPage
@@ -220,9 +231,14 @@ test.describe("Payment Flow", () => {
       // Navigate to settings page to verify Pro status
       await authenticatedPage.goto(`/app/${guild.id}/settings`);
 
-      // Verify UI shows Pro plan
-      await expect(authenticatedPage.getByText("Pro")).toBeVisible();
-      await expect(authenticatedPage.getByText("Active")).toBeVisible();
+      // Verify UI shows Pro plan in the subscription status section
+      await expect(
+        authenticatedPage.getByRole("heading", { name: "Subscription Status" }),
+      ).toBeVisible();
+      // Verify both "Pro" and "Active" are visible (they appear next to each other)
+      await expect(
+        authenticatedPage.getByText("Pro Active", { exact: false }),
+      ).toBeVisible();
     });
 
     test("payment success without session_id returns 400", async ({
