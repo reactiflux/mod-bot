@@ -67,6 +67,7 @@ jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
+    environment: CI
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -91,14 +92,19 @@ jobs:
         run: npm run test:e2e
         env:
           CI: true
-          DB_FILE: ./test-db.sqlite3
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
-          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
-          SESSION_SECRET: test-session-secret-for-ci
-          DISCORD_PUBLIC_KEY: test-key
-          DISCORD_APP_ID: test-app-id
-          DISCORD_SECRET: test-secret
-          DISCORD_HASH: test-hash
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }} \
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }} \
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }} \
+          DISCORD_SECRET: ${{ secrets.DISCORD_SECRET }} \
+          DISCORD_HASH: ${{ secrets.DISCORD_HASH }} \
+          DISCORD_TEST_GUILD: ${{ secrets.DISCORD_TEST_GUILD }} \
+          SENTRY_INGEST: ${{ secrets.SENTRY_INGEST }} \
+          SENTRY_RELEASES: ${{ secrets.SENTRY_RELEASES }} \
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+          VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
@@ -189,6 +195,8 @@ jobs:
             --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
             --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
             --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
+            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
             --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }}

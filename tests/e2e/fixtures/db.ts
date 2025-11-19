@@ -4,11 +4,11 @@ import { Kysely, SqliteDialect } from "kysely";
 
 import type { DB } from "#~/db";
 
-const DB_FILE = process.env.DB_FILE ?? "./mod-bot.sqlite3";
+const DATABASE_URL = process.env.DATABASE_URL ?? "./mod-bot.sqlite3";
 
 // Create a separate db instance for tests
 const testDialect = new SqliteDialect({
-  database: new SQLite(DB_FILE),
+  database: new SQLite(DATABASE_URL),
 });
 
 const testDb = new Kysely<DB>({
