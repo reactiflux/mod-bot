@@ -106,15 +106,124 @@ jobs:
           VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## 🎭 Playwright E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f playwright-report/index.html ]; then
+            # Extract test counts from the HTML report
+            TOTAL=$(grep -o 'passed.*failed.*skipped' playwright-report/index.html | head -1 || echo "Results available in artifacts")
+            echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Suite**: Payment Flow E2E" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Test artifacts available below" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Test report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- HTML Report (playwright-report/)" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots (on failure)" >> $GITHUB_STEP_SUMMARY
+          echo "- Video recordings" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ github.run_id }}
           path: |
             playwright-report/
             test-results/
           retention-days: 30
+
+      - name: Deploy test report to GitHub Pages
+        if: always() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+          destination_dir: reports/${{ github.run_number }}
+          keep_files: true
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runId = '${{ github.run_id }}';
+            const runNumber = '${{ github.run_number }}';
+            const status = '${{ job.status }}';
+            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
+
+            let statusEmoji = '✅';
+            if (status === 'failure') statusEmoji = '❌';
+            else if (status === 'cancelled') statusEmoji = '⚠️';
+
+            const comment = `## ${statusEmoji} Playwright E2E Test Results
+
+            **Status**: ${status}
+            **Test Suite**: Payment Flow (11 tests)
+            **Run**: [#${runNumber}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
+
+            ### 📊 Reports & Artifacts
+
+            - 🌐 [**View HTML Report**](${reportUrl}) *(available after merge to main)*
+            - 📦 [Download Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
+
+            <details>
+            <summary>Test Coverage</summary>
+
+            - Stripe checkout flow (complete integration)
+            - Onboarding flows (free/pro guilds)
+            - Upgrade page display
+            - Payment success/cancel pages
+            - Error handling
+            - Database isolation
+            </details>
+
+            <details>
+            <summary>Available Artifacts</summary>
+
+            - HTML test report with screenshots
+            - Video recordings of test execution
+            - Test result JSON
+            - Screenshots (on failure)
+            </details>
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Playwright E2E Test Results')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                comment_id: botComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
 
   build:
     runs-on: ubuntu-latest
