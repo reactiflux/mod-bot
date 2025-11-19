@@ -61,6 +61,7 @@ await expect(
 ### Stripe Checkout Form Structure
 
 Stripe's test checkout page (checkout.stripe.com) uses:
+
 - **Direct input fields** with semantic IDs (`#cardNumber`, `#cardExpiry`, `#cardCvc`)
 - **No iframes** for card input (this is different from the embedded payment element)
 - **Required billing fields**: cardholder name and ZIP code for US addresses
@@ -69,6 +70,7 @@ Stripe's test checkout page (checkout.stripe.com) uses:
 ### Playwright Debugging Features
 
 The screenshot/video/trace features added in the previous commit were essential for debugging:
+
 - Screenshots showed the exact state when tests failed
 - Revealed missing form fields and validation errors
 - Confirmed the form structure without needing to run tests manually
@@ -76,6 +78,7 @@ The screenshot/video/trace features added in the previous commit were essential 
 ## Test Results
 
 All 11 payment flow tests now pass:
+
 - ✓ Free guild onboarding flow
 - ✓ Pro guild onboarding flow
 - ✓ Onboarding error handling
@@ -90,6 +93,7 @@ Total run time: ~13 seconds for all tests
 ## What's Working Now
 
 The complete E2E test flow:
+
 1. Creates a free tier guild in the database
 2. Navigates to `/upgrade` page
 3. Clicks "Upgrade to Pro" button

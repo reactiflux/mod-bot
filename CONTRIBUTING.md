@@ -41,6 +41,34 @@ Adding a new environment variable needs to be done in several places to work cor
 - Add to the action in `.github/workflows/node.js.yml`
 - Add to the Kubernetes config under `cluster/deployment.yml
 
+## GitHub Secrets for CI
+
+The following GitHub Secrets must be configured in the repository for CI to run successfully:
+
+### Required for E2E Tests
+
+- `STRIPE_TEST_SECRET_KEY` - Stripe test mode secret key (starts with `sk_test_`)
+- `STRIPE_TEST_PUBLISHABLE_KEY` - Stripe test mode publishable key (starts with `pk_test_`)
+
+These can be obtained from the [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys) in test mode.
+
+**Note**: These are TEST mode keys only and will not charge real money. Never use production Stripe keys in CI.
+
+### Required for Deployment
+
+- `DIGITALOCEAN_TOKEN` - DigitalOcean API token for Kubernetes deployment
+- `SESSION_SECRET` - Secret for encrypting session cookies
+- `DISCORD_PUBLIC_KEY` - Discord bot public key
+- `DISCORD_APP_ID` - Discord application ID
+- `DISCORD_SECRET` - Discord OAuth2 client secret
+- `DISCORD_HASH` - Discord bot token
+- `DISCORD_TEST_GUILD` - Test Discord server ID
+- `SENTRY_INGEST` - Sentry error tracking ingest URL
+- `SENTRY_RELEASES` - Sentry releases API endpoint
+- `VITE_PUBLIC_POSTHOG_KEY` - PostHog analytics key
+- `VITE_PUBLIC_POSTHOG_HOST` - PostHog analytics host
+- `DATABASE_URL` - Production database connection string
+
 # Useful DevOps commands
 
 This bot runs on a managed Kubernetes cluster on DigitalOcean. It's possible (tho beyond the scope of this document) to configure a local `kubectl` environment to access and control this cluster. What follows are reference commands for performing common tasks:

@@ -1,5 +1,7 @@
 # Mod bot
 
+![CI](https://github.com/reactiflux/mod-bot/workflows/Node.js%20CI/badge.svg)
+
 This code powers the Euno bot on Discord.
 
 ## Initial setup
