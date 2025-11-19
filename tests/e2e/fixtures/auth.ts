@@ -14,7 +14,7 @@ export const test = base.extend<{
   sessionCookies: Cookie[];
 }>({
   // Database fixture - available in all tests
-  db: async (_context, use) => {
+  db: async (_, use) => {
     const dbFixture = new DbFixture();
     await use(dbFixture);
     // Cleanup after test

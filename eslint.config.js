@@ -46,6 +46,7 @@ export default [
             "eslint.config.js",
             "postcss.config.mjs",
             "tailwind.config.js",
+            "scripts/get-stripe-price.js",
           ],
         },
         tsconfigRootDir: import.meta.dirname,

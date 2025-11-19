@@ -35,12 +35,9 @@ export interface TestUser {
 /**
  * Database fixture for E2E tests
  * Provides helpers for creating and cleaning up test data
+ * Cleanup deletes ALL data from tables to ensure clean state
  */
 export class DbFixture {
-  private createdGuildIds: string[] = [];
-  private createdUserIds: string[] = [];
-  private createdSessionIds: string[] = [];
-
   /**
    * Create a test guild with optional subscription
    */
@@ -53,7 +50,6 @@ export class DbFixture {
     currentPeriodEnd?: string;
   }): Promise<TestGuild> {
     const guildId = options?.id ?? randomUUID();
-    this.createdGuildIds.push(guildId);
 
     // Create guild record
     await testDb
@@ -107,8 +103,6 @@ export class DbFixture {
     const externalId = options?.externalId ?? `discord_${randomUUID()}`;
     const email = options?.email ?? `test_${randomUUID()}@example.com`;
 
-    this.createdUserIds.push(userId);
-
     await testDb
       .insertInto("users")
       .values({
@@ -130,7 +124,6 @@ export class DbFixture {
     discordToken?: Record<string, unknown>,
   ): Promise<string> {
     const sessionId = randomUUID();
-    this.createdSessionIds.push(sessionId);
 
     const sessionData = {
       userId,
@@ -209,38 +202,15 @@ export class DbFixture {
   }
 
   /**
-   * Clean up all created test data
+   * Clean up ALL test data by deleting all rows from test-related tables
+   * This ensures a completely clean database state for the next test
    */
   async cleanup(): Promise<void> {
-    // Delete in reverse dependency order
-    await Promise.all([
-      // Clean up sessions
-      ...this.createdSessionIds.map((id) =>
-        testDb.deleteFrom("sessions").where("id", "=", id).execute(),
-      ),
-      // Clean up subscriptions
-      ...this.createdGuildIds.map((id) =>
-        testDb
-          .deleteFrom("guild_subscriptions")
-          .where("guild_id", "=", id)
-          .execute(),
-      ),
-    ]);
-
-    // Then clean up guilds and users
-    await Promise.all([
-      ...this.createdGuildIds.map((id) =>
-        testDb.deleteFrom("guilds").where("id", "=", id).execute(),
-      ),
-      ...this.createdUserIds.map((id) =>
-        testDb.deleteFrom("users").where("id", "=", id).execute(),
-      ),
-    ]);
-
-    // Reset tracking arrays
-    this.createdGuildIds = [];
-    this.createdUserIds = [];
-    this.createdSessionIds = [];
+    // Delete in reverse dependency order to avoid foreign key constraints
+    await testDb.deleteFrom("sessions").execute();
+    await testDb.deleteFrom("guild_subscriptions").execute();
+    await testDb.deleteFrom("guilds").execute();
+    await testDb.deleteFrom("users").execute();
   }
 
   /**

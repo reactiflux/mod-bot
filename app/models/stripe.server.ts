@@ -3,6 +3,8 @@ import Stripe from "stripe";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
+const STRIPE_PRICE_ID = "price_1SUv6kPIBENZyqLXxXvlT2LU";
+
 // Initialize Stripe with API key from environment
 const getStripe = () => {
   const apiKey = process.env.STRIPE_SECRET_KEY;
@@ -36,13 +38,6 @@ export const StripeService = {
         });
 
         const stripe = getStripe();
-        const priceId = process.env.STRIPE_PRICE_ID;
-
-        if (!priceId) {
-          throw new Error(
-            "STRIPE_PRICE_ID environment variable is not set. Please configure a price ID in Stripe.",
-          );
-        }
 
         const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&guild_id=${guildId}`;
         const cancelUrl = `${baseUrl}/payment/cancel?guild_id=${guildId}`;
@@ -53,7 +48,7 @@ export const StripeService = {
             payment_method_types: ["card"],
             line_items: [
               {
-                price: priceId,
+                price: STRIPE_PRICE_ID,
                 quantity: 1,
               },
             ],
