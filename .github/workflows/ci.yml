@@ -151,10 +151,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
             const runId = '${{ github.run_id }}';
             const runNumber = '${{ github.run_number }}';
-            const status = '${{ job.status }}';
             const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
 
             // Find PR associated with this push
@@ -171,13 +169,65 @@ jobs:
               return;
             }
 
-            let statusEmoji = '✅';
-            if (status === 'failure') statusEmoji = '❌';
-            else if (status === 'cancelled') statusEmoji = '⚠️';
+            // Parse test results
+            let testRows = [];
+            let stats = { passed: 0, failed: 0, skipped: 0 };
 
-            const comment = `## ${statusEmoji} [#${runNumber}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
-            [Report](${reportUrl}) – [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
-            `;
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
+
+              const processSpecs = (suites) => {
+                for (const suite of suites) {
+                  for (const spec of suite.specs || []) {
+                    for (const test of spec.tests || []) {
+                      const status = test.status;
+                      if (status === 'expected') stats.passed++;
+                      else if (status === 'unexpected') stats.failed++;
+                      else if (status === 'skipped') stats.skipped++;
+
+                      // Get duration from the last result
+                      const lastResult = test.results?.[test.results.length - 1];
+                      const duration = lastResult?.duration || 0;
+                      const durationStr = duration >= 1000
+                        ? `${(duration / 1000).toFixed(1)}s`
+                        : `${duration}ms`;
+
+                      const emoji = status === 'expected' ? '✅' : status === 'unexpected' ? '❌' : '⏭️';
+                      const testLink = spec.id
+                        ? `[${spec.title}](${reportUrl}/#?testId=${spec.id})`
+                        : spec.title;
+
+                      testRows.push(`| ${emoji} | ${testLink} | ${durationStr} |`);
+                    }
+                  }
+
+                  // Recurse into child suites
+                  if (suite.suites) {
+                    processSpecs(suite.suites);
+                  }
+                }
+              };
+
+              processSpecs(results.suites || []);
+            } catch (e) {
+              console.log('Could not parse test results:', e.message);
+            }
+
+            const total = stats.passed + stats.failed + stats.skipped;
+            const statusEmoji = stats.failed > 0 ? '❌' : '✅';
+            const statusText = stats.failed > 0 ? 'Failed' : 'Passed';
+
+            let comment = [
+              `## ${statusEmoji} E2E Tests ${statusText}`,
+              '',
+              `**${stats.passed}** passed · **${stats.failed}** failed · **${stats.skipped}** skipped`,
+              '',
+              `[View Report](${reportUrl}) · [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})`,
+              '',
+              '|  | Test | Duration |',
+              '|--------|------|----------|',
+              ...testRows
+            ].join('\n');
 
             await github.rest.issues.createComment({
               issue_number: prs[0].number,
