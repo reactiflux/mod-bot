@@ -56,20 +56,12 @@ export const test = base.extend<{
   },
 
   // Authenticated page with session cookies
-  authenticatedPage: async ({ browser, sessionCookies }, use) => {
-    // Create a new browser context with the session cookies
-    const context = await browser.newContext({
-      storageState: {
-        cookies: sessionCookies,
-        origins: [],
-      },
-    });
+  authenticatedPage: async ({ context, sessionCookies }, use) => {
+    // Add session cookies to the existing context (inherits video/viewport from config)
+    await context.addCookies(sessionCookies);
 
     const page = await context.newPage();
     await use(page);
-
-    // Cleanup
-    await context.close();
   },
 });
 

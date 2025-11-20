@@ -9,6 +9,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  preserveOutput: "always",
   reporter: [
     ["list"],
     ["html", { open: "never" }],
