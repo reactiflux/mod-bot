@@ -146,14 +146,24 @@ jobs:
           destination_dir: reports/${{ github.run_number }}
           keep_files: true
 
+      - name: Deploy test videos to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./test-results
+          destination_dir: reports/${{ github.run_number }}/videos
+          keep_files: true
+
       - name: Comment PR with test results
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
+            const path = require('path');
             const runId = '${{ github.run_id }}';
             const runNumber = '${{ github.run_number }}';
-            const status = '${{ job.status }}';
-            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
+            const baseUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
+            const videosUrl = `${baseUrl}/videos`;
 
             // Find PR associated with this push
             const branch = context.ref.replace('refs/heads/', '');
@@ -169,14 +179,86 @@ jobs:
               return;
             }
 
-            let statusEmoji = '✅';
-            if (status === 'failure') statusEmoji = '❌';
-            else if (status === 'cancelled') statusEmoji = '⚠️';
+            // Parse test results and build video details
+            let testDetails = [];
+            let stats = { passed: 0, failed: 0, skipped: 0 };
 
-            const comment = `## ${statusEmoji} [#${runNumber}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
 
-            [Report](${reportUrl}) – [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
-            `;
+              const processSpecs = (suites, parentTitle = '') => {
+                for (const suite of suites) {
+                  const suiteTitle = parentTitle ? `${parentTitle} > ${suite.title}` : suite.title;
+
+                  for (const spec of suite.specs || []) {
+                    const testTitle = spec.title;
+                    const fullTitle = suiteTitle ? `${suiteTitle} > ${testTitle}` : testTitle;
+
+                    for (const test of spec.tests || []) {
+                      const status = test.status;
+                      if (status === 'expected') stats.passed++;
+                      else if (status === 'unexpected') stats.failed++;
+                      else if (status === 'skipped') stats.skipped++;
+
+                      // Get video from the last result's attachments
+                      const lastResult = test.results?.[test.results.length - 1];
+                      const videoAttachment = lastResult?.attachments?.find(a => a.name === 'video');
+
+                      if (videoAttachment?.path) {
+                        const videoPath = path.basename(path.dirname(videoAttachment.path));
+                        const videoFile = path.basename(videoAttachment.path);
+                        const videoUrl = `${videosUrl}/${videoPath}/${videoFile}`;
+
+                        const emoji = status === 'expected' ? '✅' : status === 'unexpected' ? '❌' : '⏭️';
+                        testDetails.push({
+                          title: testTitle,
+                          fullTitle,
+                          status,
+                          emoji,
+                          videoUrl
+                        });
+                      }
+                    }
+                  }
+
+                  // Recurse into child suites
+                  if (suite.suites) {
+                    processSpecs(suite.suites, suiteTitle);
+                  }
+                }
+              };
+
+              processSpecs(results.suites || []);
+            } catch (e) {
+              console.log('Could not parse test results:', e.message);
+            }
+
+            const total = stats.passed + stats.failed + stats.skipped;
+            const statusEmoji = stats.failed > 0 ? '❌' : '✅';
+            const statusText = stats.failed > 0 ? 'Failed' : 'Passed';
+
+            let comment = [
+              `## ${statusEmoji} E2E Tests ${statusText}`,
+              '',
+              `**${stats.passed}** passed · **${stats.failed}** failed · **${stats.skipped}** skipped`,
+              '',
+              `[View Report](${baseUrl}) · [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})`,
+              '',
+              '### Test Videos',
+              ''
+            ].join('\n');
+
+            for (const test of testDetails) {
+              comment += [
+                '<details>',
+                `<summary>${test.emoji} ${test.title}</summary>`,
+                '',
+                `[View video](${test.videoUrl})`,
+                '',
+                '</details>',
+                ''
+              ].join('\n');
+            }
 
             await github.rest.issues.createComment({
               issue_number: prs[0].number,
