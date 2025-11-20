@@ -65,6 +65,7 @@ jobs:
 
   e2e:
     name: Playwright E2E
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     environment: CI
     steps:
@@ -90,6 +91,7 @@ jobs:
       - name: Run Playwright tests
         run: npm run test:e2e
         env:
+          NODE_ENV: development
           CI: true
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }} \
           DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }} \
