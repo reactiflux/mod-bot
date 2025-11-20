@@ -1,0 +1,527 @@
+{
+  "config": {
+    "configFile": "/home/runner/work/mod-bot/mod-bot/playwright.config.ts",
+    "rootDir": "/home/runner/work/mod-bot/mod-bot/tests/e2e",
+    "forbidOnly": true,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "ci": {
+        "commitHref": "https://github.com/reactiflux/mod-bot/commit/8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+        "commitHash": "8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+        "buildHref": "https://github.com/reactiflux/mod-bot/actions/runs/19524239027"
+      },
+      "gitCommit": {
+        "shortHash": "8a99ef5",
+        "hash": "8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+        "subject": "Remove kinda dumb tests",
+        "body": "Remove kinda dumb tests\n",
+        "author": {
+          "name": "Carl Vitullo",
+          "email": "carl.vitullo@gmail.com",
+          "time": 1763608236000
+        },
+        "committer": {
+          "name": "Carl Vitullo",
+          "email": "carl.vitullo@gmail.com",
+          "time": 1763608236000
+        },
+        "branch": "vc-pricing"
+      },
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never"
+        }
+      ],
+      [
+        "github",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/runner/work/mod-bot/mod-bot/test-results",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/reactiflux/mod-bot/commit/8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+            "commitHash": "8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+            "buildHref": "https://github.com/reactiflux/mod-bot/actions/runs/19524239027"
+          },
+          "gitCommit": {
+            "shortHash": "8a99ef5",
+            "hash": "8a99ef53b94e1eaa68448a5f3a75a91273b18caf",
+            "subject": "Remove kinda dumb tests",
+            "body": "Remove kinda dumb tests\n",
+            "author": {
+              "name": "Carl Vitullo",
+              "email": "carl.vitullo@gmail.com",
+              "time": 1763608236000
+            },
+            "committer": {
+              "name": "Carl Vitullo",
+              "email": "carl.vitullo@gmail.com",
+              "time": 1763608236000
+            },
+            "branch": "vc-pricing"
+          },
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/runner/work/mod-bot/mod-bot/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run build; npm start",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "payment-flow.spec.ts",
+      "file": "payment-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Payment Flow",
+          "file": "payment-flow.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Authenticated - Onboarding Flow",
+              "file": "payment-flow.spec.ts",
+              "line": 7,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "free guild onboarding shows Pro vs Free choice",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 632,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-11-20T03:11:53.019Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--7c20a-ng-shows-Pro-vs-Free-choice-chromium/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 475,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 1,
+                          "startTime": "2025-11-20T03:12:25.510Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--7c20a-ng-shows-Pro-vs-Free-choice-chromium-retry1/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 467,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 2,
+                          "startTime": "2025-11-20T03:12:57.688Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--7c20a-ng-shows-Pro-vs-Free-choice-chromium-retry2/video.webm"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "78204f79ba8de233d4ca-0197fff24c1b873bb99c",
+                  "file": "payment-flow.spec.ts",
+                  "line": 8,
+                  "column": 5
+                },
+                {
+                  "title": "pro guild onboarding shows congratulations",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 483,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-11-20T03:11:53.832Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--3d8bf-rding-shows-congratulations-chromium/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 423,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 1,
+                          "startTime": "2025-11-20T03:12:26.060Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--3d8bf-rding-shows-congratulations-chromium-retry1/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 447,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 2,
+                          "startTime": "2025-11-20T03:12:58.230Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--3d8bf-rding-shows-congratulations-chromium-retry2/video.webm"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "78204f79ba8de233d4ca-887af19d57b9e27bd68b",
+                  "file": "payment-flow.spec.ts",
+                  "line": 43,
+                  "column": 5
+                },
+                {
+                  "title": "onboarding without guild_id returns 404 error",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 137,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-11-20T03:11:54.330Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--b2bd1--guild-id-returns-404-error-chromium/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 135,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 1,
+                          "startTime": "2025-11-20T03:12:26.497Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--b2bd1--guild-id-returns-404-error-chromium-retry1/video.webm"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 124,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 2,
+                          "startTime": "2025-11-20T03:12:58.690Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--b2bd1--guild-id-returns-404-error-chromium-retry2/video.webm"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "78204f79ba8de233d4ca-035414f39e1e4a8ba867",
+                  "file": "payment-flow.spec.ts",
+                  "line": 80,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Authenticated - Payment Flow",
+              "file": "payment-flow.spec.ts",
+              "line": 99,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "complete Stripe checkout flow upgrades to Pro",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "timedOut",
+                          "duration": 30211,
+                          "error": {
+                            "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                            "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                          },
+                          "errors": [
+                            {
+                              "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                            },
+                            {
+                              "location": {
+                                "file": "/home/runner/work/mod-bot/mod-bot/tests/e2e/payment-flow.spec.ts",
+                                "column": 31,
+                                "line": 132
+                              },
+                              "message": "Error: page.waitForLoadState: Test timeout of 30000ms exceeded.\n\n  130 |       // Wait for Stripe checkout page to load\n  131 |       await authenticatedPage.waitForURL(/checkout\\.stripe\\.com/);\n> 132 |       await authenticatedPage.waitForLoadState(\"networkidle\");\n      |                               ^\n  133 |\n  134 |       // Fill in Stripe test card details\n  135 |       // Note: Stripe checkout has direct input fields, not iframes\n    at /home/runner/work/mod-bot/mod-bot/tests/e2e/payment-flow.spec.ts:132:31"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-11-20T03:11:54.484Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium/test-failed-1.png"
+                            },
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium/video.webm"
+                            },
+                            {
+                              "name": "error-context",
+                              "contentType": "text/markdown",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium/error-context.md"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "timedOut",
+                          "duration": 30217,
+                          "error": {
+                            "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                            "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                          },
+                          "errors": [
+                            {
+                              "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                            },
+                            {
+                              "location": {
+                                "file": "/home/runner/work/mod-bot/mod-bot/tests/e2e/payment-flow.spec.ts",
+                                "column": 31,
+                                "line": 132
+                              },
+                              "message": "Error: page.waitForLoadState: Test timeout of 30000ms exceeded.\n\n  130 |       // Wait for Stripe checkout page to load\n  131 |       await authenticatedPage.waitForURL(/checkout\\.stripe\\.com/);\n> 132 |       await authenticatedPage.waitForLoadState(\"networkidle\");\n      |                               ^\n  133 |\n  134 |       // Fill in Stripe test card details\n  135 |       // Note: Stripe checkout has direct input fields, not iframes\n    at /home/runner/work/mod-bot/mod-bot/tests/e2e/payment-flow.spec.ts:132:31"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 1,
+                          "startTime": "2025-11-20T03:12:26.649Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "screenshot",
+                              "contentType": "image/png",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium-retry1/test-failed-1.png"
+                            },
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium-retry1/video.webm"
+                            },
+                            {
+                              "name": "error-context",
+                              "contentType": "text/markdown",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium-retry1/error-context.md"
+                            }
+                          ]
+                        },
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 11138,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 2,
+                          "startTime": "2025-11-20T03:12:58.826Z",
+                          "annotations": [],
+                          "attachments": [
+                            {
+                              "name": "video",
+                              "contentType": "video/webm",
+                              "path": "/home/runner/work/mod-bot/mod-bot/test-results/payment-flow-Payment-Flow--e8ec8-eckout-flow-upgrades-to-Pro-chromium-retry2/video.webm"
+                            }
+                          ]
+                        }
+                      ],
+                      "status": "flaky"
+                    }
+                  ],
+                  "id": "78204f79ba8de233d4ca-60983a5a1160bb635f17",
+                  "file": "payment-flow.spec.ts",
+                  "line": 100,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-11-20T03:11:41.507Z",
+    "duration": 88538.859,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 1
+  }
+}
