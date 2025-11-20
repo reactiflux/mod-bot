@@ -1,0 +1,175 @@
+name: CI
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUSKY: 0
+
+on:
+  push:
+    branches-ignore:
+      - "main"
+
+jobs:
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck --if-present
+
+  vitest:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Run vitest
+        run: npm run test
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    environment: CI
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }} \
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }} \
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }} \
+          DISCORD_SECRET: ${{ secrets.DISCORD_SECRET }} \
+          DISCORD_HASH: ${{ secrets.DISCORD_HASH }} \
+          DISCORD_TEST_GUILD: ${{ secrets.DISCORD_TEST_GUILD }} \
+          SENTRY_INGEST: ${{ secrets.SENTRY_INGEST }} \
+          SENTRY_RELEASES: ${{ secrets.SENTRY_RELEASES }} \
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+          VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## 🎭 Playwright E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f playwright-report/index.html ]; then
+            # Extract test counts from the HTML report
+            TOTAL=$(grep -o 'passed.*failed.*skipped' playwright-report/index.html | head -1 || echo "Results available in artifacts")
+            echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Suite**: Payment Flow E2E" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Test artifacts available below" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Test report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- HTML Report (playwright-report/)" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots (on failure)" >> $GITHUB_STEP_SUMMARY
+          echo "- Video recordings" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      - name: Deploy test report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+          destination_dir: reports/${{ github.run_number }}
+          keep_files: true
+
+      - name: Comment PR with test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runId = '${{ github.run_id }}';
+            const runNumber = '${{ github.run_number }}';
+            const status = '${{ job.status }}';
+            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
+
+            let statusEmoji = '✅';
+            if (status === 'failure') statusEmoji = '❌';
+            else if (status === 'cancelled') statusEmoji = '⚠️';
+
+            const comment = `## ${statusEmoji} [#${runNumber}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId}) 
+
+            [Report](${reportUrl}) – [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})
+            `;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
