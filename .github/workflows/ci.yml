@@ -171,7 +171,7 @@ jobs:
 
             // Parse test results
             let testRows = [];
-            let stats = { passed: 0, failed: 0, skipped: 0 };
+            let stats = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
 
             try {
               const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
@@ -183,6 +183,7 @@ jobs:
                       const status = test.status;
                       if (status === 'expected') stats.passed++;
                       else if (status === 'unexpected') stats.failed++;
+                      else if (status === 'flaky') stats.flaky++;
                       else if (status === 'skipped') stats.skipped++;
 
                       // Get duration from the last result
@@ -192,12 +193,21 @@ jobs:
                         ? `${(duration / 1000).toFixed(1)}s`
                         : `${duration}ms`;
 
-                      const emoji = status === 'expected' ? '✅' : status === 'unexpected' ? '❌' : '⏭️';
+                      // Check for retries
+                      const retryCount = test.results?.length - 1 || 0;
+                      const retryInfo = retryCount > 0 ? ` (${retryCount} ${retryCount === 1 ? 'retry' : 'retries'})` : '';
+
+                      let emoji;
+                      if (status === 'expected') emoji = '✅';
+                      else if (status === 'flaky') emoji = '⚠️';
+                      else if (status === 'unexpected') emoji = '❌';
+                      else emoji = '⏭️';
+
                       const testLink = spec.id
-                        ? `[${spec.title}](${reportUrl}/#?testId=${spec.id})`
+                        ? `[${spec.title}](${reportUrl}#?testId=${spec.id})`
                         : spec.title;
 
-                      testRows.push(`| ${emoji} | ${testLink} | ${durationStr} |`);
+                      testRows.push(`| ${emoji} | ${testLink}${retryInfo} | ${durationStr} |`);
                     }
                   }
 
@@ -213,14 +223,21 @@ jobs:
               console.log('Could not parse test results:', e.message);
             }
 
-            const total = stats.passed + stats.failed + stats.skipped;
+            const total = stats.passed + stats.failed + stats.flaky + stats.skipped;
             const statusEmoji = stats.failed > 0 ? '❌' : '✅';
-            const statusText = stats.failed > 0 ? 'Failed' : 'Passed';
+            const statusText = stats.failed > 0 ? 'Failed' : stats.flaky > 0 ? 'Flaky' : 'Passed';
+
+            // Build stats line
+            let statsParts = [];
+            if (stats.passed > 0) statsParts.push(`**${stats.passed}** passed`);
+            if (stats.flaky > 0) statsParts.push(`**${stats.flaky}** flaky`);
+            if (stats.failed > 0) statsParts.push(`**${stats.failed}** failed`);
+            if (stats.skipped > 0) statsParts.push(`**${stats.skipped}** skipped`);
 
             let comment = [
               `## ${statusEmoji} E2E Tests ${statusText}`,
               '',
-              `**${stats.passed}** passed · **${stats.failed}** failed · **${stats.skipped}** skipped`,
+              statsParts.join(' · '),
               '',
               `[View Report](${reportUrl}) · [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})`,
               '',
