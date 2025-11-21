@@ -202,18 +202,6 @@ export class DbFixture {
   }
 
   /**
-   * Clean up ALL test data by deleting all rows from test-related tables
-   * This ensures a completely clean database state for the next test
-   */
-  async cleanup(): Promise<void> {
-    // Delete in reverse dependency order to avoid foreign key constraints
-    await testDb.deleteFrom("sessions").execute();
-    await testDb.deleteFrom("guild_subscriptions").execute();
-    await testDb.deleteFrom("guilds").execute();
-    await testDb.deleteFrom("users").execute();
-  }
-
-  /**
    * Get database instance for custom queries
    */
   getDb() {

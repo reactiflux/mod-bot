@@ -18,8 +18,6 @@ export const test = base.extend<{
   db: async ({}, use) => {
     const dbFixture = new DbFixture();
     await use(dbFixture);
-    // Cleanup after test
-    await dbFixture.cleanup();
   },
 
   // Test user - created for each test
