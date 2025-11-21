@@ -26,8 +26,7 @@ import {
   getWords,
   parseMarkdownBlocks,
 } from "#~/helpers/messageParsing";
-
-import { trackPerformance } from "./observability";
+import { trackPerformance } from "#~/helpers/observability";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];

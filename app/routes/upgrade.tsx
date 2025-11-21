@@ -1,6 +1,8 @@
-import { data, Form, useLoaderData } from "react-router";
+import { data, Form, redirect, useLoaderData } from "react-router";
 
+import { log } from "#~/helpers/observability";
 import { requireUser } from "#~/models/session.server";
+import { StripeService } from "#~/models/stripe.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
 
 import type { Route } from "./+types/upgrade";
@@ -25,7 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  await requireUser(request);
+  const user = await requireUser(request);
   const formData = await request.formData();
   const guildId = formData.get("guild_id") as string;
 
@@ -33,15 +35,58 @@ export async function action({ request }: Route.ActionArgs) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
   }
 
-  // Redirect to your existing Stripe redirect route
-  const redirectUrl = `/redirects/stripe?guild_id=${guildId}`;
-
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: redirectUrl,
-    },
+  log("info", "Upgrade", "Creating Stripe checkout session", {
+    guildId,
+    userId: user.id,
   });
+
+  try {
+    // Get base URL from request
+    const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+
+    // Create Stripe checkout session
+    const checkoutUrl = await StripeService.createCheckoutSession(
+      guildId,
+      baseUrl,
+      user.email ?? undefined,
+    );
+
+    log("info", "Upgrade", "Redirecting to Stripe checkout", {
+      guildId,
+      userId: user.id,
+    });
+
+    // Redirect to Stripe checkout
+    return redirect(checkoutUrl);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    log("error", "Upgrade", "Failed to create checkout session", {
+      guildId,
+      userId: user.id,
+      error: errorMessage,
+    });
+
+    // Check for specific Stripe configuration errors
+    if (
+      errorMessage.includes("STRIPE_SECRET_KEY") ||
+      errorMessage.includes("STRIPE_PRICE_ID")
+    ) {
+      return redirect(
+        `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
+          "Payment system is currently being configured. Please try again later or contact support.",
+        )}`,
+      );
+    }
+
+    // Generic error
+    return redirect(
+      `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
+        "Failed to create checkout session. Please try again later.",
+      )}`,
+    );
+  }
 }
 
 export default function Upgrade() {

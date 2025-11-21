@@ -245,9 +245,18 @@ export const SubscriptionService = {
 
         const tier = await this.getProductTier(guildId);
 
-        // For now, return false since we haven't defined features yet
-        // This will be expanded as features are implemented
-        const hasAccess = false;
+        // Define feature access by tier
+        const PAID_FEATURES = new Set([
+          "advanced_analytics",
+          "unlimited_message_tracking",
+          "premium_moderation",
+          "priority_support",
+          "custom_integrations",
+          "data_export",
+          "extended_history", // More than 30 days of data
+        ]);
+
+        const hasAccess = tier === "paid" && PAID_FEATURES.has(feature);
 
         log("debug", "Subscription", "Feature check completed", {
           guildId,

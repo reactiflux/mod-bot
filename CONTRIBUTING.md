@@ -49,7 +49,7 @@ This bot runs on a managed Kubernetes cluster on DigitalOcean. It's possible (th
 # Tail the logs of the production instance
 kubectl logs -f mod-bot-set-0
 
-# Force a restart without merging a PR (as of 2024-09 only 1 replica is in use)
+# Force a restart without merging a PR (as of 2025-11 only 1 replica is in use)
 kubectl scale statefulset mod-bot-set --replicas 0
 kubectl scale statefulset mod-bot-set --replicas 1
 

@@ -1,69 +1,14 @@
-name: Node.js CI
+name: CD
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   HUSKY: 0
 
-on:
-  pull_request:
-  push:
-    branches:
-      - main
+on: push
 
 jobs:
-  lint:
-    name: ESLint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-  typecheck:
-    name: TypeScript
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - run: npm ci
-
-      - name: Type check
-        run: npm run typecheck --if-present
-
-  vitest:
-    name: Vitest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - run: npm ci
-
-      - name: Run vitest
-        run: npm run test
-
   build:
     runs-on: ubuntu-latest
 
@@ -102,7 +47,7 @@ jobs:
 
   deployment:
     needs: build
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/actions'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -143,6 +88,8 @@ jobs:
             --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
             --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
             --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
+            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
             --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }}
