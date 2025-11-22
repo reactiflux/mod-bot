@@ -17,10 +17,10 @@ export default async (bot: Client) => {
     if (msg.author.id === bot.user?.id || !msg.guild) return;
 
     const [member, message] = await Promise.all([
-      msg.guild.members.fetch(msg.author.id),
-      msg.fetch(),
+      msg.guild.members.fetch(msg.author.id).catch((_) => undefined),
+      msg.fetch().catch((_) => undefined),
     ]);
-    if (!message.guild || isStaff(member)) {
+    if (!message?.guild || !member || isStaff(member)) {
       return;
     }
 

@@ -15,6 +15,7 @@ import {
   constructDiscordLink,
   describeAttachments,
   describeReactions,
+  escapeDisruptiveContent,
   getMessageStats,
   quoteAndEscape,
   quoteAndEscapePoll,
@@ -320,8 +321,10 @@ const constructLog = async ({
     ...reactions,
   ].filter((e): e is APIEmbed => Boolean(e));
   return {
-    content: truncateMessage(`${preface}
+    content: escapeDisruptiveContent(
+      truncateMessage(`${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
+    ),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };

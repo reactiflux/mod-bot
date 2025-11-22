@@ -28,6 +28,8 @@ import {
 } from "#~/helpers/messageParsing";
 import { trackPerformance } from "#~/helpers/observability";
 
+import { NotFoundError } from "./errors";
+
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
 
@@ -219,7 +221,12 @@ export async function getMessageStats(msg: Message | PartialMessage) {
   return trackPerformance(
     "startActivityTracking: getMessageStats",
     async () => {
-      const { content } = await msg.fetch();
+      const { content } = await msg
+        .fetch()
+        .catch((_) => ({ content: undefined }));
+      if (!content) {
+        throw new NotFoundError();
+      }
 
       const blocks = parseMarkdownBlocks(content);
 
