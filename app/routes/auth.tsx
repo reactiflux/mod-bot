@@ -48,6 +48,6 @@ export async function action({ request }: Route.ActionArgs) {
   return initOauthLogin({
     request,
     // eslint-disable-next-line @typescript-eslint/no-base-to-string
-    redirectTo: redirectTo?.toString() ?? "/guilds",
+    redirectTo: redirectTo?.toString() ?? "/app",
   });
 }

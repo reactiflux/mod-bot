@@ -105,7 +105,7 @@ export function DiscordLayout({
           <Link
             to="/"
             className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive("/guilds")
+              isActive("/")
                 ? "bg-gray-600 text-white"
                 : "text-gray-300 hover:bg-gray-700 hover:text-white"
             }`}
@@ -113,18 +113,27 @@ export function DiscordLayout({
             <span className="mr-3 text-lg">🏠</span>
             Servers
           </Link>
-          <Link
-            to="/analytics"
-            className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive("/analytics")
-                ? "bg-gray-600 text-white"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            <span className="mr-3 text-lg">📊</span>
-            Analytics
-          </Link>
         </nav>
+
+        {/* Expanded Account Menu */}
+        {accountExpanded && (
+          <div className="border-t border-gray-700 bg-gray-700">
+            <div className="px-3 py-2">
+              <p className="mb-2 text-xs text-gray-400">Account</p>
+              <div className="space-y-1">
+                {/* <Link
+                    to="/profile"
+                    className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  >
+                    Profile
+                  </Link> */}
+                <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
+                  <Logout>Log Out</Logout>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Account Section */}
         <div className="border-t border-gray-700 bg-gray-800">
@@ -157,26 +166,6 @@ export function DiscordLayout({
               />
             </svg>
           </button>
-
-          {/* Expanded Account Menu */}
-          {accountExpanded && (
-            <div className="border-t border-gray-700 bg-gray-700">
-              <div className="px-3 py-2">
-                <p className="mb-2 text-xs text-gray-400">Account</p>
-                <div className="space-y-1">
-                  <Link
-                    to="/profile"
-                    className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
-                  >
-                    Profile
-                  </Link>
-                  <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
-                    <Logout>Log Out</Logout>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

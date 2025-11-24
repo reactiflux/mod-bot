@@ -164,9 +164,11 @@ export async function escalate(
               thread.members.add(reportedMessage.author),
             ]);
             await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.
-Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.
-
-${quoteAndEscape(reportedMessage.content)}`);
+Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`);
+            await thread.send({
+              content: quoteAndEscape(reportedMessage.content),
+              allowedMentions: {},
+            });
 
             void reportedMessage.reply(
               `This user has been formally warned by the moderators. Please review the community rules.`,

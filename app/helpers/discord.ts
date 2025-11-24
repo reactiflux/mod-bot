@@ -134,8 +134,6 @@ const urlRegex = /(https?:\/\/\S+|discord.gg\/\S+)\b/g;
 export const escapeDisruptiveContent = (content: string) => {
   return (
     content
-      // Silence pings
-      .replace(/@(\S*)(\s)?/g, "@ $1$2")
       // Wrap links in <> so they don't make a preview
       .replace(urlRegex, "<$1>")
   );

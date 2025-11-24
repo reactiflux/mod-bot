@@ -1,4 +1,5 @@
 import {
+  Events,
   InteractionType,
   Routes,
   type APIApplicationCommand,
@@ -40,7 +41,7 @@ export const deployCommands = async (client: Client) => {
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
 
-  client.on("interactionCreate", (interaction) => {
+  client.on(Events.InteractionCreate, (interaction) => {
     console.log("info", "interaction received", interaction.id);
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
