@@ -9,7 +9,7 @@ export default async (bot: Client) => {
   bot.on("guildCreate", async (guild) => {
     const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
-      const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
+      const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
 
       const channels = await guild.channels.fetch();
       const likelyChannels = channels.filter((c): c is TextChannel =>
