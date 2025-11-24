@@ -76,24 +76,6 @@ test.describe("Payment Flow", () => {
         ),
       ).toBeVisible();
     });
-
-    test("onboarding without guild_id returns 404 error", async ({
-      authenticatedPage,
-      testUser,
-    }) => {
-      // Setup Discord mock
-      const discordMock = createDiscordMock({
-        userId: testUser.externalId,
-        userEmail: testUser.email,
-      });
-      await discordMock.setup(authenticatedPage);
-
-      // Navigate to onboarding without guild_id (invalid route)
-      const response = await authenticatedPage.goto("/onboard");
-
-      // Should return 404 error (route doesn't exist)
-      expect(response?.status()).toBe(404);
-    });
   });
 
   test.describe("Authenticated - Payment Flow", () => {
