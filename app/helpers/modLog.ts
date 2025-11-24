@@ -116,158 +116,179 @@ export const reportUser = async ({
 }: Omit<Report, "date">): Promise<
   Reported & { allReportedMessages: Report[] }
 > => {
-  return await retry(3, async () => {
-    const { guild } = message;
-    if (!guild) throw new Error("Tried to report a message without a guild");
+  const { guild } = message;
+  if (!guild) throw new Error("Tried to report a message without a guild");
 
-    // Check if this exact message has already been reported
-    const existingReports = await getReportsForMessage(message.id, guild.id);
+  // Check if this exact message has already been reported
+  const existingReports = await getReportsForMessage(message.id, guild.id);
 
-    const { modLog } = await fetchSettings(guild.id, [SETTINGS.modLog]);
-    const alreadyReported = existingReports.find(
-      (r) => r.reported_message_id === message.id,
-    );
+  const { modLog } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+  const alreadyReported = existingReports.find(
+    (r) => r.reported_message_id === message.id,
+  );
 
-    log(
-      "info",
-      "reportUser",
-      `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
-    );
+  log(
+    "info",
+    "reportUser",
+    `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
+  );
 
-    // Get or create persistent user thread first
-    const thread = await getOrCreateUserThread(message, message.author);
+  // Get or create persistent user thread first
+  const thread = await getOrCreateUserThread(message, message.author);
 
-    if (alreadyReported && reason !== ReportReasons.modResolution) {
-      // Message already reported with this reason, just add to thread
-      let priorLogMessage: Message<true>, latestReport: Message<true>;
-      try {
-        priorLogMessage = await thread.messages.fetch(
-          alreadyReported.log_message_id,
-        );
-        latestReport = await priorLogMessage.reply(
-          makeReportMessage({ message, reason, staff }),
-        );
-      } catch (e) {
-        // If the error is because the message doesn't exist, post to the thread
-        log("warn", "reportUser", "message not found, posting to thread", {
-          error: e,
-        });
-        if (e instanceof Error && e.message.includes("Unknown Message")) {
-          latestReport = await thread.send(
-            await constructLog({
-              extra,
-              logs: [{ message, reason, staff }],
-              staff,
-            }),
-          );
-          await deleteReport(alreadyReported.id);
-          await recordReport({
-            reportedMessageId: message.id,
-            reportedChannelId: message.channel.id,
-            reportedUserId: message.author.id,
-            guildId: guild.id,
-            logMessageId: latestReport.id,
-            logChannelId: thread.id,
-            reason,
-          });
-        } else {
-          throw e;
-        }
-      }
-      log("info", "reportUser", "exact message already logged");
-
-      const userStats = await getUserReportStats(message.author.id, guild.id);
-      return {
-        warnings: userStats.reportCount,
-        message: thread.lastMessage!,
-        latestReport,
-        thread,
-        allReportedMessages: [], // Could fetch if needed
-      };
-    }
-
-    log("info", "reportUser", "new message reported");
-
-    // Get user stats for constructing the log
-    const previousWarnings = await getUserReportStats(
-      message.author.id,
-      guild.id,
-    );
-
-    // Send detailed report info to the user thread
-    const logBody = await constructLog({
-      extra,
-      logs: [{ message, reason, staff }],
-      staff,
-    });
-
-    // If it has the data for a poll, use a specialized formatting function
-    const reportedMessage = message.poll
-      ? quoteAndEscapePoll(message.poll)
-      : quoteAndEscape(message.content).trim();
-    // Send the detailed log message to thread
-    const [logMessage] = await Promise.all([
-      thread.send(logBody),
-      thread.send({ content: reportedMessage, allowedMentions: {} }),
-    ]);
-
-    // Try to record the report in database
-    const [recordResult] = await Promise.all([
-      recordReport({
-        reportedMessageId: message.id,
-        reportedChannelId: message.channel.id,
-        reportedUserId: message.author.id,
-        guildId: guild.id,
-        logMessageId: logMessage.id,
-        logChannelId: thread.id,
-        reason,
-        staffId: staff ? staff.id : undefined,
-        staffUsername: staff ? staff.username : undefined,
-        extra,
-      }),
-      logMessage.forward(modLog),
-    ]);
-    if (thread.parent?.isSendable()) {
-      const singleLine = message.cleanContent
-        .slice(0, 80)
-        .replaceAll("\n", "\\n ");
-      const truncatedMessage =
-        message.cleanContent.length > 80
-          ? `${singleLine.slice(0, 80)}…`
-          : singleLine;
-      const stats = await getMessageStats(message);
-      await thread.parent.send({
-        allowedMentions: { roles: [], users: [] },
-        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
+  if (alreadyReported && reason !== ReportReasons.modResolution) {
+    // Message already reported with this reason, just add to thread
+    let priorLogMessage: Message<true>, latestReport: Message<true>;
+    try {
+      priorLogMessage = await thread.messages.fetch(
+        alreadyReported.log_message_id,
+      );
+      latestReport = await priorLogMessage.reply(
+        makeReportMessage({ message, reason, staff }),
+      );
+    } catch (e) {
+      // If the error is because the message doesn't exist, post to the thread
+      log("warn", "reportUser", "message not found, posting to thread", {
+        error: e,
       });
+      if (e instanceof Error && e.message.includes("Unknown Message")) {
+        latestReport = await thread.send(
+          await constructLog({
+            extra,
+            logs: [{ message, reason, staff }],
+            staff,
+          }),
+        );
+        await deleteReport(alreadyReported.id);
+        await recordReport({
+          reportedMessageId: message.id,
+          reportedChannelId: message.channel.id,
+          reportedUserId: message.author.id,
+          guildId: guild.id,
+          logMessageId: latestReport.id,
+          logChannelId: thread.id,
+          reason,
+        });
+      } else {
+        throw e;
+      }
     }
+    log("info", "reportUser", "exact message already logged");
+
+    const userStats = await getUserReportStats(message.author.id, guild.id);
+    return {
+      warnings: userStats.reportCount,
+      message: thread.lastMessage!,
+      latestReport,
+      thread,
+      allReportedMessages: [], // Could fetch if needed
+    };
+  }
+
+  log("info", "reportUser", "new message reported");
+
+  // Get user stats for constructing the log
+  const previousWarnings = await getUserReportStats(
+    message.author.id,
+    guild.id,
+  );
+
+  // Send detailed report info to the user thread
+  const logBody = await constructLog({
+    extra,
+    logs: [{ message, reason, staff }],
+    staff,
+  });
+
+  // If it has the data for a poll, use a specialized formatting function
+  const reportedMessage = message.poll
+    ? quoteAndEscapePoll(message.poll)
+    : quoteAndEscape(message.content).trim();
+  // Send the detailed log message to thread
+  const [logMessage] = await Promise.all([
+    thread.send(logBody),
+    thread.send({ content: reportedMessage, allowedMentions: {} }),
+  ]);
+
+  // Try to record the report in database with retry logic
+  await retry(3, async () => {
+    const result = await recordReport({
+      reportedMessageId: message.id,
+      reportedChannelId: message.channel.id,
+      reportedUserId: message.author.id,
+      guildId: guild.id,
+      logMessageId: logMessage.id,
+      logChannelId: thread.id,
+      reason,
+      staffId: staff ? staff.id : undefined,
+      staffUsername: staff ? staff.username : undefined,
+      extra,
+    });
 
     // If the record was not inserted due to unique constraint (duplicate),
     // this means another process already reported the same message while we were
-    // preparing the log.
-    // In this case, we'll keep the detailed log we already sent (since it's
-    // already there) but add a short duplicate message and return updated stats.
-    if (!recordResult.wasInserted) {
+    // preparing the log. Retry to check if we should bail early.
+    if (!result.wasInserted) {
       log(
         "warn",
         "reportUser",
-        "duplicate detected at database level after sending detailed log",
+        "duplicate detected at database level, retrying check",
       );
-      throw new Error("Race condition detected in reportUser, retrying…");
+      throw new Error("Race condition detected in recordReport, retrying…");
     }
 
-    // For new reports, the detailed log already includes the reason info,
-    // so we don't need a separate short message
-    const latestReport = undefined;
-
-    return {
-      warnings: previousWarnings.reportCount + 1,
-      message: logMessage,
-      latestReport,
-      thread,
-      allReportedMessages: [], // Could fetch from database if needed
-    };
+    return result;
   });
+
+  await logMessage.forward(modLog).catch((e) => {
+    log("error", "reportUser", "failed to forward to modLog", { error: e });
+  });
+
+  // Send summary to parent channel if possible
+  if (thread.parent?.isSendable()) {
+    const singleLine = message.cleanContent
+      .slice(0, 80)
+      .replaceAll("\n", "\\n ");
+    const truncatedMessage =
+      message.cleanContent.length > 80
+        ? `${singleLine.slice(0, 80)}…`
+        : singleLine;
+
+    try {
+      const stats = await getMessageStats(message);
+      await thread.parent.send({
+        allowedMentions: {},
+        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
+      });
+    } catch (e) {
+      // If message was deleted or stats unavailable, send without stats
+      log("warn", "reportUser", "failed to get message stats, skipping", {
+        error: e,
+      });
+      await thread.parent
+        .send({
+          allowedMentions: {},
+          content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [Stats failed to load](${messageLink(logMessage.channelId, logMessage.id)})`,
+        })
+        .catch((sendError) => {
+          log("error", "reportUser", "failed to send summary to parent", {
+            error: sendError,
+          });
+        });
+    }
+  }
+
+  // For new reports, the detailed log already includes the reason info,
+  // so we don't need a separate short message
+  const latestReport = undefined;
+
+  return {
+    warnings: previousWarnings.reportCount + 1,
+    message: logMessage,
+    latestReport,
+    thread,
+    allReportedMessages: [], // Could fetch from database if needed
+  };
 };
 
 const makeReportMessage = ({ message, reason, staff }: Report) => {
