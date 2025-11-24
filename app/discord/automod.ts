@@ -1,4 +1,4 @@
-import type { Client } from "discord.js";
+import { Events, type Client } from "discord.js";
 
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
@@ -13,7 +13,7 @@ import { client } from "./client.server";
 const AUTO_SPAM_THRESHOLD = 3;
 
 export default async (bot: Client) => {
-  bot.on("messageCreate", async (msg) => {
+  bot.on(Events.MessageCreate, async (msg) => {
     if (msg.author.id === bot.user?.id || !msg.guild) return;
 
     const [member, message] = await Promise.all([

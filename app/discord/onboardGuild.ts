@@ -1,4 +1,4 @@
-import { ChannelType, type Client, type TextChannel } from "discord.js";
+import { ChannelType, Events, type Client, type TextChannel } from "discord.js";
 
 import { retry } from "#~/helpers/misc";
 import { fetchGuild } from "#~/models/guilds.server";
@@ -9,7 +9,7 @@ import { deployCommands } from "./deployCommands.server";
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes
   // available after downtime, or when actually added to a new guild
-  bot.on("guildCreate", async (guild) => {
+  bot.on(Events.GuildCreate, async (guild) => {
     const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
       await deployCommands(client);
