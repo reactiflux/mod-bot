@@ -238,7 +238,7 @@ export const reportUser = async ({
       const stats = await getMessageStats(message);
       await thread.parent.send({
         allowedMentions: { roles: [], users: [] },
-        content: `> ${truncatedMessage}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
+        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
       });
     }
 
@@ -322,10 +322,8 @@ const constructLog = async ({
     ...reactions,
   ].filter((e): e is APIEmbed => Boolean(e));
   return {
-    content: escapeDisruptiveContent(
-      truncateMessage(`${preface}
+    content: truncateMessage(`${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
-    ),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };

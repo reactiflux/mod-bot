@@ -29,7 +29,7 @@ export default function init() {
 
   void login();
 
-  client.on("ready", async () => {
+  client.on("clientReady", async () => {
     await trackPerformance(
       "gateway_startup",
       async () => {
