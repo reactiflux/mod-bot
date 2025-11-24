@@ -243,9 +243,10 @@ export const reportUser = async ({
     }
 
     // If the record was not inserted due to unique constraint (duplicate),
-    // this means another process already reported the same message while we were preparing the log.
-    // In this case, we'll keep the detailed log we already sent (since it's already there)
-    // but add a short duplicate message and return updated stats
+    // this means another process already reported the same message while we were
+    // preparing the log.
+    // In this case, we'll keep the detailed log we already sent (since it's
+    // already there) but add a short duplicate message and return updated stats.
     if (!recordResult.wasInserted) {
       log(
         "warn",
