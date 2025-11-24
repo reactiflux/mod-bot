@@ -12,11 +12,15 @@
       1. <img width="328" alt="discord-general-settings" src="https://user-images.githubusercontent.com/1551487/221075576-e03f6d76-903f-4005-adf6-40a93b10183f.png">
       1. Copy the Application ID as `DISCORD_APP_ID`
       1. Copy the Public Key as `DISCORD_PUBLIC_KEY`
+   1. From the Oauth2 page:
+      1. Copy the Client Secret as `DISCORD_SECRET`
    1. From the Bot page:
       1. <img width="335" alt="discord-bot-settings" src="https://user-images.githubusercontent.com/1551487/221075742-17794152-ad14-4437-8680-87d7050fd829.png">
       1. Reset the bot's token and paste the new one as `DISCORD_HASH`
       1. <img width="300" alt="discord-token" src="https://user-images.githubusercontent.com/1551487/221075839-93f5bc23-cdb2-4e43-8b8c-d596cea0b6af.png">
+   1. Set `DISCORD_TEST_GUILD` to the server id of your test guild
    1. (optional) Request access token for Amplitude metrics from vcarl#7694 and paste the token as `AMPLITUDE_KEY`
+1. From the Installation Page, set `Install Link` to "None"
 1. From the Bot page: 3 settings off, 2 settings on
    1. Public Bot off
    1. Requires Oauth2 Code Grant off
