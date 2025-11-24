@@ -208,7 +208,7 @@ export const reportUser = async ({
     // Send the detailed log message to thread
     const [logMessage] = await Promise.all([
       thread.send(logBody),
-      thread.send(reportedMessage),
+      thread.send({ content: reportedMessage, allowedMentions: {} }),
     ]);
 
     // Try to record the report in database
