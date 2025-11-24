@@ -25,16 +25,14 @@ export default async (bot: Client) => {
     }
 
     if (isSpam(message.content)) {
-      const [{ warnings, message: logMessage }] = await Promise.all([
-        reportUser({
-          reason: ReportReasons.spam,
-          message: message,
-          staff: client.user ?? false,
-        }),
-        message
-          .delete()
-          .then(() => markMessageAsDeleted(message.id, message.guild!.id)),
-      ]);
+      const { warnings, message: logMessage } = await reportUser({
+        reason: ReportReasons.spam,
+        message: message,
+        staff: client.user ?? false,
+      });
+      await message
+        .delete()
+        .then(() => markMessageAsDeleted(message.id, message.guild!.id));
 
       if (warnings >= AUTO_SPAM_THRESHOLD) {
         await Promise.all([
