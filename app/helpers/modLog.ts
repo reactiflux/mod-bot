@@ -229,11 +229,11 @@ export const reportUser = async ({
     ]);
     if (thread.parent?.isSendable()) {
       const singleLine = message.cleanContent
-        .slice(0, 50)
-        .replaceAll("\n", "\\n");
+        .slice(0, 80)
+        .replaceAll("\n", "\\n ");
       const truncatedMessage =
-        message.cleanContent.length > 50
-          ? `${singleLine.slice(0, 50)}…`
+        message.cleanContent.length > 80
+          ? `${singleLine.slice(0, 80)}…`
           : singleLine;
       const stats = await getMessageStats(message);
       await thread.parent.send({
