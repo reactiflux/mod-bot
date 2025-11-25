@@ -1,5 +1,6 @@
 import { data, Form, redirect, useLoaderData } from "react-router";
 
+import { Page } from "#~/basics/page.js";
 import { log } from "#~/helpers/observability";
 import { requireUser } from "#~/models/session.server";
 import { StripeService } from "#~/models/stripe.server";
@@ -7,10 +8,9 @@ import { SubscriptionService } from "#~/models/subscriptions.server";
 
 import type { Route } from "./+types/upgrade";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   await requireUser(request);
-  const url = new URL(request.url);
-  const guildId = url.searchParams.get("guild_id");
+  const guildId = params.guildId;
 
   if (!guildId) {
     throw data({ message: "Guild ID is required" }, { status: 400 });
@@ -93,7 +93,7 @@ export default function Upgrade() {
   const { guildId, currentTier } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 sm:px-6 lg:px-8">
+    <Page>
       <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-gray-900">
@@ -129,64 +129,7 @@ export default function Upgrade() {
                   </span>
                 </p>
               </div>
-              <div className="px-6 pb-8 pt-6">
-                <ul className="space-y-4">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Basic moderation tools
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Limited analytics
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Community support
-                    </p>
-                  </li>
-                </ul>
-              </div>
+              <div className="px-6 pb-8 pt-6"></div>
             </div>
 
             {/* Pro Plan */}
@@ -361,6 +304,6 @@ export default function Upgrade() {
           </p>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
