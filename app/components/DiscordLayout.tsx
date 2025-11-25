@@ -36,10 +36,11 @@ export function DiscordLayout({
   // Filter to only show manageable guilds (where Euno is installed) in the server selector
   const manageableGuilds = guilds.filter((guild) => guild.hasBot);
 
-  const isActive = (href: string) => {
-    return (
-      location.pathname === href || location.pathname.startsWith(href + "/")
-    );
+  const isActive = (href: string, strict = false) => {
+    const isExact = location.pathname === href;
+    return strict
+      ? isExact
+      : isExact || location.pathname.startsWith(href + "/");
   };
 
   return (
@@ -51,7 +52,7 @@ export function DiscordLayout({
           <Link
             to="/app"
             className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
-              isActive("/app")
+              isActive("/app", true)
                 ? "rounded-xl bg-indigo-600"
                 : "bg-gray-800 hover:bg-gray-600"
             }`}
@@ -67,7 +68,7 @@ export function DiscordLayout({
               <Link
                 to={`/app/${guild.id}/settings`}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
-                  isActive(`/app/${guild.id}/settings`)
+                  isActive(`/app/${guild.id}`)
                     ? "rounded-xl bg-indigo-600"
                     : "bg-gray-800 hover:bg-gray-600"
                 }`}
@@ -245,10 +246,10 @@ export function DiscordLayout({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden bg-gray-700">
+      <div className="flex flex-1 overflow-hidden bg-gray-600">
         {/* Main Content */}
         <main className={`flex-1 overflow-auto ${rightPanel ? "pr-0" : ""}`}>
-          <div className="h-full bg-gray-700">{children}</div>
+          <div className="">{children}</div>
         </main>
 
         {/* Right Panel (conditional) */}

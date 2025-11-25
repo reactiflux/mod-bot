@@ -80,8 +80,8 @@ export default function Settings({
         )}
 
         {/* Settings Form */}
-        {currentSettings && (
-          <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
+        {currentSettings ? (
+          <div className="bg-grey-800 px-4 py-8 shadow sm:rounded-lg sm:px-10">
             <GuildSettingsForm
               guildId={guildId}
               roles={roles}
@@ -94,7 +94,7 @@ export default function Settings({
               }}
             />
           </div>
-        )}
+        ) : null}
 
         {/* Upgrade CTA for Free Users */}
         {tier === "free" && <Upgrade guildId={guildId} />}
