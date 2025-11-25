@@ -99,19 +99,23 @@ test.describe("Payment Flow", () => {
       await discordMock.setup(authenticatedPage);
 
       // Navigate to upgrade page
-      await authenticatedPage.goto(`/upgrade?guild_id=${guild.id}`);
+      await authenticatedPage.goto(`/app/${guild.id}/settings`);
       await expect(
-        authenticatedPage.getByRole("heading", { name: "Upgrade to Pro" }),
+        authenticatedPage.getByRole("tab", { name: "Upgrade" }),
+      ).toBeVisible();
+      await authenticatedPage.getByRole("tab", { name: "Upgrade" }).click();
+
+      await expect(
+        authenticatedPage.getByRole("button", { name: "Switch to Paid" }),
       ).toBeVisible();
 
-      // Click "Upgrade to Pro" button - this will redirect to Stripe
       await authenticatedPage
-        .getByRole("button", { name: "Upgrade to Pro" })
+        .getByRole("button", { name: "Switch to Paid" })
         .click();
 
       // Wait for Stripe checkout page to load
       await authenticatedPage.waitForURL(/checkout\.stripe\.com/);
-      await authenticatedPage.waitForLoadState("networkidle");
+      await authenticatedPage.waitForLoadState("domcontentloaded");
 
       // Fill in Stripe test card details
       // Note: Stripe checkout has direct input fields, not iframes

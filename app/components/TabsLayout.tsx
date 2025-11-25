@@ -25,9 +25,12 @@ export default function TabsLayout() {
       <nav
         className="-mb-px flex space-x-4 border-b-2 border-gray-500"
         aria-label="Tabs"
+        aria-controls="settings-pane"
       >
         {tabs.map((tab) => (
           <Link
+            role="tab"
+            aria-selected={isActive(tab.path)}
             key={tab.name}
             to={basePath + tab.path}
             className={`whitespace-nowrap px-1 py-2 text-sm font-medium transition-colors ${tab.style === "upsell" ? "upsell-tab" : ""} ${
@@ -42,7 +45,9 @@ export default function TabsLayout() {
       </nav>
 
       {/* Tab Content */}
-      <Outlet />
+      <main id="settings-pane">
+        <Outlet />
+      </main>
     </Page>
   );
 }
