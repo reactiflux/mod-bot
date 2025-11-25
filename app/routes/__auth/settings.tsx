@@ -2,7 +2,7 @@ import { data } from "react-router";
 
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
 import { Upgrade } from "#~/components/Upgrade.js";
-import { fetchGuildData } from "#~/helpers/guildData.server";
+import { fetchGuildData, type GuildData } from "#~/helpers/guildData.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { fetchSettings, setSettings, SETTINGS } from "#~/models/guilds.server";
 import { requireUser } from "#~/models/session.server";
@@ -27,10 +27,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         SETTINGS.modLog,
         SETTINGS.moderator,
         SETTINGS.restricted,
-      ]),
+      ]).catch(() => undefined),
       SubscriptionService.getProductTier(guildId),
       SubscriptionService.getGuildSubscription(guildId),
-      fetchGuildData(guildId),
+      fetchGuildData(guildId).catch(
+        () =>
+          ({
+            roles: [],
+            channels: [],
+          }) as GuildData,
+      ),
     ]);
 
   return {
@@ -68,49 +74,27 @@ export default function Settings({
                     )}
                   </span>
                 </div>
-                {subscription.current_period_end && tier === "paid" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Renewal Date</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {new Date(
-                        subscription.current_period_end,
-                      ).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                {tier === "paid" && subscription.stripe_subscription_id && (
-                  <div className="mt-4 border-t border-gray-200 pt-4">
-                    <p className="text-xs text-gray-500">
-                      To cancel your subscription or update payment details,
-                      please email{" "}
-                      <a
-                        href="mailto:support@euno.reactiflux.com"
-                        className="text-indigo-600 hover:text-indigo-500"
-                      >
-                        support@euno.reactiflux.com
-                      </a>
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
 
         {/* Settings Form */}
-        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-          <GuildSettingsForm
-            guildId={guildId}
-            roles={roles}
-            channels={channels}
-            buttonText="Save Settings"
-            defaultValues={{
-              moderatorRole: currentSettings.moderator,
-              modLogChannel: currentSettings.modLog,
-              restrictedRole: currentSettings.restricted,
-            }}
-          />
-        </div>
+        {currentSettings && (
+          <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
+            <GuildSettingsForm
+              guildId={guildId}
+              roles={roles}
+              channels={channels}
+              buttonText="Save Settings"
+              defaultValues={{
+                moderatorRole: currentSettings.moderator,
+                modLogChannel: currentSettings.modLog,
+                restrictedRole: currentSettings.restricted,
+              }}
+            />
+          </div>
+        )}
 
         {/* Upgrade CTA for Free Users */}
         {tier === "free" && <Upgrade guildId={guildId} />}
