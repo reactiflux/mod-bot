@@ -58,7 +58,7 @@ export function DiscordLayout({
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
                   isActive(`/app/${guild.id}`)
                     ? "rounded-xl bg-indigo-600"
-                    : "bg-gray-700 hover:bg-gray-600"
+                    : "bg-gray-800 hover:bg-gray-600"
                 }`}
                 title={guild.name}
               >
@@ -76,10 +76,22 @@ export function DiscordLayout({
               </Link>
             </div>
           ))}
+          <div className="flex justify-center">
+            <Link
+              target="_blank"
+              to={
+                "https://discord.com/oauth2/authorize?client_id=976541718109368361"
+              }
+              className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-700 transition-all duration-200 hover:rounded-xl hover:bg-gray-600`}
+              title={"Add to server"}
+            >
+              <span className="font-semibold text-white">+</span>
+            </Link>
+          </div>
         </div>
 
         {/* Settings gear at bottom */}
-        <div className="pb-3">
+        {/* <div className="pb-3">
           <Link
             to={`/app/${guildId}/settings`}
             className={`mx-3 flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
@@ -90,7 +102,7 @@ export function DiscordLayout({
           >
             <span className="text-lg">⚙️</span>
           </Link>
-        </div>
+        </div> */}
       </div>
 
       {/* Channel Sidebar */}
@@ -102,17 +114,30 @@ export function DiscordLayout({
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
-          <Link
-            to="/"
-            className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive("/")
-                ? "bg-gray-600 text-white"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            <span className="mr-3 text-lg">🏠</span>
-            Servers
-          </Link>
+          {guildId ? (
+            <>
+              <Link
+                to={`/app/${guildId}/settings`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/settings`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                ⚙️ Settings
+              </Link>
+              <Link
+                to={`/app/${guildId}/onboard`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/settings`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                🆕 Onboarding flow
+              </Link>
+            </>
+          ) : null}
         </nav>
 
         {/* Expanded Account Menu */}
