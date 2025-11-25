@@ -1,6 +1,5 @@
 export class NotFoundError extends Error {
-  constructor() {
-    super();
-    this.cause = "NotFound";
+  constructor(resource: string, message?: string) {
+    super(message, { cause: `'${resource}' not found` });
   }
 }

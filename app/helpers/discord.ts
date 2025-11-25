@@ -223,7 +223,7 @@ export async function getMessageStats(msg: Message | PartialMessage) {
         .fetch()
         .catch((_) => ({ content: undefined }));
       if (!content) {
-        throw new NotFoundError();
+        throw new NotFoundError("message", "getMessageStats");
       }
 
       const blocks = parseMarkdownBlocks(content);
