@@ -8,8 +8,10 @@ export default [
     route("app/:guildId/onboard", "routes/onboard.tsx"),
     route("app/:guildId/sh", "routes/__auth/dashboard.tsx"),
     route("app/:guildId/sh/:userId", "routes/__auth/sh-user.tsx"),
-    route("app/:guildId/settings", "routes/__auth/settings.tsx"),
-    route("app/:guildId/settings/upgrade", "routes/__auth/upgrade.tsx"),
+    layout("components/TabsLayout.tsx", [
+      route("app/:guildId/settings", "routes/__auth/settings.tsx"),
+      route("app/:guildId/settings/upgrade", "routes/__auth/upgrade.tsx"),
+    ]),
   ]),
   route("auth", "routes/auth.tsx"),
   route("discord-oauth", "routes/discord-oauth.tsx"),
