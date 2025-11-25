@@ -1,4 +1,4 @@
-import { data } from "react-router";
+import { data, Link } from "react-router";
 
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
 import { fetchGuildData, type GuildData } from "#~/helpers/guildData.server";
@@ -90,7 +90,18 @@ export default function Settings({
             restrictedRole: currentSettings.restricted,
           }}
         />
-      ) : null}
+      ) : (
+        <>
+          You haven’t finished setting the bot up for this server yet!{" "}
+          <Link
+            className="text-indigo-400 underline"
+            to={`/app/${guildId}/onboard`}
+          >
+            Finish onboarding
+          </Link>{" "}
+          first.
+        </>
+      )}
     </div>
   );
 }
