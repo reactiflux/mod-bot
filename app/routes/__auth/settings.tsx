@@ -1,5 +1,6 @@
 import { data } from "react-router";
 
+import { Page } from "#~/basics/page.js";
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
 import { Upgrade } from "#~/components/Upgrade.js";
 import { fetchGuildData, type GuildData } from "#~/helpers/guildData.server";
@@ -53,10 +54,10 @@ export default function Settings({
   loaderData: { guildId, roles, channels, currentSettings, tier, subscription },
 }: Route.ComponentProps) {
   return (
-    <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <Page>
       <div className="space-y-8">
         {/* Subscription Status */}
-        {subscription && (
+        {subscription ? (
           <div className="overflow-hidden rounded-lg bg-white shadow">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-base font-semibold leading-6 text-gray-900">
@@ -77,29 +78,26 @@ export default function Settings({
               </div>
             </div>
           </div>
+        ) : (
+          <Upgrade guildId={guildId} />
         )}
 
         {/* Settings Form */}
         {currentSettings ? (
-          <div className="bg-grey-800 px-4 py-8 shadow sm:rounded-lg sm:px-10">
-            <GuildSettingsForm
-              guildId={guildId}
-              roles={roles}
-              channels={channels}
-              buttonText="Save Settings"
-              defaultValues={{
-                moderatorRole: currentSettings.moderator,
-                modLogChannel: currentSettings.modLog,
-                restrictedRole: currentSettings.restricted,
-              }}
-            />
-          </div>
+          <GuildSettingsForm
+            guildId={guildId}
+            roles={roles}
+            channels={channels}
+            buttonText="Save Settings"
+            defaultValues={{
+              moderatorRole: currentSettings.moderator,
+              modLogChannel: currentSettings.modLog,
+              restrictedRole: currentSettings.restricted,
+            }}
+          />
         ) : null}
-
-        {/* Upgrade CTA for Free Users */}
-        {tier === "free" && <Upgrade guildId={guildId} />}
       </div>
-    </div>
+    </Page>
   );
 }
 

@@ -1,5 +1,6 @@
 import { data } from "react-router";
 
+import { Page } from "#~/basics/page.js";
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
 import { fetchGuildData } from "#~/helpers/guildData.server";
 import { log, trackPerformance } from "#~/helpers/observability";
@@ -44,38 +45,36 @@ export default function Onboard({
   loaderData: { guildId, roles, channels },
 }: Route.ComponentProps) {
   return (
-    <div className="flex h-full flex-col px-2 py-3">
-      <div className="border-1 h-full max-h-[77rem] max-w-[50rem] space-y-4 rounded-sm border-gray-500 bg-gray-700 px-6 py-4 shadow-sm shadow-gray-500 sm:w-full">
-        <h2 className="text-3xl font-extrabold text-gray-100">
-          <div className="inline-block">
-            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-800">
-              <svg
-                className="h-6 w-6 text-green-300"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
+    <Page>
+      <h2 className="text-3xl font-extrabold text-gray-100">
+        <div className="inline-block">
+          <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-800">
+            <svg
+              className="h-6 w-6 text-green-300"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
           </div>
-          Set up Euno for your server
-        </h2>
-        <p className="mt-2 text-lg text-gray-300">
-          Configure the essential settings to get started
-        </p>
+        </div>
+        Set up Euno for your server
+      </h2>
+      <p className="mt-2 text-lg text-gray-300">
+        Configure the essential settings to get started
+      </p>
 
-        <GuildSettingsForm
-          guildId={guildId}
-          roles={roles}
-          channels={channels}
-          buttonText="Complete Setup"
-        />
-      </div>
-    </div>
+      <GuildSettingsForm
+        guildId={guildId}
+        roles={roles}
+        channels={channels}
+        buttonText="Complete Setup"
+      />
+    </Page>
   );
 }
 
