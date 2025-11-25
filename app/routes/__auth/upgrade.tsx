@@ -1,6 +1,6 @@
+import type { PropsWithChildren } from "react";
 import { data, Form, redirect, useLoaderData } from "react-router";
 
-import { Page } from "#~/basics/page.js";
 import { log } from "#~/helpers/observability";
 import { requireUser } from "#~/models/session.server";
 import { StripeService } from "#~/models/stripe.server";
@@ -89,221 +89,69 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
+function Check() {
+  return (
+    <svg
+      className="h-6 w-6 text-green-500"
+      fill="currentColor"
+      viewBox="0 0 20 20"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function Benefit({ children }: PropsWithChildren) {
+  return (
+    <li className="flex items-start">
+      <div className="flex-shrink-0">
+        <Check />
+      </div>
+      <p className="ml-1 text-sm text-gray-300">{children}</p>
+    </li>
+  );
+}
+
 export default function Upgrade() {
   const { guildId, currentTier } = useLoaderData<typeof loader>();
 
   return (
-    <Page>
-      <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">
-            Upgrade to Pro
-          </h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Unlock advanced features for your Discord server
-          </p>
-        </div>
+    <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
+      <h2 className="text-3xl font-extrabold text-gray-200">Switch to Paid</h2>
+      <p className="mt-4 text-lg text-gray-300">TODO: copy for upgrade page</p>
 
-        <div className="mt-12 space-y-8 sm:mt-16">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {/* Current Plan */}
-            <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Free Plan
-                  {currentTier === "free" && (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                      Current
-                    </span>
-                  )}
-                </h3>
-                <p className="mt-4 text-sm text-gray-600">
-                  Basic community management features
-                </p>
-                <p className="mt-8">
-                  <span className="text-4xl font-extrabold text-gray-900">
-                    $0
-                  </span>
-                  <span className="text-base font-medium text-gray-500">
-                    /month
-                  </span>
-                </p>
-              </div>
-              <div className="px-6 pb-8 pt-6"></div>
-            </div>
+      <p className="mb-4 mt-6">
+        <span className="text-4xl font-extrabold text-gray-300">$100</span>
+        <span className="text-base font-medium text-gray-500">/yr</span>
+      </p>
+      <ul className="mb-6 space-y-2">
+        <Benefit>Anonymous community reports</Benefit>
+        <Benefit>Ticketing system</Benefit>
+        <Benefit>Kick spammers automatically</Benefit>
+        <Benefit>Moderator decision tools</Benefit>
+      </ul>
 
-            {/* Pro Plan */}
-            <div className="relative divide-y divide-gray-200 rounded-lg border-2 border-indigo-500 bg-white shadow-sm">
-              <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 transform">
-                <span className="inline-flex rounded-full bg-indigo-500 px-4 py-1 text-sm font-semibold uppercase tracking-wide text-white">
-                  Recommended
-                </span>
-              </div>
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Pro Plan
-                  {currentTier === "paid" && (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                      Current
-                    </span>
-                  )}
-                </h3>
-                <p className="mt-4 text-sm text-gray-600">
-                  Advanced features for serious community builders
-                </p>
-                <p className="mt-8">
-                  <span className="text-4xl font-extrabold text-gray-900">
-                    $15
-                  </span>
-                  <span className="text-base font-medium text-gray-500">
-                    /month
-                  </span>
-                </p>
-              </div>
-              <div className="px-6 pb-8 pt-6">
-                <ul className="space-y-4">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Everything in Free
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Advanced analytics & insights
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Unlimited message tracking
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Premium moderation features
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Priority support
-                    </p>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-6 w-6 text-green-500"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <p className="ml-3 text-sm text-gray-700">
-                      Custom integrations
-                    </p>
-                  </li>
-                </ul>
-
-                {currentTier !== "paid" && (
-                  <div className="mt-8">
-                    <Form method="post">
-                      <input type="hidden" name="guild_id" value={guildId} />
-                      <button
-                        type="submit"
-                        className="w-full rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                      >
-                        Upgrade to Pro
-                      </button>
-                    </Form>
-                  </div>
-                )}
-
-                {currentTier === "paid" && (
-                  <div className="mt-8">
-                    <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
-                      ✓ You have this plan
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      {currentTier === "paid" ? (
+        <div className="mt-6">
+          <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
+            ✓ You have this plan
           </div>
         </div>
-
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500">
-            Cancel anytime. No long-term contracts.
-          </p>
-        </div>
-      </div>
-    </Page>
+      ) : (
+        <Form method="post">
+          <input type="hidden" name="guild_id" value={guildId} />
+          <button
+            type="submit"
+            className="rounded-md border border-transparent bg-indigo-600 px-8 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            Upgrade to Pro
+          </button>
+        </Form>
+      )}
+    </div>
   );
 }
