@@ -26,7 +26,7 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="moderator_role"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-300"
         >
           Moderator Role <span className="text-red-500">*</span>
         </label>
@@ -56,7 +56,7 @@ export function GuildSettingsForm({
             ))}
           </select>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-xs text-gray-400">
           The role that grants moderator permissions to users.
         </p>
       </div>
@@ -64,7 +64,7 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="mod_log_channel"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-300"
         >
           Mod Log Channel <span className="text-red-500">*</span>
         </label>
@@ -106,7 +106,7 @@ export function GuildSettingsForm({
             })}
           </select>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-400">
           The channel where moderation reports will be sent.
         </p>
       </div>
@@ -114,7 +114,7 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="restricted_role"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-300"
         >
           Restricted Role (Optional)
         </label>
@@ -143,7 +143,7 @@ export function GuildSettingsForm({
             ))}
           </select>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-400">
           A role that prevents members from accessing some channels during
           timeouts.
         </p>
