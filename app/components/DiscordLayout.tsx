@@ -14,6 +14,13 @@ interface DiscordLayoutProps {
     hasBot: boolean;
     authz: string[];
   }[];
+  manageableGuilds: {
+    id: string;
+    name: string;
+    icon?: string;
+    hasBot: boolean;
+    authz: string[];
+  }[];
 }
 
 export function DiscordLayout({
@@ -42,8 +49,12 @@ export function DiscordLayout({
         {/* Home/Euno Icon */}
         <div className="flex h-16 items-center justify-center border-b border-gray-800">
           <Link
-            to="/"
-            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white transition-all duration-200 hover:rounded-xl hover:bg-indigo-500"
+            to="/app"
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
+              isActive("/app")
+                ? "rounded-xl bg-indigo-600"
+                : "bg-gray-800 hover:bg-gray-600"
+            }`}
           >
             E
           </Link>
@@ -54,9 +65,9 @@ export function DiscordLayout({
           {manageableGuilds.map((guild) => (
             <div key={guild.id} className="flex justify-center">
               <Link
-                to={`/app/${guild.id}/sh`}
+                to={`/app/${guild.id}/settings`}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
-                  isActive(`/app/${guild.id}`)
+                  isActive(`/app/${guild.id}/settings`)
                     ? "rounded-xl bg-indigo-600"
                     : "bg-gray-800 hover:bg-gray-600"
                 }`}
@@ -117,6 +128,17 @@ export function DiscordLayout({
           {guildId ? (
             <>
               <Link
+                to={`/app/${guildId}/sh`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/sh`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                🌟 Star Hunter
+              </Link>
+              <hr className="" />
+              <Link
                 to={`/app/${guildId}/settings`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(`/app/${guildId}/settings`)
@@ -129,7 +151,7 @@ export function DiscordLayout({
               <Link
                 to={`/app/${guildId}/onboard`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive(`/app/${guildId}/settings`)
+                  isActive(`/app/${guildId}/onboard`)
                     ? "bg-gray-600 text-white"
                     : "text-gray-300 hover:bg-gray-700 hover:text-white"
                 }`}
@@ -152,6 +174,34 @@ export function DiscordLayout({
                   >
                     Profile
                   </Link> */}
+                <Link
+                  to="/profile"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Profile
+                </Link>
+
+                <Link
+                  to="/terms"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Terms of Service
+                </Link>
+                <Link
+                  to="/privacy"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  to="mailto:support@euno.reactiflux.com"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Contact Support
+                </Link>
+
+                <hr />
+
                 <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
                   <Logout>Log Out</Logout>
                 </div>
