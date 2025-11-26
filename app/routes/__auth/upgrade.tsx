@@ -1,5 +1,11 @@
 import type { PropsWithChildren } from "react";
-import { data, Form, redirect, useLoaderData } from "react-router";
+import {
+  data,
+  Form,
+  redirect,
+  useLoaderData,
+  useSearchParams,
+} from "react-router";
 
 import { log } from "#~/helpers/observability";
 import { requireUser } from "#~/models/session.server";
@@ -132,6 +138,8 @@ function Benefit({ children }: PropsWithChildren) {
 
 export default function Upgrade() {
   const { guildId, currentTier } = useLoaderData<typeof loader>();
+  const [search] = useSearchParams();
+  const didPay = typeof search.get("success") === "string";
 
   return (
     <div className="sm:w-full sm:max-w-3xl">
@@ -151,7 +159,8 @@ export default function Upgrade() {
           {currentTier === "paid" ? (
             <div className="mt-6">
               <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
-                ✓ You have this plan
+                ✓ You have a paid plan
+                {didPay ? ". Thank you for subscribing!" : ""}
               </div>
             </div>
           ) : (

@@ -156,26 +156,11 @@ test.describe("Payment Flow", () => {
         .getByRole("button", { name: /subscribe|pay/i })
         .click();
 
-      // Wait for redirect back to our success page
-      await authenticatedPage.waitForURL(/\/payment\/success/, {
-        timeout: 60000,
-      });
-
       // Verify success page
       await expect(
-        authenticatedPage.getByText("Payment Successful!"),
-      ).toBeVisible();
-
-      // Navigate to settings page to verify Pro status
-      await authenticatedPage.goto(`/app/${guild.id}/settings`);
-
-      // Verify UI shows Pro plan in the subscription status section
-      await expect(
-        authenticatedPage.getByRole("heading", { name: "Subscription Status" }),
-      ).toBeVisible();
-      // Verify both "Pro" and "Active" are visible (they appear next to each other)
-      await expect(
-        authenticatedPage.getByText("Pro Active", { exact: false }),
+        authenticatedPage.getByText(
+          "You have a paid plan. Thank you for subscribing",
+        ),
       ).toBeVisible();
     });
   });
