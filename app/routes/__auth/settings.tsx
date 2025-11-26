@@ -1,12 +1,10 @@
-import { data } from "react-router";
+import { data, Link } from "react-router";
 
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
-import { Upgrade } from "#~/components/Upgrade.js";
 import { fetchGuildData, type GuildData } from "#~/helpers/guildData.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { fetchSettings, setSettings, SETTINGS } from "#~/models/guilds.server";
 import { requireUser } from "#~/models/session.server";
-import { SubscriptionService } from "#~/models/subscriptions.server.js";
 
 import type { Route } from "./+types/settings";
 
@@ -21,28 +19,23 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   log("info", "settings", "Settings page accessed", { guildId });
 
   // Fetch current guild settings
-  const [currentSettings, tier, subscription, { roles, channels }] =
-    await Promise.all([
-      fetchSettings(guildId, [
-        SETTINGS.modLog,
-        SETTINGS.moderator,
-        SETTINGS.restricted,
-      ]).catch(() => undefined),
-      SubscriptionService.getProductTier(guildId),
-      SubscriptionService.getGuildSubscription(guildId),
-      fetchGuildData(guildId).catch(
-        () =>
-          ({
-            roles: [],
-            channels: [],
-          }) as GuildData,
-      ),
-    ]);
+  const [currentSettings, { roles, channels }] = await Promise.all([
+    fetchSettings(guildId, [
+      SETTINGS.modLog,
+      SETTINGS.moderator,
+      SETTINGS.restricted,
+    ]).catch(() => undefined),
+    fetchGuildData(guildId).catch(
+      () =>
+        ({
+          roles: [],
+          channels: [],
+        }) as GuildData,
+    ),
+  ]);
 
   return {
     guildId,
-    tier,
-    subscription,
     roles,
     channels,
     currentSettings,
@@ -50,55 +43,35 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export default function Settings({
-  loaderData: { guildId, roles, channels, currentSettings, tier, subscription },
+  loaderData: { guildId, roles, channels, currentSettings },
 }: Route.ComponentProps) {
   return (
-    <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div className="space-y-8">
-        {/* Subscription Status */}
-        {subscription && (
-          <div className="overflow-hidden rounded-lg bg-white shadow">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-base font-semibold leading-6 text-gray-900">
-                Subscription Status
-              </h3>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Current Plan</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {tier === "paid" ? "Pro" : "Free"}{" "}
-                    {subscription.status === "active" && tier === "paid" && (
-                      <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                        Active
-                      </span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Settings Form */}
-        {currentSettings ? (
-          <div className="bg-grey-800 px-4 py-8 shadow sm:rounded-lg sm:px-10">
-            <GuildSettingsForm
-              guildId={guildId}
-              roles={roles}
-              channels={channels}
-              buttonText="Save Settings"
-              defaultValues={{
-                moderatorRole: currentSettings.moderator,
-                modLogChannel: currentSettings.modLog,
-                restrictedRole: currentSettings.restricted,
-              }}
-            />
-          </div>
-        ) : null}
-
-        {/* Upgrade CTA for Free Users */}
-        {tier === "free" && <Upgrade guildId={guildId} />}
-      </div>
+    <div className="space-y-8">
+      {/* Settings Form */}
+      {currentSettings ? (
+        <GuildSettingsForm
+          guildId={guildId}
+          roles={roles}
+          channels={channels}
+          buttonText="Save Settings"
+          defaultValues={{
+            moderatorRole: currentSettings.moderator,
+            modLogChannel: currentSettings.modLog,
+            restrictedRole: currentSettings.restricted,
+          }}
+        />
+      ) : (
+        <>
+          You haven’t finished setting the bot up for this server yet!{" "}
+          <Link
+            className="text-indigo-400 underline"
+            to={`/app/${guildId}/onboard`}
+          >
+            Finish onboarding
+          </Link>{" "}
+          first.
+        </>
+      )}
     </div>
   );
 }

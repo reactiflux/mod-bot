@@ -2,7 +2,7 @@ import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
-export type ProductTier = "free" | "paid";
+export type ProductTier = "free" | "paid" | "custom";
 
 export type AccountStatus = "active" | "inactive";
 
