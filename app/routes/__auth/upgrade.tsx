@@ -12,6 +12,7 @@ import { requireUser } from "#~/models/session.server";
 import { StripeService } from "#~/models/stripe.server";
 import {
   SubscriptionService,
+  type PaidVariants,
   type ProductTier,
 } from "#~/models/subscriptions.server";
 
@@ -40,6 +41,8 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
 
   const tier = formData.get("tier") as ProductTier;
+  const variant: PaidVariants = "standard_annual";
+  const coupon = (formData.get("coupon")?.valueOf() as string) ?? "";
 
   if (tier === "custom") {
     // TODO: submit contact details
@@ -65,6 +68,8 @@ export async function action({ request }: Route.ActionArgs) {
 
       // Create Stripe checkout session
       const checkoutUrl = await StripeService.createCheckoutSession(
+        variant,
+        coupon,
         guildId,
         baseUrl,
         user.email ?? undefined,

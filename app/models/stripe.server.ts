@@ -1,9 +1,8 @@
 import Stripe from "stripe";
 
+import { NotFoundError } from "#~/helpers/errors.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
-
-const STRIPE_PRICE_ID = "price_1SUv6kPIBENZyqLXxXvlT2LU";
 
 // Initialize Stripe with API key from environment
 const getStripe = () => {
@@ -24,6 +23,8 @@ export const StripeService = {
    * Create a Stripe checkout session for subscription
    */
   async createCheckoutSession(
+    variant: string,
+    coupon: string,
     guildId: string,
     baseUrl: string,
     customerEmail?: string,
@@ -35,35 +36,42 @@ export const StripeService = {
           guildId,
           baseUrl,
           hasEmail: !!customerEmail,
+          variant,
+          coupon,
         });
 
         const stripe = getStripe();
 
         const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&guild_id=${guildId}`;
         const cancelUrl = `${baseUrl}/payment/cancel?guild_id=${guildId}`;
+        let priceId = "";
+        try {
+          const prices = await stripe.prices.list({ lookup_keys: [variant] });
+          const price = prices.data.at(0);
+          if (!price) {
+            throw new NotFoundError(
+              "price",
+              "failed to find a price while upgrading",
+            );
+          }
+          priceId = price.id;
+        } catch (e) {
+          log("error", "Stripe", "Failed to load pricing data");
+          throw e;
+        }
 
         try {
           const session = await stripe.checkout.sessions.create({
             mode: "subscription",
             payment_method_types: ["card"],
-            line_items: [
-              {
-                price: STRIPE_PRICE_ID,
-                quantity: 1,
-              },
-            ],
+            line_items: [{ price: priceId, quantity: 1 }],
+            discounts: coupon ? [{ coupon }] : [],
             success_url: successUrl,
             cancel_url: cancelUrl,
             client_reference_id: guildId,
             customer_email: customerEmail,
-            metadata: {
-              guild_id: guildId,
-            },
-            subscription_data: {
-              metadata: {
-                guild_id: guildId,
-              },
-            },
+            metadata: { guild_id: guildId },
+            subscription_data: { metadata: { guild_id: guildId } },
           });
 
           log("info", "Stripe", "Checkout session created successfully", {
@@ -81,7 +89,7 @@ export const StripeService = {
           throw error;
         }
       },
-      { guildId },
+      { guildId, customerEmail },
     );
   },
 
