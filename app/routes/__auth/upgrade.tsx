@@ -149,18 +149,14 @@ export default function Upgrade() {
   return (
     <div className="sm:w-full sm:max-w-3xl">
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
-        <div>
+        <div className="space-y-4">
           <h2 className="text-3xl font-extrabold text-gray-200">
             Switch to Paid
           </h2>
           <p className="mt-4 text-lg text-gray-300">
-            TODO: copy for upgrade page
+            {/* TODO: copy for upgrade page */}
           </p>
 
-          <p className="mb-4 mt-6">
-            <span className="text-4xl font-extrabold text-gray-300">$100</span>
-            <span className="text-base font-medium text-gray-500">/yr</span>
-          </p>
           {currentTier === "paid" ? (
             <div className="mt-6">
               <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
@@ -174,12 +170,16 @@ export default function Upgrade() {
               <input type="hidden" name="tier" value="paid" />
               <button
                 type="submit"
-                className="rounded-md border border-transparent bg-indigo-600 px-8 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="text-sh rounded-md border border-transparent bg-emerald-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
               >
                 Switch to Paid
               </button>
             </Form>
           )}
+          <p>
+            <span className="text-4xl font-extrabold text-gray-300">$100</span>
+            <span className="text-base font-medium text-gray-400">/yr</span>
+          </p>
           <ul className="mt-6 space-y-2">
             <Benefit>Anonymous community reports</Benefit>
             <Benefit>Ticketing system</Benefit>
@@ -188,18 +188,12 @@ export default function Upgrade() {
           </ul>
         </div>
 
-        <div>
+        <div className="space-y-4">
           <h2 className="text-3xl font-extrabold text-gray-200">
             Get a custom integration
           </h2>
           <p className="mt-4 text-lg text-gray-300">
-            TODO: copy for upgrade page
-          </p>
-
-          <p className="mb-4 mt-6">
-            <span className="text-2xl font-bold text-gray-300">
-              Contact Sales
-            </span>
+            {/* TODO: copy for upgrade page */}
           </p>
 
           {currentTier === "custom" ? (
@@ -214,9 +208,9 @@ export default function Upgrade() {
               <input type="hidden" name="tier" value="custom" />
               <button
                 type="submit"
-                className="rounded-md border border-transparent bg-indigo-600 px-8 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="shad rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
-                Discuss a custom integration
+                Contact Sales
               </button>
             </Form>
           )}

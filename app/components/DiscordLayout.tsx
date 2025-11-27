@@ -249,7 +249,7 @@ export function DiscordLayout({
       <div className="flex flex-1 overflow-hidden bg-gray-600">
         {/* Main Content */}
         <main className={`flex-1 overflow-auto ${rightPanel ? "pr-0" : ""}`}>
-          <div className="">{children}</div>
+          {children}
         </main>
 
         {/* Right Panel (conditional) */}

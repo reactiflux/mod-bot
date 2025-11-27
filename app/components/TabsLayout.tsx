@@ -23,7 +23,7 @@ export default function TabsLayout() {
     <Page>
       {/* Tabs Navigation */}
       <nav
-        className="-mb-px flex space-x-1 border-b-2 border-indigo-500"
+        className="flex space-x-1 border-b-2 border-indigo-500"
         aria-label="Tabs"
         aria-controls="settings-pane"
       >
