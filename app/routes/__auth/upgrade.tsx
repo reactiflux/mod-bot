@@ -196,6 +196,32 @@ function Benefit({ children }: PropsWithChildren) {
   );
 }
 
+function Cancel({ guildId }: { guildId: string }) {
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+        Cancel subscription
+      </summary>
+      <div className="mt-3 rounded-md border border-rose-800 bg-rose-900 bg-opacity-20 p-4">
+        <p className="mb-3 text-gray-300">
+          Are you sure you want to cancel? You'll lose access to paid features
+          at the end of your billing period.
+        </p>
+        <Form method="post">
+          <input type="hidden" name="guild_id" value={guildId} />
+          <input type="hidden" name="intent" value="cancel" />
+          <button
+            type="submit"
+            className="rounded-md bg-rose-700 bg-opacity-85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+          >
+            Yes, cancel my subscription
+          </button>
+        </Form>
+      </div>
+    </details>
+  );
+}
+
 export default function Upgrade({ actionData }: Route.ComponentProps) {
   const { guildId, currentTier } = useLoaderData<typeof loader>();
   const [search] = useSearchParams();
@@ -227,28 +253,6 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
                 ✓ You have a paid plan
                 {didPay ? ". Thank you for subscribing!" : ""}
               </div>
-
-              <details className="text-sm">
-                <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
-                  Cancel subscription
-                </summary>
-                <div className="mt-3 rounded-md border border-rose-800 bg-rose-900 bg-opacity-20 p-4">
-                  <p className="mb-3 text-gray-300">
-                    Are you sure you want to cancel? You'll lose access to paid
-                    features at the end of your billing period.
-                  </p>
-                  <Form method="post">
-                    <input type="hidden" name="guild_id" value={guildId} />
-                    <input type="hidden" name="intent" value="cancel" />
-                    <button
-                      type="submit"
-                      className="rounded-md bg-rose-700 bg-opacity-85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
-                    >
-                      Yes, cancel my subscription
-                    </button>
-                  </Form>
-                </div>
-              </details>
             </div>
           ) : (
             <Form method="post">
@@ -272,6 +276,7 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
             <Benefit>Kick spammers automatically</Benefit>
             <Benefit>Moderator decision tools</Benefit>
           </ul>
+          {currentTier === "paid" ? <Cancel guildId={guildId} /> : null}
         </div>
 
         <div className="space-y-4">
