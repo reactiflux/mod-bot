@@ -19,8 +19,6 @@ export default [
   route("/", "routes/index.tsx"),
   route("logout", "routes/logout.tsx"),
   route("payment/success", "routes/payment.success.tsx"),
-  route("payment/cancel", "routes/payment.cancel.tsx"),
-  route("payment/error", "routes/payment.error.tsx"),
   route("webhooks/stripe", "routes/webhooks.stripe.tsx"),
   route("export-data", "routes/export-data.tsx"),
   route("terms", "routes/terms.tsx"),

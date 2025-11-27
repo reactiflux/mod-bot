@@ -43,7 +43,7 @@ export const StripeService = {
         const stripe = getStripe();
 
         const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&guild_id=${guildId}`;
-        const cancelUrl = `${baseUrl}/payment/cancel?guild_id=${guildId}`;
+        const settingsUrl = `${baseUrl}/app/${guildId}/settings`;
         let priceId = "";
         try {
           const prices = await stripe.prices.list({ lookup_keys: [variant] });
@@ -67,7 +67,7 @@ export const StripeService = {
             line_items: [{ price: priceId, quantity: 1 }],
             discounts: coupon ? [{ coupon }] : [],
             success_url: successUrl,
-            cancel_url: cancelUrl,
+            cancel_url: settingsUrl,
             client_reference_id: guildId,
             customer_email: customerEmail,
             metadata: { guild_id: guildId },

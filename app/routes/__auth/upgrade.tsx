@@ -40,6 +40,55 @@ export async function action({ request }: Route.ActionArgs) {
   const user = await requireUser(request);
   const formData = await request.formData();
 
+  const intent = formData.get("intent") as string;
+  const guildId = formData.get("guild_id") as string;
+
+  if (!guildId) {
+    throw data({ message: "Guild ID is required" }, { status: 400 });
+  }
+
+  // Handle cancellation
+  if (intent === "cancel") {
+    log("info", "Upgrade", "Processing subscription cancellation", {
+      guildId,
+      userId: user.id,
+    });
+
+    const subscription =
+      await SubscriptionService.getGuildSubscription(guildId);
+
+    if (!subscription?.stripe_subscription_id) {
+      return {
+        error: {
+          message: "No active subscription found",
+          code: "NO_SUBSCRIPTION",
+        },
+      };
+    }
+
+    const cancelled = await StripeService.cancelSubscription(
+      subscription.stripe_subscription_id,
+    );
+
+    if (!cancelled) {
+      return {
+        error: {
+          message: "Failed to cancel subscription, please contact support",
+          code: "CANCEL_FAILED",
+        },
+      };
+    }
+
+    await SubscriptionService.updateSubscriptionStatus(guildId, "cancelled");
+
+    log("info", "Upgrade", "Subscription cancelled successfully", {
+      guildId,
+      userId: user.id,
+    });
+
+    return { cancelled: true };
+  }
+
   const tier = formData.get("tier") as ProductTier;
   const variant: PaidVariants = "standard_annual";
   const coupon = (formData.get("coupon")?.valueOf() as string) ?? "";
@@ -50,12 +99,6 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   if (tier === "paid") {
-    const guildId = formData.get("guild_id") as string;
-
-    if (!guildId) {
-      throw data({ message: "Guild ID is required" }, { status: 400 });
-    }
-
     log("info", "Upgrade", "Creating Stripe checkout session", {
       guildId,
       userId: user.id,
@@ -83,33 +126,45 @@ export async function action({ request }: Route.ActionArgs) {
       // Redirect to Stripe checkout
       return redirect(checkoutUrl);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
       log("error", "Upgrade", "Failed to create checkout session", {
         guildId,
         userId: user.id,
-        error: errorMessage,
+        error,
       });
 
-      // Check for specific Stripe configuration errors
-      if (
-        errorMessage.includes("STRIPE_SECRET_KEY") ||
-        errorMessage.includes("STRIPE_PRICE_ID")
-      ) {
-        return redirect(
-          `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
-            "Payment system is currently being configured. Please try again later or contact support.",
-          )}`,
-        );
+      // Check for Stripe configuration errors (missing/empty lookup key)
+      const isStripeConfigError =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        "param" in error &&
+        "rawType" in error &&
+        "type" in error &&
+        typeof error.type === "string" &&
+        error.type.includes("Stripe");
+
+      if (isStripeConfigError) {
+        return {
+          error: {
+            message: `Payment is misconfigured, please contact support`,
+            code: "CONFIG_ERROR",
+            detail: {
+              code: error.code,
+              param: error.param,
+              rawType: error.rawType,
+              type: error.type,
+            },
+          },
+        };
       }
 
       // Generic error
-      return redirect(
-        `/payment/error?guild_id=${guildId}&message=${encodeURIComponent(
-          "Failed to create checkout session. Please try again later.",
-        )}`,
-      );
+      return {
+        error: {
+          message: `Something went wrong, please contact support`,
+          cause: error,
+        },
+      };
     }
   }
 }
@@ -136,33 +191,64 @@ function Benefit({ children }: PropsWithChildren) {
       <div className="flex-shrink-0">
         <Check />
       </div>
-      <p className="ml-1 text-sm text-gray-300">{children}</p>
+      <p className="ml-1 text-sm">{children}</p>
     </li>
   );
 }
 
-export default function Upgrade() {
+export default function Upgrade({ actionData }: Route.ComponentProps) {
   const { guildId, currentTier } = useLoaderData<typeof loader>();
   const [search] = useSearchParams();
   const didPay = typeof search.get("success") === "string";
 
   return (
-    <div className="sm:w-full sm:max-w-3xl">
+    <div className="text-gray-300 sm:w-full sm:max-w-3xl">
+      {actionData?.error ? (
+        <div className="my-4 space-y-2 rounded-md border-[1px] border-rose-800 bg-rose-400 bg-opacity-10 p-4">
+          <p>{actionData.error.message}</p>
+          <details className="text-sm text-gray-400">
+            <summary>Technical details</summary>
+            <pre className="text-xs">
+              <code>{JSON.stringify(actionData.error.detail, null, 2)}</code>
+            </pre>
+          </details>
+        </div>
+      ) : null}
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
         <div className="space-y-4">
           <h2 className="text-3xl font-extrabold text-gray-200">
             Switch to Paid
           </h2>
-          <p className="mt-4 text-lg text-gray-300">
-            {/* TODO: copy for upgrade page */}
-          </p>
+          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
 
           {currentTier === "paid" ? (
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
               <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
                 ✓ You have a paid plan
                 {didPay ? ". Thank you for subscribing!" : ""}
               </div>
+
+              <details className="text-sm">
+                <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+                  Cancel subscription
+                </summary>
+                <div className="mt-3 rounded-md border border-rose-800 bg-rose-900 bg-opacity-20 p-4">
+                  <p className="mb-3 text-gray-300">
+                    Are you sure you want to cancel? You'll lose access to paid
+                    features at the end of your billing period.
+                  </p>
+                  <Form method="post">
+                    <input type="hidden" name="guild_id" value={guildId} />
+                    <input type="hidden" name="intent" value="cancel" />
+                    <button
+                      type="submit"
+                      className="rounded-md bg-rose-700 bg-opacity-85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                    >
+                      Yes, cancel my subscription
+                    </button>
+                  </Form>
+                </div>
+              </details>
             </div>
           ) : (
             <Form method="post">
@@ -177,7 +263,7 @@ export default function Upgrade() {
             </Form>
           )}
           <p>
-            <span className="text-4xl font-extrabold text-gray-300">$100</span>
+            <span className="text-4xl font-extrabold">$100</span>
             <span className="text-base font-medium text-gray-400">/yr</span>
           </p>
           <ul className="mt-6 space-y-2">
@@ -192,9 +278,7 @@ export default function Upgrade() {
           <h2 className="text-3xl font-extrabold text-gray-200">
             Get a custom integration
           </h2>
-          <p className="mt-4 text-lg text-gray-300">
-            {/* TODO: copy for upgrade page */}
-          </p>
+          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
 
           {currentTier === "custom" ? (
             <div className="mt-6">
