@@ -156,6 +156,8 @@ test.describe("Payment Flow", () => {
         .getByRole("button", { name: /subscribe|pay/i })
         .click();
 
+      await authenticatedPage.waitForTimeout(2000);
+
       // Verify success page
       await expect(
         authenticatedPage.getByText(
