@@ -82,7 +82,7 @@ export const kick = async (member: GuildMember | null) => {
     console.log("Tried to kick a null member");
     return;
   }
-  return member.kick();
+  return member.guild.members.kick(member, "Voted resolution");
 };
 
 export const ban = async (member: GuildMember | null) => {
@@ -90,7 +90,7 @@ export const ban = async (member: GuildMember | null) => {
     console.log("Tried to ban a null member");
     return;
   }
-  return member.ban();
+  return member.guild.bans.create(member, { reason: "Voted resolution" });
 };
 
 const OVERNIGHT = 1000 * 60 * 60 * 20;
@@ -99,7 +99,7 @@ export const timeout = async (member: GuildMember | null) => {
     console.log("Tried to timeout a null member");
     return;
   }
-  return member.timeout(OVERNIGHT);
+  return member.timeout(OVERNIGHT, "Voted resolution");
 };
 
 const authzRoles = {
