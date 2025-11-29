@@ -227,7 +227,7 @@ export function startEscalationResolver(client: Client): void {
     {},
   );
 
-  scheduleTask(ONE_HOUR, () => {
+  scheduleTask("EscalationResolver", ONE_HOUR, () => {
     void checkPendingEscalations(client);
   });
 }
