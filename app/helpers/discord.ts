@@ -288,3 +288,16 @@ export async function getMessageStats(msg: Message | PartialMessage) {
     },
   );
 }
+
+export function hasModRole(
+  interaction: MessageComponentInteraction,
+  modRoleId: string,
+): boolean {
+  const member = interaction.member;
+  if (!member) return false;
+
+  if (Array.isArray(member.roles)) {
+    return member.roles.includes(modRoleId);
+  }
+  return member.roles.cache.has(modRoleId);
+}
