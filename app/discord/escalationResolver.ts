@@ -45,6 +45,11 @@ async function executeScheduledResolution(
       .fetch(reportedUserId)
       .catch(() => null);
 
+    if (!reportedMember) {
+      log("debug", "EscalationResolve", "Reported member failed to load");
+      return;
+    }
+
     switch (resolution) {
       case resolutions.track:
         // No action needed
@@ -79,27 +84,19 @@ Your actions concerned the moderators enough that they felt it necessary to inte
       }
 
       case resolutions.timeout:
-        if (reportedMember) {
-          await timeout(reportedMember);
-        }
+        await timeout(reportedMember);
         break;
 
       case resolutions.restrict:
-        if (reportedMember) {
-          await applyRestriction(reportedMember);
-        }
+        await applyRestriction(reportedMember);
         break;
 
       case resolutions.kick:
-        if (reportedMember) {
-          await kick(reportedMember);
-        }
+        await kick(reportedMember);
         break;
 
       case resolutions.ban:
-        if (reportedMember) {
-          await ban(reportedMember);
-        }
+        await ban(reportedMember);
         break;
     }
 

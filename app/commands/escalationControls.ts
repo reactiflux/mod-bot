@@ -51,22 +51,22 @@ async function executeResolution(
     escalationId,
   });
 
-  try {
-    const reportedMember = await guild.members
-      .fetch(reportedUserId)
-      .catch(() => null);
-    if (!reportedMember) {
-      log(
-        "debug",
-        "Failed to find reported member",
-        JSON.stringify({
-          escalationId,
-          reportedUserId,
-        }),
-      );
-      return;
-    }
+  const reportedMember = await guild.members
+    .fetch(reportedUserId)
+    .catch(() => null);
+  if (!reportedMember) {
+    log(
+      "debug",
+      "Failed to find reported member",
+      JSON.stringify({
+        escalationId,
+        reportedUserId,
+      }),
+    );
+    return;
+  }
 
+  try {
     switch (resolution) {
       case resolutions.track:
         // No action needed, just track
@@ -111,12 +111,20 @@ Your actions concerned the moderators enough that they felt it necessary to inte
         await ban(reportedMember);
         break;
     }
+  } catch (error) {
+    log("error", "EscalationControls", "Failed to execute resolution", {
+      resolution,
+      reportedUserId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
-    // Mark escalation as resolved in database
-    await resolveEscalation(escalationId, resolution);
-
+  try {
     // Update the vote message to show resolution
     if (interaction.message) {
+      // Mark escalation as resolved in database
+      await resolveEscalation(escalationId, resolution);
       await interaction.message.edit({
         content: `**Escalation Resolved** ✅\nAction taken: **${humanReadableResolutions[resolution]}** on <@${reportedUserId}>
 ${buildVotesListContent(tally)}`,
@@ -124,7 +132,7 @@ ${buildVotesListContent(tally)}`,
       });
     }
   } catch (error) {
-    log("error", "EscalationControls", "Failed to execute resolution", {
+    log("error", "EscalationControls", "Failed to resolve resolution", {
       resolution,
       reportedUserId,
       error: error instanceof Error ? error.message : String(error),
