@@ -55,6 +55,17 @@ async function executeResolution(
     const reportedMember = await guild.members
       .fetch(reportedUserId)
       .catch(() => null);
+    if (!reportedMember) {
+      log(
+        "debug",
+        "Failed to find reported member",
+        JSON.stringify({
+          escalationId,
+          reportedUserId,
+        }),
+      );
+      return;
+    }
 
     switch (resolution) {
       case resolutions.track:
@@ -62,7 +73,6 @@ async function executeResolution(
         break;
 
       case resolutions.warning: {
-        if (!reportedMember) break;
         // Create private thread for formal warning
         const channel = interaction.channel;
         if (channel && "threads" in channel) {
@@ -86,27 +96,19 @@ Your actions concerned the moderators enough that they felt it necessary to inte
       }
 
       case resolutions.timeout:
-        if (reportedMember) {
-          await timeout(reportedMember);
-        }
+        await timeout(reportedMember);
         break;
 
       case resolutions.restrict:
-        if (reportedMember) {
-          await applyRestriction(reportedMember);
-        }
+        await applyRestriction(reportedMember);
         break;
 
       case resolutions.kick:
-        if (reportedMember) {
-          await kick(reportedMember);
-        }
+        await kick(reportedMember);
         break;
 
       case resolutions.ban:
-        if (reportedMember) {
-          await ban(reportedMember);
-        }
+        await ban(reportedMember);
         break;
     }
 
