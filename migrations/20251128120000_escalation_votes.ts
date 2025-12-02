@@ -1,4 +1,4 @@
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 
 export async function up(db: Kysely<any>): Promise<void> {
   // Main escalation votes table
@@ -11,7 +11,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("reported_user_id", "text", (c) => c.notNull())
     .addColumn("flags", "text", (c) => c.notNull())
     .addColumn("created_at", "datetime", (c) =>
-      c.defaultTo("CURRENT_TIMESTAMP").notNull(),
+      c.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
     .addColumn("resolved_at", "datetime")
     .addColumn("resolution", "text")
@@ -31,7 +31,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("voter_id", "text", (c) => c.notNull())
     .addColumn("vote", "text", (c) => c.notNull())
     .addColumn("voted_at", "datetime", (c) =>
-      c.defaultTo("CURRENT_TIMESTAMP").notNull(),
+      c.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),
     )
     .execute();
 
