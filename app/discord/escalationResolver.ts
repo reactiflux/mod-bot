@@ -18,7 +18,7 @@ import {
 } from "#~/models/escalationVotes.server";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
-const ONE_HOUR = 60 * 60 * 1000;
+const ONE_MINUTE = 60 * 1000;
 
 /**
  * Execute a resolution action on a user via scheduled auto-resolution.
@@ -224,7 +224,7 @@ export function startEscalationResolver(client: Client): void {
     {},
   );
 
-  scheduleTask("EscalationResolver", ONE_HOUR, () => {
+  scheduleTask("EscalationResolver", ONE_MINUTE * 15, () => {
     void checkPendingEscalations(client);
   });
 }
