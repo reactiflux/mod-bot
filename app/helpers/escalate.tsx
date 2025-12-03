@@ -52,7 +52,7 @@ export async function escalationControls(
     components: [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
-          .setCustomId(`escalate-escalate|${reportedUserId}`)
+          .setCustomId(`escalate-escalate|${reportedUserId}|0`)
           .setLabel("Escalate")
           .setStyle(ButtonStyle.Primary),
       ),

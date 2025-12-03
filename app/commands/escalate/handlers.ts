@@ -381,24 +381,36 @@ ${buildVotesListContent(tally)}`,
 
   // Escalate button - creates a new vote
   escalate: async (interaction: MessageComponentInteraction) => {
-    const reportedUserId = interaction.customId.split("|")[1];
+    await interaction.deferReply();
+    const [_, reportedUserId, level = "0", previousEscalationId = ""] =
+      interaction.customId.split("|");
+
+    const escalationId = previousEscalationId || crypto.randomUUID();
     const guildId = interaction.guildId!;
     const threadId = interaction.channelId;
+    const features: Features[] = [];
+    log("info", "EscalationHandlers", "Handling escalation", {
+      reportedUserId,
+      escalationId,
+      level,
+    });
 
     // Get settings
-    const settings = await fetchSettings(guildId, [
+    const { moderator: modRoleId, restricted } = await fetchSettings(guildId, [
       SETTINGS.moderator,
-      SETTINGS.quorum,
       SETTINGS.restricted,
     ]);
-    const modRoleId = settings.moderator;
-    const hasRestrictions = Boolean(settings.restricted);
-    const quorum = settings.quorum ?? DEFAULT_QUORUM;
+    if (restricted) {
+      features.push("restrict");
+    }
+    if (Number(level) >= 1) {
+      features.push("escalate-level-1");
+    }
+
+    // TODO: if level 0, use default_quorum. if level >=1, count a list of all members with the moderator role and require a majority to vote before a resolution is chosen
+    const quorum = DEFAULT_QUORUM;
 
     try {
-      // Acknowledge immediately
-      await interaction.deferReply();
-
       const emptyTally: VoteTally = {
         totalVotes: 0,
         byResolution: new Map(),
@@ -408,37 +420,51 @@ ${buildVotesListContent(tally)}`,
         tiedResolutions: [],
       };
 
-      // Generate escalation ID upfront so we can use it in the message buttons
-      const escalationId = crypto.randomUUID();
       const createdAt = new Date().toISOString();
-
-      // Send vote message first to get its ID
-      const channel = interaction.channel;
-      if (!channel || !("send" in channel)) {
-        await interaction.editReply({
-          content: "Failed to create escalation vote: invalid channel",
-        });
-        return;
-      }
-
-      const voteMessage = await channel.send({
+      const content = {
         content: buildVoteMessageContent(
           reportedUserId,
           emptyTally,
           quorum,
           createdAt,
         ),
-        components: buildVoteButtons(
-          hasRestrictions ? ["restrict"] : [],
-          escalationId,
-          emptyTally,
-          false,
-        ),
-      });
+        components: buildVoteButtons(features, escalationId, emptyTally, false),
+      };
+
+      let voteMessage;
+      if (Number(level) === 0) {
+        // Send vote message first to get its ID
+        const channel = interaction.channel;
+        if (!channel || !("send" in channel)) {
+          await interaction.editReply({
+            content: "Failed to create escalation vote: invalid channel",
+          });
+          return;
+        }
+        voteMessage = await channel.send(content);
+      } else {
+        const escalation = await getEscalation(escalationId);
+        if (!escalation) {
+          await interaction.editReply({
+            content: "Failed to re-escalate, couldn’t find escalation",
+          });
+          return;
+        }
+        voteMessage = await interaction.channel?.messages.fetch(
+          escalation.vote_message_id,
+        );
+        if (!voteMessage) {
+          await interaction.editReply({
+            content: "Failed to re-escalation: couldn't find vote message",
+          });
+          return;
+        }
+        await voteMessage.edit(content);
+      }
 
       // Now create escalation record with the correct message ID
       await createEscalation({
-        id: escalationId,
+        id: escalationId as `${string}-${string}-${string}-${string}-${string}`,
         guildId,
         threadId,
         voteMessageId: voteMessage.id,
@@ -449,6 +475,19 @@ ${buildVotesListContent(tally)}`,
       // Send notification
       await interaction.editReply({
         content: `Escalation started. <@&${modRoleId}> please vote on how to handle <@${reportedUserId}>.`,
+        // components:
+        //   level === "0"
+        //     ? [
+        //         new ActionRowBuilder<ButtonBuilder>().addComponents([
+        //           new ButtonBuilder()
+        //             .setCustomId(
+        //               `escalate-escalate|${reportedUserId}|1|${escalationId}`,
+        //             )
+        //             .setLabel("Further escalate")
+        //             .setStyle(ButtonStyle.Primary),
+        //         ]),
+        //       ]
+        //     : [],
       });
     } catch (error) {
       log("error", "EscalationHandlers", "Error creating escalation vote", {

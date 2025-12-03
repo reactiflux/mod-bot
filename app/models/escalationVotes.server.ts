@@ -72,42 +72,37 @@ export async function recordVote(data: {
   vote: Resolution;
 }): Promise<{ isNew: boolean }> {
   return trackPerformance("recordVote", async () => {
-    const id = crypto.randomUUID();
+    const existingVote = await db
+      .selectFrom("escalation_records")
+      .selectAll()
+      .where("escalation_id", "=", data.escalationId)
+      .where("voter_id", "=", data.voterId)
+      .execute();
 
-    try {
-      // Try to insert new vote
+    if (existingVote?.some((v) => v.vote === data.vote)) {
+      log("info", "EscalationVotes", "Deleted existing vote", data);
       await db
-        .insertInto("escalation_records")
-        .values({
-          id,
-          escalation_id: data.escalationId,
-          voter_id: data.voterId,
-          vote: data.vote,
-        })
+        .deleteFrom("escalation_records")
+        .where("escalation_id", "=", data.escalationId)
+        .where("voter_id", "=", data.voterId)
+        .where("vote", "=", data.vote)
         .execute();
-
-      log("info", "EscalationVotes", "Recorded new vote", data);
-
-      return { isNew: true };
-    } catch (error) {
-      // Unique constraint violation - update existing vote
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        await db
-          .updateTable("escalation_records")
-          .set({ vote: data.vote, voted_at: new Date().toISOString() })
-          .where("escalation_id", "=", data.escalationId)
-          .where("voter_id", "=", data.voterId)
-          .execute();
-
-        log("info", "EscalationVotes", "Updated existing vote", data);
-
-        return { isNew: false };
-      }
-      throw error;
+      return { isNew: false };
     }
+
+    await db
+      .insertInto("escalation_records")
+      .values({
+        id: crypto.randomUUID(),
+        escalation_id: data.escalationId,
+        voter_id: data.voterId,
+        vote: data.vote,
+      })
+      .execute();
+
+    log("info", "EscalationVotes", "Recorded new vote", data);
+
+    return { isNew: true };
   });
 }
 

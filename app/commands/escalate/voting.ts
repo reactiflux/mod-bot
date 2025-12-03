@@ -1,4 +1,5 @@
 import type { Resolution } from "#~/helpers/modResponse";
+import { log } from "#~/helpers/observability.js";
 
 export interface VoteTally {
   totalVotes: number;
@@ -40,12 +41,22 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
 
   const isTied = tiedResolutions.length > 1;
 
-  return {
-    totalVotes: votes.length,
+  const output = {
+    // Count unique voters
+    totalVotes: votes.reduce((o, v) => {
+      if (o.includes(v.voter_id)) {
+        return o;
+      }
+      o.push(v.voter_id);
+      return o;
+    }, [] as string[]).length,
     byResolution,
     leader: isTied ? null : leader,
     leaderCount,
     isTied,
     tiedResolutions,
   };
+  log("info", "Voting", "Tallied votes", output);
+
+  return output;
 }
