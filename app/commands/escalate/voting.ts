@@ -23,7 +23,7 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
     byResolution.set(vote.vote, voters);
   }
 
-  let leader: string | null = null;
+  let leader: Resolution | null = null;
   let leaderCount = 0;
   const tiedResolutions: Resolution[] = [];
 
@@ -43,7 +43,7 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
   return {
     totalVotes: votes.length,
     byResolution,
-    leader: isTied ? null : (leader as Resolution),
+    leader: isTied ? null : leader,
     leaderCount,
     isTied,
     tiedResolutions,

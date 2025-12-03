@@ -118,19 +118,3 @@ Executes <t:${executeTimestamp}:R>
 
 ${buildVotesListContent(tally)}`;
 }
-
-/**
- * Build the Expedite button for confirmed resolutions.
- */
-export function buildExpediteButton(
-  escalationId: string,
-): ActionRowBuilder<ButtonBuilder>[] {
-  return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`expedite|${escalationId}`)
-        .setLabel("Expedite")
-        .setStyle(ButtonStyle.Primary),
-    ),
-  ];
-}

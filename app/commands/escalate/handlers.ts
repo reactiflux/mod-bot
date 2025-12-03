@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   MessageFlags,
   PermissionsBitField,
   type MessageComponentInteraction,
@@ -29,7 +32,6 @@ import { deleteAllReportedForUser } from "#~/models/reportedMessages.server";
 
 import {
   buildConfirmedMessageContent,
-  buildExpediteButton,
   buildVoteButtons,
   buildVoteMessageContent,
   buildVotesListContent,
@@ -343,7 +345,14 @@ ${buildVotesListContent(tally)}`,
             tally,
             escalation.created_at,
           ),
-          components: buildExpediteButton(escalationId),
+          components: [
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`expedite|${escalationId}`)
+                .setLabel("Expedite")
+                .setStyle(ButtonStyle.Primary),
+            ),
+          ],
         });
         return;
       }
