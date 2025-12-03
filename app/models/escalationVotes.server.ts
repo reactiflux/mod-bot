@@ -68,7 +68,7 @@ export async function getPendingEscalations() {
 
 export async function recordVote(data: {
   escalationId: string;
-  odId: string;
+  voterId: string;
   vote: Resolution;
 }): Promise<{ isNew: boolean }> {
   return trackPerformance("recordVote", async () => {
@@ -81,14 +81,14 @@ export async function recordVote(data: {
         .values({
           id,
           escalation_id: data.escalationId,
-          voter_id: data.odId,
+          voter_id: data.voterId,
           vote: data.vote,
         })
         .execute();
 
       log("info", "EscalationVotes", "Recorded new vote", {
         escalationId: data.escalationId,
-        odId: data.odId,
+        odId: data.voterId,
         vote: data.vote,
       });
 
@@ -103,12 +103,12 @@ export async function recordVote(data: {
           .updateTable("escalation_records")
           .set({ vote: data.vote, voted_at: new Date().toISOString() })
           .where("escalation_id", "=", data.escalationId)
-          .where("voter_id", "=", data.odId)
+          .where("voter_id", "=", data.voterId)
           .execute();
 
         log("info", "EscalationVotes", "Updated existing vote", {
           escalationId: data.escalationId,
-          odId: data.odId,
+          odId: data.voterId,
           vote: data.vote,
         });
 

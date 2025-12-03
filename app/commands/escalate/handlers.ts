@@ -323,7 +323,7 @@ ${buildVotesListContent(tally)}`,
       // Record the vote
       await recordVote({
         escalationId,
-        odId: interaction.user.id,
+        voterId: interaction.user.id,
         vote: resolution,
       });
 
