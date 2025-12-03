@@ -6,13 +6,18 @@ import {
 
 import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
-import { humanReadableResolutions } from "#~/helpers/modResponse";
+import {
+  humanReadableResolutions,
+  type Resolution,
+} from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
   createEscalation,
   getEscalation,
   getVotesForEscalation,
+  parseFlags,
+  recordVote,
   resolveEscalation,
   tallyVotes,
   type VoteTally,
@@ -25,6 +30,8 @@ import {
 import { deleteAllReportedForUser } from "#~/models/reportedMessages.server";
 
 import {
+  buildConfirmedMessageContent,
+  buildExpediteButton,
   buildVoteButtons,
   buildVoteMessageContent,
   buildVotesListContent,
@@ -273,6 +280,85 @@ ${buildVotesListContent(tally)}`,
       );
     }
   },
+
+  vote: (resolution: Resolution) =>
+    async function handleVote(
+      interaction: MessageComponentInteraction,
+    ): Promise<void> {
+      const guildId = interaction.guildId!;
+      const escalationId = interaction.customId.split("|")[1];
+
+      // Get settings
+      const { moderator: modRoleId } = await fetchSettings(guildId, [
+        SETTINGS.moderator,
+      ]);
+
+      // Check mod role
+      if (!hasModRole(interaction, modRoleId)) {
+        await interaction.reply({
+          content: "Only moderators can vote on escalations.",
+          flags: [MessageFlags.Ephemeral],
+        });
+        return;
+      }
+
+      // Get escalation
+      const escalation = await getEscalation(escalationId);
+      if (!escalation) {
+        await interaction.reply({
+          content: "Escalation not found.",
+          flags: [MessageFlags.Ephemeral],
+        });
+        return;
+      }
+
+      if (escalation.resolved_at) {
+        await interaction.reply({
+          content: "This escalation has already been resolved.",
+          flags: [MessageFlags.Ephemeral],
+        });
+        return;
+      }
+
+      // Record the vote
+      await recordVote({
+        escalationId,
+        odId: interaction.user.id,
+        vote: resolution,
+      });
+
+      // Get updated votes and tally
+      const votes = await getVotesForEscalation(escalationId);
+      const tally = tallyVotes(votes);
+      const flags = parseFlags(escalation.flags);
+      const quorum = flags.quorum;
+      const quorumReached = tally.totalVotes >= quorum;
+
+      // Check if quorum reached with clear winner - show confirmed state
+      if (quorumReached && !tally.isTied && tally.leader) {
+        await interaction.update({
+          content: buildConfirmedMessageContent(
+            escalation.reported_user_id,
+            tally.leader,
+            tally,
+            escalation.created_at,
+          ),
+          components: buildExpediteButton(escalationId),
+        });
+        return;
+      }
+
+      // Update the message with new vote state
+      await interaction.update({
+        content: buildVoteMessageContent(
+          escalation.reported_user_id,
+          tally,
+          quorum,
+          escalation.created_at,
+        ),
+        components: buildVoteButtons(escalationId, tally, quorumReached),
+      });
+    },
 
   // Escalate button - creates a new vote
   escalate: async (interaction: MessageComponentInteraction) => {
