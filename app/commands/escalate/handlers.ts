@@ -281,21 +281,12 @@ ${buildVotesListContent(tally)}`,
     const threadId = interaction.channelId;
 
     // Get settings
-    let quorum = DEFAULT_QUORUM;
-    let modRoleId: string;
-    try {
-      const settings = await fetchSettings(guildId, [
-        SETTINGS.moderator,
-        SETTINGS.quorum,
-      ]);
-      modRoleId = settings.moderator;
-      if (settings.quorum !== undefined && settings.quorum !== null) {
-        quorum = settings.quorum;
-      }
-    } catch {
-      const settings = await fetchSettings(guildId, [SETTINGS.moderator]);
-      modRoleId = settings.moderator;
-    }
+    const settings = await fetchSettings(guildId, [
+      SETTINGS.moderator,
+      SETTINGS.quorum,
+    ]);
+    const modRoleId = settings.moderator;
+    const quorum = settings.quorum ?? DEFAULT_QUORUM;
 
     try {
       // Acknowledge immediately
