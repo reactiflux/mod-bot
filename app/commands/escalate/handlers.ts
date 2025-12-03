@@ -51,7 +51,9 @@ export const EscalationHandlers = {
         `Messages deleted by ${interaction.user.username} (${result.deleted}/${result.total} successful)`,
       );
     } catch (error) {
-      console.error("Error deleting reported messages:", error);
+      log("error", "EscalationHandlers", "Error deleting reported messages", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.editReply({
         content: "Failed to delete messages",
       });
@@ -84,7 +86,9 @@ export const EscalationHandlers = {
         ),
       ]);
     } catch (error) {
-      console.error("Error kicking user:", error);
+      log("error", "EscalationHandlers", "Error kicking user", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.reply({
         content: "Failed to kick user",
         flags: [MessageFlags.Ephemeral],
@@ -118,7 +122,9 @@ export const EscalationHandlers = {
         ),
       ]);
     } catch (error) {
-      console.error("Error banning user:", error);
+      log("error", "EscalationHandlers", "Error banning user", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.reply({
         content: "Failed to ban user",
         flags: [MessageFlags.Ephemeral],
@@ -152,7 +158,9 @@ export const EscalationHandlers = {
         ),
       ]);
     } catch (error) {
-      console.error("Error restricting user:", error);
+      log("error", "EscalationHandlers", "Error restricting user", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.reply({
         content: "Failed to restrict user",
         flags: [MessageFlags.Ephemeral],
@@ -186,7 +194,9 @@ export const EscalationHandlers = {
         ),
       ]);
     } catch (error) {
-      console.error("Error timing out user:", error);
+      log("error", "EscalationHandlers", "Error timing out user", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.reply({
         content: "Failed to timeout user",
         flags: [MessageFlags.Ephemeral],
@@ -338,7 +348,9 @@ ${buildVotesListContent(tally)}`,
         content: `Escalation started. <@&${modRoleId}> please vote on how to handle <@${reportedUserId}>.`,
       });
     } catch (error) {
-      console.error("Error creating escalation vote:", error);
+      log("error", "EscalationHandlers", "Error creating escalation vote", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       await interaction.editReply({
         content: "Failed to create escalation vote",
       });
