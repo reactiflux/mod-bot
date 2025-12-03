@@ -183,10 +183,10 @@ async function checkPendingEscalations(client: Client): Promise<void> {
           // Clear leader
           const quorumReached = tally.totalVotes >= flags.quorum;
           if (quorumReached) {
-            resolution = tally.leader as Resolution;
+            resolution = tally.leader;
           } else {
             // Not enough votes for quorum, take leading vote anyway on timeout
-            resolution = tally.leader as Resolution;
+            resolution = tally.leader;
           }
         } else {
           // Shouldn't happen, but default to track

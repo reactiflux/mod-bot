@@ -1,9 +1,11 @@
+import type { Selectable } from "kysely";
+
 import db, { type DB } from "#~/db.server";
 import type { Resolution } from "#~/helpers/modResponse";
 import { log, trackPerformance } from "#~/helpers/observability";
 
-export type Escalation = DB["escalations"];
-export type EscalationRecord = DB["escalation_records"];
+export type Escalation = Selectable<DB["escalations"]>;
+export type EscalationRecord = Selectable<DB["escalation_records"]>;
 
 export interface EscalationFlags {
   quorum: number;
@@ -127,26 +129,26 @@ export async function getVotesForEscalation(escalationId: string) {
       .where("escalation_id", "=", escalationId)
       .execute();
 
-    return votes;
+    return votes.map((v) => ({ ...v, vote: v.vote as Resolution }));
   });
 }
 
 export interface VoteTally {
   totalVotes: number;
-  byResolution: Map<string, string[]>; // resolution -> voter IDs
-  leader: string | null;
+  byResolution: Map<Resolution, string[]>; // resolution -> voter IDs
+  leader: Resolution | null;
   leaderCount: number;
   isTied: boolean;
-  tiedResolutions: string[];
+  tiedResolutions: Resolution[];
 }
 
 interface VoteRecord {
-  vote: string;
+  vote: Resolution;
   voter_id: string;
 }
 
 export function tallyVotes(votes: VoteRecord[]): VoteTally {
-  const byResolution = new Map<string, string[]>();
+  const byResolution = new Map<Resolution, string[]>();
 
   for (const vote of votes) {
     const voters = byResolution.get(vote.vote) ?? [];
@@ -156,7 +158,7 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
 
   let leader: string | null = null;
   let leaderCount = 0;
-  const tiedResolutions: string[] = [];
+  const tiedResolutions: Resolution[] = [];
 
   for (const [resolution, voters] of byResolution) {
     if (voters.length > leaderCount) {
@@ -174,17 +176,14 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
   return {
     totalVotes: votes.length,
     byResolution,
-    leader: isTied ? null : leader,
+    leader: isTied ? null : (leader as Resolution),
     leaderCount,
     isTied,
     tiedResolutions,
   };
 }
 
-export async function resolveEscalation(
-  id: string,
-  resolution: Resolution,
-): Promise<void> {
+export async function resolveEscalation(id: string, resolution: Resolution) {
   return trackPerformance("resolveEscalation", async () => {
     await db
       .updateTable("escalations")
