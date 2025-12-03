@@ -10,6 +10,7 @@ import {
 import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
 import { parseFlags } from "#~/helpers/escalationVotes.js";
+import type { Features } from "#~/helpers/featuresFlags.js";
 import {
   humanReadableResolutions,
   type Resolution,
@@ -288,12 +289,16 @@ ${buildVotesListContent(tally)}`,
     ): Promise<void> {
       const guildId = interaction.guildId!;
       const escalationId = interaction.customId.split("|")[1];
+      const features: Features[] = [];
 
       // Get settings
       const { moderator: modRoleId, restricted } = await fetchSettings(
         guildId,
         [SETTINGS.moderator, SETTINGS.restricted],
       );
+      if (restricted) {
+        features.push("restrict");
+      }
 
       // Check mod role
       if (!hasModRole(interaction, modRoleId)) {
@@ -366,7 +371,7 @@ ${buildVotesListContent(tally)}`,
           escalation.created_at,
         ),
         components: buildVoteButtons(
-          restricted ? ["restrict"] : [],
+          features,
           escalationId,
           tally,
           quorumReached,
