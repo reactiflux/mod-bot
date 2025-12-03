@@ -43,7 +43,8 @@ export const scheduleTask = (
     log(
       "info",
       "ScheduleTask",
-      JSON.stringify({ serviceName, interval, firstRun }),
+      `Scheduling ${serviceName} in ${Math.floor(firstRun / 1000) / 60}min, repeating ${Math.floor(interval / 1000) / 60}`,
+      { serviceName, interval, firstRun },
     );
     setTimeout(() => {
       task();

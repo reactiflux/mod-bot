@@ -10,10 +10,10 @@ export type EscalationRecord = Selectable<DB["escalation_records"]>;
 
 export async function createEscalation(data: {
   id: `${string}-${string}-${string}-${string}-${string}`;
-  guildId: string;
-  threadId: string;
-  voteMessageId: string;
-  reportedUserId: string;
+  guildId: Escalation["guild_id"];
+  threadId: Escalation["thread_id"];
+  voteMessageId: Escalation["vote_message_id"];
+  reportedUserId: Escalation["reported_user_id"];
   quorum: number;
 }): Promise<string> {
   return trackPerformance("createEscalation", async () => {
@@ -86,11 +86,7 @@ export async function recordVote(data: {
         })
         .execute();
 
-      log("info", "EscalationVotes", "Recorded new vote", {
-        escalationId: data.escalationId,
-        odId: data.voterId,
-        vote: data.vote,
-      });
+      log("info", "EscalationVotes", "Recorded new vote", data);
 
       return { isNew: true };
     } catch (error) {
@@ -106,11 +102,7 @@ export async function recordVote(data: {
           .where("voter_id", "=", data.voterId)
           .execute();
 
-        log("info", "EscalationVotes", "Updated existing vote", {
-          escalationId: data.escalationId,
-          odId: data.voterId,
-          vote: data.vote,
-        });
+        log("info", "EscalationVotes", "Updated existing vote", data);
 
         return { isNew: false };
       }
