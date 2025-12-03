@@ -58,8 +58,8 @@ describe("buildVoteMessageContent", () => {
       createdAt,
     );
 
-    expect(result).toContain("0/3 votes");
-    expect(result).toContain("toward quorum");
+    expect(result).toMatch(/0 vote.*quorum at 3/);
+    expect(result).not.toMatch("null");
   });
 
   it("mentions the reported user", () => {
@@ -81,7 +81,7 @@ describe("buildVoteMessageContent", () => {
       3,
       createdAt,
     );
-    expect(result0).toContain("24h");
+    expect(result0).toContain("No votes yet");
 
     // 1 vote = 16h timeout
     const tally1 = tallyVotes([{ vote: resolutions.ban, voter_id: "u1" }]);
@@ -91,6 +91,7 @@ describe("buildVoteMessageContent", () => {
       3,
       createdAt,
     );
+    expect(result1).not.toContain("null");
     expect(result1).toContain("16h");
 
     // 2 votes = 8h timeout
@@ -104,7 +105,22 @@ describe("buildVoteMessageContent", () => {
       3,
       createdAt,
     );
+    expect(result2).not.toContain("null");
     expect(result2).toContain("8h");
+
+    // 2 votes = 8h timeout but tied
+    const tally3 = tallyVotes([
+      { vote: resolutions.ban, voter_id: "u1" },
+      { vote: resolutions.kick, voter_id: "u2" },
+    ]);
+    const result3 = buildVoteMessageContent(
+      reportedUserId,
+      tally3,
+      3,
+      createdAt,
+    );
+    expect(result3).not.toContain("null");
+    expect(result3).toContain("8h");
   });
 
   it("shows quorum reached status when votes >= quorum", () => {

@@ -38,12 +38,17 @@ export function buildVoteMessageContent(
   let status: string;
   if (tally.totalVotes >= quorum) {
     if (tally.isTied || !tally.leader) {
-      status = `⚖️ **Tied** between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Waiting for tiebreaker.`;
+      status = `Tied between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Waiting for tiebreaker.`;
     } else {
-      status = `✅ **Quorum reached.** Leading: ${humanReadableResolutions[tally.leader]} (${tally.leaderCount} votes)`;
+      status = `Quorum reached. Leading: ${humanReadableResolutions[tally.leader]} (${tally.leaderCount} votes)`;
     }
   } else {
-    status = `⏳ **${tally.totalVotes}/${quorum} votes** toward quorum. Auto-resolve in ${timeoutHours}h if no more votes.`;
+    status = `${tally.totalVotes} voter(s), quorum at ${quorum}.`;
+    if (tally.totalVotes > 0 && !tally.isTied) {
+      status += ` Auto-resolves with \`${tally.leader}\` in ${timeoutHours}h if no more votes.`;
+    } else if (tally.totalVotes > 0 && tally.isTied) {
+      status += ` Tiebreak needed in ${timeoutHours}h if no more votes are cast`;
+    }
   }
 
   const votesList = buildVotesListContent(tally);
