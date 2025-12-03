@@ -1,14 +1,13 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
+import { calculateTimeoutHours } from "#~/helpers/escalationVotes";
 import {
   humanReadableResolutions,
   resolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
-import {
-  calculateTimeoutHours,
-  type VoteTally,
-} from "#~/models/escalationVotes.server";
+
+import type { VoteTally } from "./voting";
 
 export function buildVotesListContent(tally: VoteTally) {
   return (

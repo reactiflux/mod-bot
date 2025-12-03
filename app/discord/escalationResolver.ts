@@ -1,5 +1,7 @@
 import { type Client, type Guild } from "discord.js";
 
+import { tallyVotes } from "#~/commands/escalate/voting.js";
+import { parseFlags, shouldAutoResolve } from "#~/helpers/escalationVotes.js";
 import {
   humanReadableResolutions,
   resolutions,
@@ -11,10 +13,7 @@ import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
   getPendingEscalations,
   getVotesForEscalation,
-  parseFlags,
   resolveEscalation,
-  shouldAutoResolve,
-  tallyVotes,
   type Escalation,
 } from "#~/models/escalationVotes.server";
 

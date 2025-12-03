@@ -1,15 +1,12 @@
 import type { Selectable } from "kysely";
 
 import db, { type DB } from "#~/db.server";
+import type { EscalationFlags } from "#~/helpers/escalationVotes.js";
 import type { Resolution } from "#~/helpers/modResponse";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Escalation = Selectable<DB["escalations"]>;
 export type EscalationRecord = Selectable<DB["escalation_records"]>;
-
-export interface EscalationFlags {
-  quorum: number;
-}
 
 export async function createEscalation(data: {
   id: `${string}-${string}-${string}-${string}-${string}`;
@@ -134,56 +131,6 @@ export async function getVotesForEscalation(escalationId: string) {
   });
 }
 
-export interface VoteTally {
-  totalVotes: number;
-  byResolution: Map<Resolution, string[]>; // resolution -> voter IDs
-  leader: Resolution | null;
-  leaderCount: number;
-  isTied: boolean;
-  tiedResolutions: Resolution[];
-}
-
-interface VoteRecord {
-  vote: Resolution;
-  voter_id: string;
-}
-
-export function tallyVotes(votes: VoteRecord[]): VoteTally {
-  const byResolution = new Map<Resolution, string[]>();
-
-  for (const vote of votes) {
-    const voters = byResolution.get(vote.vote) ?? [];
-    voters.push(vote.voter_id);
-    byResolution.set(vote.vote, voters);
-  }
-
-  let leader: string | null = null;
-  let leaderCount = 0;
-  const tiedResolutions: Resolution[] = [];
-
-  for (const [resolution, voters] of byResolution) {
-    if (voters.length > leaderCount) {
-      leader = resolution;
-      leaderCount = voters.length;
-      tiedResolutions.length = 0;
-      tiedResolutions.push(resolution);
-    } else if (voters.length === leaderCount && leaderCount > 0) {
-      tiedResolutions.push(resolution);
-    }
-  }
-
-  const isTied = tiedResolutions.length > 1;
-
-  return {
-    totalVotes: votes.length,
-    byResolution,
-    leader: isTied ? null : (leader as Resolution),
-    leaderCount,
-    isTied,
-    tiedResolutions,
-  };
-}
-
 export async function resolveEscalation(id: string, resolution: Resolution) {
   return trackPerformance("resolveEscalation", async () => {
     await db
@@ -197,35 +144,4 @@ export async function resolveEscalation(id: string, resolution: Resolution) {
 
     log("info", "EscalationVotes", "Resolved escalation", { id, resolution });
   });
-}
-
-export function parseFlags(flagsJson: string): EscalationFlags {
-  try {
-    return JSON.parse(flagsJson) as EscalationFlags;
-  } catch {
-    return { quorum: 3 }; // Default
-  }
-}
-
-/**
- * Calculate hours until auto-resolution based on vote count.
- * Formula: 24 - (8 * voteCount), minimum 0
- */
-export function calculateTimeoutHours(voteCount: number): number {
-  return Math.max(0, 24 - 8 * voteCount);
-}
-
-/**
- * Check if an escalation should auto-resolve based on time elapsed.
- */
-export function shouldAutoResolve(
-  createdAt: string,
-  voteCount: number,
-): boolean {
-  const created = new Date(createdAt).getTime();
-  const now = Date.now();
-  const hoursElapsed = (now - created) / (1000 * 60 * 60);
-  const timeoutHours = calculateTimeoutHours(voteCount);
-
-  return hoursElapsed >= timeoutHours;
 }

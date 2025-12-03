@@ -6,6 +6,7 @@ import {
 
 import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
+import { parseFlags } from "#~/helpers/escalationVotes.js";
 import {
   humanReadableResolutions,
   type Resolution,
@@ -16,11 +17,8 @@ import {
   createEscalation,
   getEscalation,
   getVotesForEscalation,
-  parseFlags,
   recordVote,
   resolveEscalation,
-  tallyVotes,
-  type VoteTally,
 } from "#~/models/escalationVotes.server";
 import {
   DEFAULT_QUORUM,
@@ -36,6 +34,7 @@ import {
   buildVoteMessageContent,
   buildVotesListContent,
 } from "./strings";
+import { tallyVotes, type VoteTally } from "./voting";
 
 export const EscalationHandlers = {
   // Direct action commands (no voting)
