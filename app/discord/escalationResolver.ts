@@ -129,16 +129,11 @@ async function executeScheduledResolution(
     // Try to update the vote message to show resolution
     try {
       const channel = await client.channels.fetch(escalation.thread_id);
-      if (channel && "messages" in channel) {
-        const message = await channel.messages
-          .fetch(escalation.vote_message_id)
-          .catch(() => null);
-        if (message) {
-          await message.edit({
-            content: `**Escalation Auto-Resolved** ⏰\nAction taken: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}>\n_(Resolved due to timeout)_`,
-            components: [],
-          });
-        }
+      if (channel && "send" in channel) {
+        await channel.send({
+          content: `**Escalation Auto-Resolved** ⏰\nAction taken: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}>\n_(Resolved due to timeout)_`,
+          components: [],
+        });
       }
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
