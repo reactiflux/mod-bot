@@ -4,10 +4,17 @@ import {
   type MessageComponentInteraction,
 } from "discord.js";
 
+import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
+import { humanReadableResolutions } from "#~/helpers/modResponse";
+import { log } from "#~/helpers/observability";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
   createEscalation,
+  getEscalation,
+  getVotesForEscalation,
+  resolveEscalation,
+  tallyVotes,
   type VoteTally,
 } from "#~/models/escalationVotes.server";
 import {
@@ -17,7 +24,11 @@ import {
 } from "#~/models/guilds.server";
 import { deleteAllReportedForUser } from "#~/models/reportedMessages.server";
 
-import { buildVoteButtons, buildVoteMessageContent } from "./strings";
+import {
+  buildVoteButtons,
+  buildVoteMessageContent,
+  buildVotesListContent,
+} from "./strings";
 
 export const EscalationHandlers = {
   // Direct action commands (no voting)
@@ -180,6 +191,76 @@ export const EscalationHandlers = {
         content: "Failed to timeout user",
         flags: [MessageFlags.Ephemeral],
       });
+    }
+  },
+
+  expedite: async (interaction: MessageComponentInteraction): Promise<void> => {
+    const escalationId = interaction.customId.split("|")[1];
+    const guildId = interaction.guildId!;
+    const expeditedBy = interaction.user.id;
+
+    // Get settings and check mod role
+    const { moderator: modRoleId } = await fetchSettings(guildId, [
+      SETTINGS.moderator,
+    ]);
+
+    if (!hasModRole(interaction, modRoleId)) {
+      await interaction.reply({
+        content: "Only moderators can expedite resolutions.",
+        flags: [MessageFlags.Ephemeral],
+      });
+      return;
+    }
+
+    // Get escalation
+    const escalation = await getEscalation(escalationId);
+    if (!escalation) {
+      await interaction.reply({
+        content: "Escalation not found.",
+        flags: [MessageFlags.Ephemeral],
+      });
+      return;
+    }
+
+    if (escalation.resolved_at) {
+      await interaction.reply({
+        content: "This escalation has already been resolved.",
+        flags: [MessageFlags.Ephemeral],
+      });
+      return;
+    }
+
+    // Get current votes and determine the leading resolution
+    const votes = await getVotesForEscalation(escalationId);
+    const tally = tallyVotes(votes);
+
+    if (!tally.leader) {
+      await interaction.reply({
+        content: "Cannot expedite: no clear leading resolution.",
+        flags: [MessageFlags.Ephemeral],
+      });
+      return;
+    }
+
+    // Execute the resolution
+    await interaction.deferUpdate();
+    try {
+      await executeResolution(tally.leader, escalation, interaction.guild!);
+
+      await resolveEscalation(escalationId, tally.leader);
+      const expediteNote = expeditedBy
+        ? `\nResolved early by <@${expeditedBy}> at <t:${Math.floor(Date.now() / 1000)}:f>`
+        : "";
+      await interaction.message.edit({
+        content: `**${humanReadableResolutions[tally.leader]}** ✅ <@${escalation.reported_user_id}>${expediteNote}
+${buildVotesListContent(tally)}`,
+        components: [], // Remove buttons
+      });
+    } catch (error) {
+      log("error", "Expedite failed", JSON.stringify({ error }));
+      await interaction.editReply(
+        "Something went wrong while executing the resolution",
+      );
     }
   },
 

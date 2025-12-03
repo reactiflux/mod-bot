@@ -11,13 +11,16 @@ import {
 } from "#~/models/escalationVotes.server";
 
 export function buildVotesListContent(tally: VoteTally) {
-  return Array.from(tally.byResolution.entries())
-    .filter(([, voters]) => voters.length > 0)
-    .map(
-      ([resolution, voters]) =>
-        `• ${humanReadableResolutions[resolution as Resolution]}: ${voters.map((id) => `<@${id}>`).join(", ")}`,
-    )
-    .join("\n");
+  return (
+    (tally.totalVotes > 0 ? "-# Vote record:\n" : "") +
+    Array.from(tally.byResolution.entries())
+      .filter(([, voters]) => voters.length > 0)
+      .map(
+        ([resolution, voters]) =>
+          `-# • ${humanReadableResolutions[resolution]}: ${voters.map((id) => `<@${id}>`).join(", ")}`,
+      )
+      .join("\n")
+  );
 }
 
 /**
@@ -34,10 +37,10 @@ export function buildVoteMessageContent(
 
   let status: string;
   if (tally.totalVotes >= quorum) {
-    if (tally.isTied) {
-      status = `⚖️ **Tied** between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r as Resolution]).join(", ")}. Waiting for tiebreaker.`;
+    if (tally.isTied || !tally.leader) {
+      status = `⚖️ **Tied** between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Waiting for tiebreaker.`;
     } else {
-      status = `✅ **Quorum reached.** Leading: ${humanReadableResolutions[tally.leader as Resolution]} (${tally.leaderCount} votes)`;
+      status = `✅ **Quorum reached.** Leading: ${humanReadableResolutions[tally.leader]} (${tally.leaderCount} votes)`;
     }
   } else {
     status = `⏳ **${tally.totalVotes}/${quorum} votes** toward quorum. Auto-resolve in ${timeoutHours}h if no more votes.`;
@@ -62,7 +65,7 @@ export function buildVoteButtons(
 ): ActionRowBuilder<ButtonBuilder>[] {
   const resolutionList: Resolution[] = [
     resolutions.track,
-    resolutions.warning,
+    // resolutions.warning,
     resolutions.timeout,
     resolutions.restrict,
     resolutions.kick,
@@ -82,7 +85,7 @@ export function buildVoteButtons(
     let style = ButtonStyle.Secondary;
     if (resolution === resolutions.ban) style = ButtonStyle.Danger;
     if (resolution === resolutions.track) style = ButtonStyle.Success;
-    if (resolution === resolutions.warning) style = ButtonStyle.Primary;
+    // if (resolution === resolutions.warning) style = ButtonStyle.Primary;
 
     return new ButtonBuilder()
       .setCustomId(`vote-${resolution}|${escalationId}`)
@@ -91,9 +94,41 @@ export function buildVoteButtons(
       .setDisabled(disabled);
   });
 
-  // Split into two rows (3 buttons each)
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)];
+}
+
+/**
+ * Build message content for a confirmed resolution (quorum reached, awaiting execution).
+ */
+export function buildConfirmedMessageContent(
+  reportedUserId: string,
+  resolution: Resolution,
+  tally: VoteTally,
+  createdAt: string,
+): string {
+  const timeoutHours = calculateTimeoutHours(tally.totalVotes);
+  const executeAt =
+    new Date(createdAt).getTime() + timeoutHours * 60 * 60 * 1000;
+  const executeTimestamp = Math.floor(executeAt / 1000);
+
+  return `**${humanReadableResolutions[resolution]}** ✅ <@${reportedUserId}>
+Executes <t:${executeTimestamp}:R>
+
+${buildVotesListContent(tally)}`;
+}
+
+/**
+ * Build the Expedite button for confirmed resolutions.
+ */
+export function buildExpediteButton(
+  escalationId: string,
+): ActionRowBuilder<ButtonBuilder>[] {
   return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(buttons.slice(0, 3)),
-    new ActionRowBuilder<ButtonBuilder>().addComponents(buttons.slice(3, 6)),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`expedite|${escalationId}`)
+        .setLabel("Expedite")
+        .setStyle(ButtonStyle.Primary),
+    ),
   ];
 }

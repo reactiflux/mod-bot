@@ -2,20 +2,16 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ChannelType,
   type Message,
-  type TextChannel,
   type ThreadChannel,
   type User,
 } from "discord.js";
 import { type ComponentEventReplyOptions, type ReacordInstance } from "reacord";
 
 import { ModResponse } from "#~/commands/reacord/ModResponse";
-import { quoteAndEscape } from "#~/helpers/discord";
 import { reportUser } from "#~/helpers/modLog";
 import { resolutions } from "#~/helpers/modResponse";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { ReportReasons } from "#~/models/reportedMessages.server";
 
 export async function escalationControls(
@@ -83,9 +79,9 @@ export async function escalate(
   thread: ThreadChannel,
   modRoleId: string,
 ) {
-  const [originalChannel] = await Promise.all([
-    reportedMessage.channel.fetch() as Promise<TextChannel>,
-  ]);
+  // const [originalChannel] = await Promise.all([
+  //   reportedMessage.channel.fetch() as Promise<TextChannel>,
+  // ]);
   const pollInstance = reply(
     <ModResponse
       modRoleId={modRoleId}
@@ -137,44 +133,44 @@ export async function escalate(
               ),
             ]);
             return;
-          case resolutions.warning: {
-            void reportUser({
-              reason: ReportReasons.modResolution,
-              message: reportedMessage,
-              staff,
-              extra: "✅ Warning",
-            });
+          // case resolutions.warning: {
+          //   void reportUser({
+          //     reason: ReportReasons.modResolution,
+          //     message: reportedMessage,
+          //     staff,
+          //     extra: "✅ Warning",
+          //   });
 
-            const [thread] = await Promise.all([
-              originalChannel.threads.create({
-                name: reportedMessage.author.username,
-                autoArchiveDuration: 60,
-                type: ChannelType.PrivateThread,
-                reason: "Private moderation thread",
-              }),
-              reportUser({
-                reason: ReportReasons.modResolution,
-                message: reportedMessage,
-                staff,
-                extra: "✅ Warned",
-              }),
-            ]);
-            const [{ moderator: modRoleId }] = await Promise.all([
-              fetchSettings(reportedMessage.guildId!, [SETTINGS.moderator]),
-              thread.members.add(reportedMessage.author),
-            ]);
-            await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.
-Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`);
-            await thread.send({
-              content: quoteAndEscape(reportedMessage.content),
-              allowedMentions: {},
-            });
+          //   const [thread] = await Promise.all([
+          //     originalChannel.threads.create({
+          //       name: reportedMessage.author.username,
+          //       autoArchiveDuration: 60,
+          //       type: ChannelType.PrivateThread,
+          //       reason: "Private moderation thread",
+          //     }),
+          //     reportUser({
+          //       reason: ReportReasons.modResolution,
+          //       message: reportedMessage,
+          //       staff,
+          //       extra: "✅ Warned",
+          //     }),
+          //   ]);
+          //   const [{ moderator: modRoleId }] = await Promise.all([
+          //     fetchSettings(reportedMessage.guildId!, [SETTINGS.moderator]),
+          //     thread.members.add(reportedMessage.author),
+          //   ]);
+          //   await thread.send(`The <@&${modRoleId}> team has determined that the following message is not okay in the community.
+          // Your message concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`);
+          //   await thread.send({
+          //     content: quoteAndEscape(reportedMessage.content),
+          //     allowedMentions: {},
+          //   });
 
-            void reportedMessage.reply(
-              `This user has been formally warned by the moderators. Please review the community rules.`,
-            );
-            return;
-          }
+          //   void reportedMessage.reply(
+          //     `This user has been formally warned by the moderators. Please review the community rules.`,
+          //   );
+          //   return;
+          // }
 
           case resolutions.track:
             void reportUser({

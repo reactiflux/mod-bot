@@ -1,4 +1,4 @@
-import { ChannelType, type Client } from "discord.js";
+import { type Client, type Guild } from "discord.js";
 
 import {
   humanReadableResolutions,
@@ -15,73 +15,57 @@ import {
   resolveEscalation,
   shouldAutoResolve,
   tallyVotes,
+  type Escalation,
 } from "#~/models/escalationVotes.server";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
-const ONE_MINUTE = 60 * 1000;
-
-/**
- * Execute a resolution action on a user via scheduled auto-resolution.
- */
-async function executeScheduledResolution(
-  client: Client,
-  guildId: string,
-  threadId: string,
-  voteMessageId: string,
-  reportedUserId: string,
+export async function executeResolution(
   resolution: Resolution,
-  escalationId: string,
+  escalation: Escalation,
+  guild: Guild,
 ): Promise<void> {
-  log("info", "EscalationResolver", "Auto-resolving escalation", {
-    escalationId,
+  const logBag = {
     resolution,
-    reportedUserId,
-    guildId,
-  });
+    reportedUserId: escalation.reported_user_id,
+    escalationId: escalation.id,
+  };
+  log("info", "EscalationControls", "Executing resolution", logBag);
+
+  const reportedMember = await guild.members
+    .fetch(escalation.reported_user_id)
+    .catch(() => null);
+  if (!reportedMember) {
+    log("debug", "Failed to find reported member", JSON.stringify(logBag));
+    return;
+  }
 
   try {
-    const guild = await client.guilds.fetch(guildId);
-    const reportedMember = await guild.members
-      .fetch(reportedUserId)
-      .catch(() => null);
-
-    if (!reportedMember) {
-      log("debug", "EscalationResolve", "Reported member failed to load");
-      return;
-    }
-
     switch (resolution) {
       case resolutions.track:
-        // No action needed
+        // No action needed, just track
         break;
 
-      case resolutions.warning: {
-        if (!reportedMember) break;
-        // Create private thread for formal warning
-        const channel = await client.channels.fetch(threadId);
-        if (
-          channel &&
-          channel.type === ChannelType.GuildText &&
-          "threads" in channel
-        ) {
-          const thread = await channel.threads.create({
-            name: `Warning: ${reportedMember.user.username}`,
-            autoArchiveDuration: 60,
-            type: ChannelType.PrivateThread,
-            reason:
-              "Private moderation thread for formal warning (auto-resolved)",
-          });
-          const { moderator: modRoleId } = await fetchSettings(guildId, [
-            SETTINGS.moderator,
-          ]);
-          await thread.members.add(reportedMember.id);
-          await thread.send(
-            `The <@&${modRoleId}> team has determined that your behavior is not okay in the community.
-Your actions concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`,
-          );
-        }
-        break;
-      }
+      //       case resolutions.warning: {
+      //         // Create private thread for formal warning
+
+      //         if (channel && "threads" in channel) {
+      //           const textChannel = channel as TextChannel;
+      //           const thread = await textChannel.threads.create({
+      //             name: `Warning: ${reportedMember.user.username}`,
+      //             autoArchiveDuration: 60,
+      //             type: ChannelType.PrivateThread,
+      //             reason: "Private moderation thread for formal warning",
+      //           });
+      //           const { moderator: modRoleId } = await fetchSettings(guildId, [
+      //             SETTINGS.moderator,
+      //           ]);
+      //           await thread.members.add(reportedMember.id);
+      //           await thread.send(
+      //             `The <@&${modRoleId}> team has determined that your behavior is not okay in the community.
+      // Your actions concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`,
+      //           );
+      //         }
+      //         break;
+      //       }
 
       case resolutions.timeout:
         await timeout(reportedMember);
@@ -99,41 +83,80 @@ Your actions concerned the moderators enough that they felt it necessary to inte
         await ban(reportedMember);
         break;
     }
+  } catch (error) {
+    log("error", "EscalationControls", "Failed to execute resolution", {
+      ...logBag,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+const ONE_MINUTE = 60 * 1000;
+
+/**
+ * Execute a resolution action on a user via scheduled auto-resolution.
+ */
+async function executeScheduledResolution(
+  client: Client,
+  escalation: Escalation,
+  resolution: Resolution,
+): Promise<void> {
+  const logBag = {
+    escalationId: escalation.id,
+    resolution,
+    reportedUserId: escalation.reported_user_id,
+    guildId: escalation.guild_id,
+  };
+  log("info", "EscalationResolver", "Auto-resolving escalation", logBag);
+
+  try {
+    const guild = await client.guilds.fetch(escalation.guild_id);
+    const reportedMember = await guild.members
+      .fetch(escalation.reported_user_id)
+      .catch(() => null);
+    // const channel = await guild.channels.fetch()
+
+    if (!reportedMember) {
+      log("debug", "EscalationResolve", "Reported member failed to load");
+      return;
+    }
+
+    await executeResolution(resolution, escalation, guild);
 
     // Mark escalation as resolved in database
-    await resolveEscalation(escalationId, resolution);
+    await resolveEscalation(escalation.id, resolution);
 
     // Try to update the vote message to show resolution
     try {
-      const channel = await client.channels.fetch(threadId);
+      const channel = await client.channels.fetch(escalation.thread_id);
       if (channel && "messages" in channel) {
         const message = await channel.messages
-          .fetch(voteMessageId)
+          .fetch(escalation.vote_message_id)
           .catch(() => null);
         if (message) {
           await message.edit({
-            content: `**Escalation Auto-Resolved** ⏰\nAction taken: **${humanReadableResolutions[resolution]}** on <@${reportedUserId}>\n_(Resolved due to timeout)_`,
+            content: `**Escalation Auto-Resolved** ⏰\nAction taken: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}>\n_(Resolved due to timeout)_`,
             components: [],
           });
         }
       }
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
-        escalationId,
+        ...logBag,
         error: error instanceof Error ? error.message : String(error),
       });
     }
 
-    log("info", "EscalationResolver", "Successfully auto-resolved escalation", {
-      escalationId,
-      resolution,
-      reportedUserId,
-    });
+    log(
+      "info",
+      "EscalationResolver",
+      "Successfully auto-resolved escalation",
+      logBag,
+    );
   } catch (error) {
     log("error", "EscalationResolver", "Failed to auto-resolve escalation", {
-      escalationId,
-      resolution,
-      reportedUserId,
+      ...logBag,
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -193,15 +216,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
           resolution = resolutions.track;
         }
 
-        await executeScheduledResolution(
-          client,
-          escalation.guild_id,
-          escalation.thread_id,
-          escalation.vote_message_id,
-          escalation.reported_user_id,
-          resolution,
-          escalation.id,
-        );
+        await executeScheduledResolution(client, escalation, resolution);
       } catch (error) {
         log("error", "EscalationResolver", "Error processing escalation", {
           escalationId: escalation.id,

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 
 export const resolutions = {
   track: "track",
-  warning: "formalWarning",
+  // warning: "formalWarning",
   timeout: "timeout",
   restrict: "restrict",
   kick: "kick",
@@ -11,7 +11,7 @@ export const resolutions = {
 } as const;
 export const humanReadableResolutions = {
   [resolutions.track]: "No action",
-  [resolutions.warning]: "Formal Warning",
+  // [resolutions.warning]: "Formal Warning",
   [resolutions.timeout]: "Timeout Overnight",
   [resolutions.restrict]: "Restrict",
   [resolutions.kick]: "Kick",

@@ -1,145 +1,27 @@
 import {
-  ChannelType,
   InteractionType,
   MessageFlags,
   type MessageComponentInteraction,
-  type TextChannel,
 } from "discord.js";
 
 import { hasModRole, type MessageComponentCommand } from "#~/helpers/discord";
-import {
-  humanReadableResolutions,
-  resolutions,
-  type Resolution,
-} from "#~/helpers/modResponse";
-import { log } from "#~/helpers/observability";
-import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
+import { resolutions, type Resolution } from "#~/helpers/modResponse";
 import {
   getEscalation,
   getVotesForEscalation,
   parseFlags,
   recordVote,
-  resolveEscalation,
   tallyVotes,
-  type VoteTally,
 } from "#~/models/escalationVotes.server";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationHandlers } from "./escalate/handlers";
 import {
+  buildConfirmedMessageContent,
+  buildExpediteButton,
   buildVoteButtons,
   buildVoteMessageContent,
-  buildVotesListContent,
 } from "./escalate/strings";
-
-/**
- * Execute a resolution action on a user.
- */
-async function executeResolution(
-  resolution: Resolution,
-  interaction: MessageComponentInteraction,
-  reportedUserId: string,
-  escalationId: string,
-  tally: VoteTally,
-): Promise<void> {
-  const guild = interaction.guild!;
-  const guildId = guild.id;
-
-  log("info", "EscalationControls", "Executing resolution", {
-    resolution,
-    reportedUserId,
-    escalationId,
-  });
-
-  const reportedMember = await guild.members
-    .fetch(reportedUserId)
-    .catch(() => null);
-  if (!reportedMember) {
-    log(
-      "debug",
-      "Failed to find reported member",
-      JSON.stringify({
-        escalationId,
-        reportedUserId,
-      }),
-    );
-    return;
-  }
-
-  try {
-    switch (resolution) {
-      case resolutions.track:
-        // No action needed, just track
-        break;
-
-      case resolutions.warning: {
-        // Create private thread for formal warning
-        const channel = interaction.channel;
-        if (channel && "threads" in channel) {
-          const textChannel = channel as TextChannel;
-          const thread = await textChannel.threads.create({
-            name: `Warning: ${reportedMember.user.username}`,
-            autoArchiveDuration: 60,
-            type: ChannelType.PrivateThread,
-            reason: "Private moderation thread for formal warning",
-          });
-          const { moderator: modRoleId } = await fetchSettings(guildId, [
-            SETTINGS.moderator,
-          ]);
-          await thread.members.add(reportedMember.id);
-          await thread.send(
-            `The <@&${modRoleId}> team has determined that your behavior is not okay in the community.
-Your actions concerned the moderators enough that they felt it necessary to intervene. This message was sent by a bot, but all moderators can view this thread and are available to discuss what concerned them.`,
-          );
-        }
-        break;
-      }
-
-      case resolutions.timeout:
-        await timeout(reportedMember);
-        break;
-
-      case resolutions.restrict:
-        await applyRestriction(reportedMember);
-        break;
-
-      case resolutions.kick:
-        await kick(reportedMember);
-        break;
-
-      case resolutions.ban:
-        await ban(reportedMember);
-        break;
-    }
-  } catch (error) {
-    log("error", "EscalationControls", "Failed to execute resolution", {
-      resolution,
-      reportedUserId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-
-  try {
-    // Update the vote message to show resolution
-    if (interaction.message) {
-      // Mark escalation as resolved in database
-      await resolveEscalation(escalationId, resolution);
-      await interaction.message.edit({
-        content: `**Escalation Resolved** ✅\nAction taken: **${humanReadableResolutions[resolution]}** on <@${reportedUserId}>
-${buildVotesListContent(tally)}`,
-        components: [], // Remove buttons
-      });
-    }
-  } catch (error) {
-    log("error", "EscalationControls", "Failed to resolve resolution", {
-      resolution,
-      reportedUserId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-}
 
 /**
  * Handle a vote being cast.
@@ -197,29 +79,21 @@ async function handleVote(
   const quorum = flags.quorum;
   const quorumReached = tally.totalVotes >= quorum;
 
-  // Check if we should resolve
+  // Check if quorum reached with clear winner - show confirmed state
   if (quorumReached && !tally.isTied && tally.leader) {
-    // Quorum reached with clear winner - execute resolution
-    await interaction.deferUpdate();
-    try {
-      await executeResolution(
-        tally.leader as Resolution,
-        interaction,
+    await interaction.update({
+      content: buildConfirmedMessageContent(
         escalation.reported_user_id,
-        escalationId,
+        tally.leader,
         tally,
-      );
-    } catch (error) {
-      log("error", "resolution failed", JSON.stringify({ error }));
-      await interaction.editReply(
-        "Something went wrong while executing the resolution",
-      );
-    }
+        escalation.created_at,
+      ),
+      components: buildExpediteButton(escalationId),
+    });
     return;
   }
-  console.log(escalation.created_at);
-  // Update the message with new vote state
 
+  // Update the message with new vote state
   await interaction.update({
     content: buildVoteMessageContent(
       escalation.reported_user_id,
@@ -247,6 +121,9 @@ export const EscalationCommands: MessageComponentCommand[] = [
   { command: button("escalate-ban"), handler: h.ban },
   { command: button("escalate-restrict"), handler: h.restrict },
   { command: button("escalate-timeout"), handler: h.timeout },
+
+  // Expedite handler
+  { command: button("expedite"), handler: h.expedite },
 
   // Create vote handlers for each resolution
   ...Object.values(resolutions).map((resolution) => ({
