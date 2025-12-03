@@ -229,7 +229,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
 
 /**
  * Start the escalation resolver scheduler.
- * Runs every minute to check for escalations that should be auto-resolved.
+ * Runs every 15 minutes to check for escalations that should be auto-resolved.
  */
 export function startEscalationResolver(client: Client): void {
   log(

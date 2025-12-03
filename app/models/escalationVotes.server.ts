@@ -12,6 +12,7 @@ export interface EscalationFlags {
 }
 
 export async function createEscalation(data: {
+  id: `${string}-${string}-${string}-${string}-${string}`;
   guildId: string;
   threadId: string;
   voteMessageId: string;
@@ -19,7 +20,7 @@ export async function createEscalation(data: {
   quorum: number;
 }): Promise<string> {
   return trackPerformance("createEscalation", async () => {
-    const id = crypto.randomUUID();
+    const id = data.id;
     const flags: EscalationFlags = { quorum: data.quorum };
 
     await db

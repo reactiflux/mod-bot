@@ -291,7 +291,6 @@ ${buildVotesListContent(tally)}`,
       // Acknowledge immediately
       await interaction.deferReply();
 
-      // Create vote message first (we need its ID for the database)
       const emptyTally: VoteTally = {
         totalVotes: 0,
         byResolution: new Map(),
@@ -301,29 +300,38 @@ ${buildVotesListContent(tally)}`,
         tiedResolutions: [],
       };
 
-      // Create escalation record
-      const escalationId = await createEscalation({
+      // Generate escalation ID upfront so we can use it in the message buttons
+      const escalationId = crypto.randomUUID();
+      const createdAt = new Date().toISOString();
+
+      // Send vote message first to get its ID
+      const channel = interaction.channel;
+      if (!channel || !("send" in channel)) {
+        await interaction.editReply({
+          content: "Failed to create escalation vote: invalid channel",
+        });
+        return;
+      }
+
+      const voteMessage = await channel.send({
+        content: buildVoteMessageContent(
+          reportedUserId,
+          emptyTally,
+          quorum,
+          createdAt,
+        ),
+        components: buildVoteButtons(escalationId, emptyTally, false),
+      });
+
+      // Now create escalation record with the correct message ID
+      await createEscalation({
+        id: escalationId,
         guildId,
         threadId,
-        voteMessageId: interaction.message.id,
+        voteMessageId: voteMessage.id,
         reportedUserId,
         quorum,
       });
-
-      // Now update the message with the real content and buttons
-      const createdAt = new Date().toISOString();
-      const channel = interaction.channel;
-      if (channel && "send" in channel) {
-        await channel.send({
-          content: buildVoteMessageContent(
-            reportedUserId,
-            emptyTally,
-            quorum,
-            createdAt,
-          ),
-          components: buildVoteButtons(escalationId, emptyTally, false),
-        });
-      }
 
       // Send notification
       await interaction.editReply({
