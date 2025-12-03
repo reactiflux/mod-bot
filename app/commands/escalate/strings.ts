@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 import { calculateTimeoutHours } from "#~/helpers/escalationVotes";
+import type { Features } from "#~/helpers/featuresFlags.js";
 import {
   humanReadableResolutions,
   resolutions,
@@ -58,18 +59,20 @@ ${votesList || "_No votes yet_"}`;
  * Build the voting buttons, optionally disabling non-tied options during a tie.
  */
 export function buildVoteButtons(
+  enabledFeatures: Features[],
   escalationId: string,
   tally: VoteTally,
   quorumReached: boolean,
 ): ActionRowBuilder<ButtonBuilder>[] {
-  const resolutionList: Resolution[] = [
-    resolutions.track,
-    // resolutions.warning,
-    resolutions.timeout,
-    resolutions.restrict,
-    resolutions.kick,
-    resolutions.ban,
-  ];
+  const resolutionList: Resolution[] = [];
+  resolutionList.push(resolutions.track);
+  // resolutionList.push(resolutions.warning)
+  resolutionList.push(resolutions.timeout);
+  if (enabledFeatures.includes("restrict")) {
+    resolutionList.push(resolutions.restrict);
+  }
+  resolutionList.push(resolutions.kick);
+  resolutionList.push(resolutions.ban);
 
   const buttons = resolutionList.map((resolution) => {
     const voteCount = tally.byResolution.get(resolution)?.length ?? 0;

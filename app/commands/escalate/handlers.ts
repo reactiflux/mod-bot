@@ -288,9 +288,10 @@ ${buildVotesListContent(tally)}`,
       const escalationId = interaction.customId.split("|")[1];
 
       // Get settings
-      const { moderator: modRoleId } = await fetchSettings(guildId, [
-        SETTINGS.moderator,
-      ]);
+      const { moderator: modRoleId, restricted } = await fetchSettings(
+        guildId,
+        [SETTINGS.moderator, SETTINGS.restricted],
+      );
 
       // Check mod role
       if (!hasModRole(interaction, modRoleId)) {
@@ -355,7 +356,12 @@ ${buildVotesListContent(tally)}`,
           quorum,
           escalation.created_at,
         ),
-        components: buildVoteButtons(escalationId, tally, quorumReached),
+        components: buildVoteButtons(
+          restricted ? ["restrict"] : [],
+          escalationId,
+          tally,
+          quorumReached,
+        ),
       });
     },
 
@@ -369,8 +375,10 @@ ${buildVotesListContent(tally)}`,
     const settings = await fetchSettings(guildId, [
       SETTINGS.moderator,
       SETTINGS.quorum,
+      SETTINGS.restricted,
     ]);
     const modRoleId = settings.moderator;
+    const hasRestrictions = Boolean(settings.restricted);
     const quorum = settings.quorum ?? DEFAULT_QUORUM;
 
     try {
@@ -406,7 +414,12 @@ ${buildVotesListContent(tally)}`,
           quorum,
           createdAt,
         ),
-        components: buildVoteButtons(escalationId, emptyTally, false),
+        components: buildVoteButtons(
+          hasRestrictions ? ["restrict"] : [],
+          escalationId,
+          emptyTally,
+          false,
+        ),
       });
 
       // Now create escalation record with the correct message ID
