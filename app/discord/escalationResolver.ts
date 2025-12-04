@@ -1,4 +1,4 @@
-import { type Client, type Guild } from "discord.js";
+import { type Client, type Guild, type ThreadChannel } from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
 import { parseFlags, shouldAutoResolve } from "#~/helpers/escalationVotes.js";
@@ -110,11 +110,14 @@ async function executeScheduledResolution(
   log("info", "EscalationResolver", "Auto-resolving escalation", logBag);
 
   try {
-    const guild = await client.guilds.fetch(escalation.guild_id);
+    const [guild, channel] = await Promise.all([
+      client.guilds.fetch(escalation.guild_id),
+      client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
+    ]);
     const reportedMember = await guild.members
       .fetch(escalation.reported_user_id)
       .catch(() => null);
-    // const channel = await guild.channels.fetch()
+    const vote = await channel.messages.fetch(escalation.vote_message_id);
 
     if (!reportedMember) {
       log("debug", "EscalationResolve", "Reported member failed to load");
@@ -122,19 +125,17 @@ async function executeScheduledResolution(
     }
 
     await executeResolution(resolution, escalation, guild);
-
-    // Mark escalation as resolved in database
     await resolveEscalation(escalation.id, resolution);
 
-    // Try to update the vote message to show resolution
     try {
-      const channel = await client.channels.fetch(escalation.thread_id);
-      if (channel && "send" in channel) {
-        await channel.send({
-          content: `**Escalation Auto-Resolved** ⏰\nAction taken: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}>\n_(Resolved due to timeout)_`,
-          components: [],
-        });
-      }
+      // @ts-expect-error cuz nullcheck but ! is harder to search for
+      const resolvedAt = new Date(escalation.resolved_at);
+      const elapsed =
+        Number(resolvedAt) - Number(new Date(escalation.created_at));
+      await vote.reply({
+        content: `Escalation Resolved: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}> (${reportedMember.displayName})\n-# _(Resolved <t:${Math.floor(Number(resolvedAt) / 1000)}:t>), ${Math.floor(elapsed / 1000 / 60 / 60)}hrs later_`,
+        components: [],
+      });
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
         ...logBag,
