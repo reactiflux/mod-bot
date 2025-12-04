@@ -27,6 +27,8 @@ export function buildVotesListContent(tally: VoteTally) {
  * Build the voting message content showing current vote state.
  */
 export function buildVoteMessageContent(
+  modRoleId: string,
+  initiatorId: string,
   reportedUserId: string,
   tally: VoteTally,
   quorum: number,
@@ -53,8 +55,7 @@ export function buildVoteMessageContent(
 
   const votesList = buildVotesListContent(tally);
 
-  return `**Escalation Vote** for <@${reportedUserId}>
-Created: <t:${createdTimestamp}:R>
+  return `<@${initiatorId}> called for a vote by <@&${modRoleId}> <t:${createdTimestamp}:R> regarding user <@${reportedUserId}>
 ${status}
 
 ${votesList || "_No votes yet_"}`;

@@ -48,10 +48,15 @@ describe("buildVotesListContent", () => {
 
 describe("buildVoteMessageContent", () => {
   const reportedUserId = "123456789";
+  const initiatorId = "987654321";
+  const modRoleId = "564738291";
   const createdAt = new Date("2024-01-01T12:00:00Z").toISOString();
 
   it("shows vote count toward quorum", () => {
     const result = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       emptyTally,
       3,
@@ -64,6 +69,9 @@ describe("buildVoteMessageContent", () => {
 
   it("mentions the reported user", () => {
     const result = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       emptyTally,
       3,
@@ -76,6 +84,9 @@ describe("buildVoteMessageContent", () => {
   it("shows auto-resolve time based on vote count", () => {
     // 0 votes = 24h timeout
     const result0 = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       emptyTally,
       3,
@@ -86,6 +97,9 @@ describe("buildVoteMessageContent", () => {
     // 1 vote = 16h timeout
     const tally1 = tallyVotes([{ vote: resolutions.ban, voter_id: "u1" }]);
     const result1 = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       tally1,
       3,
@@ -100,6 +114,9 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.ban, voter_id: "u2" },
     ]);
     const result2 = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       tally2,
       3,
@@ -114,6 +131,9 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.kick, voter_id: "u2" },
     ]);
     const result3 = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       tally3,
       3,
@@ -129,7 +149,14 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.ban, voter_id: "u2" },
       { vote: resolutions.ban, voter_id: "u3" },
     ]);
-    const result = buildVoteMessageContent(reportedUserId, tally, 3, createdAt);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      initiatorId,
+      reportedUserId,
+      tally,
+      3,
+      createdAt,
+    );
 
     expect(result).toContain("Quorum reached");
     expect(result).toContain("Ban");
@@ -142,7 +169,14 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.kick, voter_id: "u3" },
       { vote: resolutions.kick, voter_id: "u4" },
     ]);
-    const result = buildVoteMessageContent(reportedUserId, tally, 3, createdAt);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      initiatorId,
+      reportedUserId,
+      tally,
+      3,
+      createdAt,
+    );
 
     expect(result).toContain("Tied");
     expect(result).toContain("tiebreaker");
@@ -150,6 +184,9 @@ describe("buildVoteMessageContent", () => {
 
   it("includes Discord timestamp", () => {
     const result = buildVoteMessageContent(
+      modRoleId,
+
+      initiatorId,
       reportedUserId,
       emptyTally,
       3,

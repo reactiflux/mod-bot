@@ -365,6 +365,8 @@ ${buildVotesListContent(tally)}`,
       // Update the message with new vote state
       await interaction.update({
         content: buildVoteMessageContent(
+          modRoleId,
+          escalation.initiator_id,
           escalation.reported_user_id,
           tally,
           quorum,
@@ -381,7 +383,7 @@ ${buildVotesListContent(tally)}`,
 
   // Escalate button - creates a new vote
   escalate: async (interaction: MessageComponentInteraction) => {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: ["Ephemeral"] });
     const [_, reportedUserId, level = "0", previousEscalationId = ""] =
       interaction.customId.split("|");
 
@@ -423,6 +425,8 @@ ${buildVotesListContent(tally)}`,
       const createdAt = new Date().toISOString();
       const content = {
         content: buildVoteMessageContent(
+          modRoleId,
+          interaction.user.id,
           reportedUserId,
           emptyTally,
           quorum,
@@ -474,22 +478,7 @@ ${buildVotesListContent(tally)}`,
       });
 
       // Send notification
-      await interaction.editReply({
-        content: `Escalation started. <@&${modRoleId}> please vote on how to handle <@${reportedUserId}>.`,
-        // components:
-        //   level === "0"
-        //     ? [
-        //         new ActionRowBuilder<ButtonBuilder>().addComponents([
-        //           new ButtonBuilder()
-        //             .setCustomId(
-        //               `escalate-escalate|${reportedUserId}|1|${escalationId}`,
-        //             )
-        //             .setLabel("Further escalate")
-        //             .setStyle(ButtonStyle.Primary),
-        //         ]),
-        //       ]
-        //     : [],
-      });
+      await interaction.editReply("Escalation started");
     } catch (error) {
       log("error", "EscalationHandlers", "Error creating escalation vote", {
         error: error instanceof Error ? error.message : String(error),
