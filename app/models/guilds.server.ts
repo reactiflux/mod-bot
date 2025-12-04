@@ -7,7 +7,10 @@ export const SETTINGS = {
   modLog: "modLog",
   moderator: "moderator",
   restricted: "restricted",
+  quorum: "quorum",
 } as const;
+
+export const DEFAULT_QUORUM = 3;
 
 // These types are not enforced by the database, they need to be carefully
 // managed by setup guarantees
@@ -15,6 +18,7 @@ interface SettingsRecord {
   [SETTINGS.modLog]: string;
   [SETTINGS.moderator]: string;
   [SETTINGS.restricted]?: string;
+  [SETTINGS.quorum]?: number;
 }
 
 export const fetchGuild = async (guildId: string) => {

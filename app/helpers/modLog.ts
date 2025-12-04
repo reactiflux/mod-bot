@@ -84,10 +84,7 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
   }
 
   // Create new thread and store in database
-  const { modLog: modLogId, moderator } = await fetchSettings(guild.id, [
-    SETTINGS.modLog,
-    SETTINGS.moderator,
-  ]);
+  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
   const modLog = await guild.channels.fetch(modLogId);
   if (!modLog || modLog.type !== ChannelType.GuildText) {
     throw new Error("Invalid mod log channel");
@@ -95,7 +92,7 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
 
   // Create freestanding private thread
   const thread = await makeUserThread(modLog, user);
-  await escalationControls(message, thread, moderator);
+  await escalationControls(message, thread);
 
   // Store or update the thread reference
   if (existingThread) {

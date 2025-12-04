@@ -4,6 +4,7 @@ import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
+import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { botStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
@@ -46,6 +47,9 @@ export default function init() {
           deployCommands(client),
           startActivityTracking(client),
         ]);
+
+        // Start escalation resolver scheduler (must be after client is ready)
+        startEscalationResolver(client);
 
         log("info", "Gateway", "Gateway initialization completed", {
           guildCount: client.guilds.cache.size,

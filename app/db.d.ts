@@ -11,6 +11,27 @@ export interface ChannelInfo {
   name: string | null;
 }
 
+export interface EscalationRecords {
+  escalation_id: string;
+  id: string;
+  vote: string;
+  voted_at: Generated<string>;
+  voter_id: string;
+}
+
+export interface Escalations {
+  created_at: Generated<string>;
+  flags: string;
+  guild_id: string;
+  id: string;
+  initiator_id: string;
+  reported_user_id: string;
+  resolution: string | null;
+  resolved_at: string | null;
+  thread_id: string;
+  vote_message_id: string;
+}
+
 export interface Guilds {
   id: string | null;
   settings: string | null;
@@ -86,6 +107,8 @@ export interface UserThreads {
 
 export interface DB {
   channel_info: ChannelInfo;
+  escalation_records: EscalationRecords;
+  escalations: Escalations;
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   message_stats: MessageStats;
