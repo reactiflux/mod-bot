@@ -9,6 +9,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn("thread_id", "text", (c) => c.notNull())
     .addColumn("vote_message_id", "text", (c) => c.notNull())
     .addColumn("reported_user_id", "text", (c) => c.notNull())
+    .addColumn("initiator_id", "text", (c) => c.notNull())
     .addColumn("flags", "text", (c) => c.notNull())
     .addColumn("created_at", "datetime", (c) =>
       c.defaultTo(sql`CURRENT_TIMESTAMP`).notNull(),

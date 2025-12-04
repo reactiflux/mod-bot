@@ -24,6 +24,7 @@ export interface Escalations {
   flags: string;
   guild_id: string;
   id: string;
+  initiator_id: string;
   reported_user_id: string;
   resolution: string | null;
   resolved_at: string | null;

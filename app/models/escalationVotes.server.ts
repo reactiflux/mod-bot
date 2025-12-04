@@ -14,6 +14,7 @@ export async function createEscalation(data: {
   threadId: Escalation["thread_id"];
   voteMessageId: Escalation["vote_message_id"];
   reportedUserId: Escalation["reported_user_id"];
+  initiatorId: Escalation["initiator_id"];
   quorum: number;
 }): Promise<string> {
   return trackPerformance("createEscalation", async () => {
@@ -28,6 +29,7 @@ export async function createEscalation(data: {
         thread_id: data.threadId,
         vote_message_id: data.voteMessageId,
         reported_user_id: data.reportedUserId,
+        initiator_id: data.initiatorId,
         flags: JSON.stringify(flags),
       })
       .execute();

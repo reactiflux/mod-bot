@@ -469,6 +469,7 @@ ${buildVotesListContent(tally)}`,
         threadId,
         voteMessageId: voteMessage.id,
         reportedUserId,
+        initiatorId: interaction.user.id,
         quorum,
       });
 
