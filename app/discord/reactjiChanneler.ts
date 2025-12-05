@@ -87,10 +87,24 @@ export async function startReactjiChanneler(client: Client) {
       // Forward the message using Discord's native forwarding
       await fullMessage.forward(targetChannel);
 
+      // Get all users who reacted with this emoji
+      const reactors = await reaction.users.fetch();
+      const reactorMentions = reactors
+        .filter((u) => !u.bot)
+        .map((u) => `<@${u.id}>`)
+        .join(", ");
+
+      // Send a message indicating who triggered the forward
+      await targetChannel.send({
+        content: `Forwarded by ${reactorMentions} reacting with ${emoji}`,
+        allowedMentions: { users: [] },
+      });
+
       log("info", "ReactjiChanneler", "Message forwarded successfully", {
         messageId: message.id,
         targetChannelId: config.channel_id,
         emoji,
+        triggeredBy: user.id,
       });
     } catch (error) {
       log("error", "ReactjiChanneler", "Error handling reaction", {
