@@ -6,6 +6,7 @@ import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
+import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
 import { botStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
@@ -46,6 +47,7 @@ export default function init() {
           automod(client),
           deployCommands(client),
           startActivityTracking(client),
+          startReactjiChanneler(client),
         ]);
 
         // Start escalation resolver scheduler (must be after client is ready)

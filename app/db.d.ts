@@ -63,6 +63,16 @@ export interface MessageStats {
   word_count: number;
 }
 
+export interface ReactjiChannelerConfig {
+  channel_id: string;
+  configured_by_id: string;
+  created_at: Generated<string>;
+  emoji: string;
+  guild_id: string;
+  id: string;
+  threshold: Generated<number>;
+}
+
 export interface ReportedMessages {
   created_at: Generated<string>;
   deleted_at: string | null;
@@ -112,6 +122,7 @@ export interface DB {
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   message_stats: MessageStats;
+  reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;
   sessions: Sessions;
   tickets_config: TicketsConfig;
