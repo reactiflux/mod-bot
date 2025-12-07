@@ -1,8 +1,3 @@
-// create slash command that triggers a popup modal to capture:
-// - channel (does discord let you select from list?)
-// - message to send in channel (provide a default)
-// - anything else needed?
-
 import {
   ChannelType,
   PermissionFlagsBits,
@@ -41,7 +36,8 @@ export const Command = [
     handler: async (interaction: ChatInputCommandInteraction) => {
       if (!interaction.guild || !interaction.guildId)
         throw new Error("Interaction has no guild");
-      const honeypotChannel = interaction.options.getChannel("channel");
+      const honeypotChannel =
+        interaction.options.getChannel("channel") ?? interaction.channel;
       const messageText =
         interaction.options.getString("message-text") ?? DEFAULT_MESSAGE_TEXT;
       if (!honeypotChannel?.id) {
@@ -50,7 +46,7 @@ export const Command = [
         });
         return;
       }
-      if (honeypotChannel && honeypotChannel.type !== ChannelType.GuildText) {
+      if (honeypotChannel.type !== ChannelType.GuildText) {
         await interaction.reply({
           content: `The channel configured must be a text channel!`,
         });
@@ -58,14 +54,17 @@ export const Command = [
       }
       try {
         const castedChannel = honeypotChannel as TextChannel;
-        await castedChannel.send(messageText);
-        await db
+        const result = await db
           .insertInto("honeypot_config")
           .values({
             guild_id: interaction.guildId,
             channel_id: honeypotChannel.id,
           })
           .execute();
+        if (result[0].numInsertedOrUpdatedRows ?? 0 > 0) {
+          await castedChannel.send(messageText);
+        }
+
         await interaction.reply({
           content: "Honeypot setup completed successfully!",
           ephemeral: true,

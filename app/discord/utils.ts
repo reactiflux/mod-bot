@@ -1,7 +1,7 @@
 import type { Message, TextChannel } from "discord.js";
 
 import db from "#~/db.server";
-import { log, trackPerformance } from "#~/helpers/observability";
+import { log } from "#~/helpers/observability";
 
 export async function getOrFetchChannel(msg: Message) {
   // TODO: cache eviction?
@@ -28,7 +28,7 @@ export async function getOrFetchChannel(msg: Message) {
   const values = {
     id: msg.channelId,
     category: data.parent?.name,
-    name: data,
+    name: data.name,
   };
 
   await db
