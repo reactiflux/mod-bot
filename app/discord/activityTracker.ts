@@ -1,10 +1,4 @@
-import {
-  ChannelType,
-  Events,
-  type Client,
-  type Message,
-  type TextChannel,
-} from "discord.js";
+import { ChannelType, Events, type Client } from "discord.js";
 
 import db from "#~/db.server";
 import { getMessageStats } from "#~/helpers/discord.js";
