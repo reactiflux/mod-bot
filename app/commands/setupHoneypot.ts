@@ -66,8 +66,16 @@ export const Command = [
             channel_id: honeypotChannel.id,
           })
           .execute();
+        await interaction.reply({
+          content: "Honeypot setup completed successfully!",
+          ephemeral: true,
+        });
       } catch (e) {
         console.error(`error:`, e);
+        await interaction.reply({
+          content: "Failed to setup honeypot. Please try again.",
+          ephemeral: true,
+        });
       }
     },
   },
