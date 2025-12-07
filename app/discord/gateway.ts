@@ -7,6 +7,8 @@ import { botStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
+import { startHoneypotTracking } from "./honeypotTracker";
+
 // Track if gateway is already initialized to prevent duplicate logins during HMR
 // Use globalThis so the flag persists across module reloads
 declare global {
@@ -43,6 +45,7 @@ export default function init() {
           automod(client),
           deployCommands(client),
           startActivityTracking(client),
+          startHoneypotTracking(client),
         ]);
 
         log("info", "Gateway", "Gateway initialization completed", {
