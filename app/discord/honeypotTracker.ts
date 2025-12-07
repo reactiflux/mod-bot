@@ -70,7 +70,8 @@ export async function startHoneypotTracking(client: Client) {
         !member ||
         (Array.isArray(member.roles)
           ? member.roles.includes(modRoleId)
-          : member.roles.cache.has(modRoleId))
+          : member.roles.cache.has(modRoleId)) ||
+        member.permissions.has("Administrator")
       ) {
         log(
           "debug",
