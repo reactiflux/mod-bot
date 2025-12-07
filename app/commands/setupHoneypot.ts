@@ -61,6 +61,7 @@ export const Command = [
             guild_id: interaction.guildId,
             channel_id: honeypotChannel.id,
           })
+          .onConflict((c) => c.doNothing())
           .execute();
         if (result[0].numInsertedOrUpdatedRows ?? 0 > 0) {
           await castedChannel.send(messageText);

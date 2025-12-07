@@ -5,7 +5,10 @@ export async function up(db: Kysely<any>): Promise<void> {
     .createTable("honeypot_config")
     .addColumn("guild_id", "text", (c) => c.notNull())
     .addColumn("channel_id", "text", (c) => c.notNull())
-    .addUniqueConstraint("honeypot_guild_channel", ["guild_id", "channel_id"])
+    .addPrimaryKeyConstraint("pk_honeypot_guild_channel", [
+      "guild_id",
+      "channel_id",
+    ])
     .execute();
 }
 
