@@ -12,6 +12,7 @@ interface HoneypotConfig {
 }
 
 export async function startHoneypotTracking(client: Client) {
+  // todo - this cache may need future eviction processes
   const configCache = {} as Record<string, HoneypotConfig[]>;
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
@@ -40,7 +41,9 @@ export async function startHoneypotTracking(client: Client) {
         .selectAll()
         .where("guild_id", "=", msg.guildId)
         .execute();
-      configCache[msg.guildId] = config;
+      if (config.length > 0) {
+        configCache[msg.guildId] = config;
+      }
       log(
         "debug",
         "HoneypotTracking",
@@ -67,7 +70,6 @@ export async function startHoneypotTracking(client: Client) {
         SETTINGS.moderator,
       ]);
       if (
-        !member ||
         (Array.isArray(member.roles)
           ? member.roles.includes(modRoleId)
           : member.roles.cache.has(modRoleId)) ||
@@ -94,7 +96,23 @@ export async function startHoneypotTracking(client: Client) {
           staff: client.user ?? false,
         });
       } catch (e) {
-        console.log(e);
+        log(
+          "error",
+          "HoneypotTracker",
+          "Failed to softban user in honeypot channel",
+          {
+            guildId: msg.guildId,
+            userId: member.id,
+            channelId: msg.channelId,
+            error: e instanceof Error ? e.message : String(e),
+          },
+        );
+        await reportUser({
+          reason: ReportReasons.spam,
+          message: message,
+          staff: client.user ?? false,
+          extra: `Failed to softban user in honeypot channel: ${e instanceof Error ? e.message : String(e)}`,
+        });
       }
     }
   });

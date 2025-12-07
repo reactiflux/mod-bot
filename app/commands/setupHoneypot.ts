@@ -8,6 +8,7 @@ import {
 
 import db from "#~/db.server.js";
 import type { AnyCommand } from "#~/helpers/discord.js";
+import { log } from "#~/helpers/observability.js";
 
 const DEFAULT_MESSAGE_TEXT =
   "This channel is used to catch spambots. Do not send a message in this channel or you will be kicked automatically.";
@@ -70,7 +71,9 @@ export const Command = [
           ephemeral: true,
         });
       } catch (e) {
-        console.error(`error:`, e);
+        log("error", "HoneypotTracker", "Error during honeypot action", {
+          error: e,
+        });
         await interaction.reply({
           content: "Failed to setup honeypot. Please try again.",
           ephemeral: true,
