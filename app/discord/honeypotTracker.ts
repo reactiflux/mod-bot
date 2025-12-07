@@ -1,15 +1,11 @@
-import { ChannelType, Client, Events } from "discord.js";
+import { ChannelType, Events, type Client } from "discord.js";
 
 import db from "#~/db.server.js";
-import { getMessageStats } from "#~/helpers/discord.js";
-import { threadStats } from "#~/helpers/metrics.js";
-import { log, trackPerformance } from "#~/helpers/observability";
-
-import { getOrFetchChannel } from "./utils";
+import { reportUser } from "#~/helpers/modLog.js";
+import { log } from "#~/helpers/observability";
+import { ReportReasons } from "#~/models/reportedMessages.server.js";
 
 export async function startHoneypotTracking(client: Client) {
-  // select honeypot channel id from table
-
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
     if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
@@ -36,17 +32,35 @@ export async function startHoneypotTracking(client: Client) {
       .execute();
 
     const channelIds = config.map((entry) => entry.channel_id);
-
     if (channelIds.includes(msg.channelId)) {
       const [member, message] = await Promise.all([
         msg.guild.members.fetch(msg.author.id).catch((_) => undefined),
         msg.fetch().catch((_) => undefined),
       ]);
-      // softban user (ban/unban) to clear all recent messages
-      // log action
+      if (!member || !message) {
+        log(
+          "debug",
+          "HoneypotTracker",
+          "unable to resolve member or message for honeypot",
+        );
+        throw Error("unable to resolve member or message for honeypot");
+      }
+      try {
+        // softban user (ban/unban) to clear all recent messages
+        await member?.ban({
+          reason: "honeypot spam detected",
+          deleteMessageSeconds: 604800, // 7 days
+        });
+        await msg.guild.members.unban(member);
+        // log action
+        await reportUser({
+          reason: ReportReasons.spam,
+          message: message,
+          staff: client.user ?? false,
+        });
+      } catch (e) {
+        console.log(e);
+      }
     }
-
-    // Track message in business analytics
-    threadStats.messageTracked(msg);
   });
 }
