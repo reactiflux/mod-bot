@@ -15,14 +15,14 @@ export async function startHoneypotTracking(client: Client) {
       log(
         "error",
         "HoneypotTracker",
-        "Missing author or guild info when tracking honeypot messages",
+        "Missing guild info when tracking honeypot messages",
         {
           messageId: msg.id,
           hasAuthor: !!msg.author,
           hasGuild: !!msg.guildId,
         },
       );
-      throw Error("Missing author or guild info when tracking message stats");
+      throw Error("Missing guild info when tracking honeypot messages");
     }
 
     const config = await db
