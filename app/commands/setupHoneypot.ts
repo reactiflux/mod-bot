@@ -71,7 +71,7 @@ export const Command = [
           ephemeral: true,
         });
       } catch (e) {
-        log("error", "HoneypotTracker", "Error during honeypot action", {
+        log("error", "HoneypotSetup", "Error during honeypot action", {
           error: e,
         });
         await interaction.reply({
