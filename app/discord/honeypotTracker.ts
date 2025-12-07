@@ -11,9 +11,13 @@ interface HoneypotConfig {
   channel_id: string;
 }
 
+const CACHE_TTL_IN_MS = 1000 * 60 * 10; // reload cache entries every 10 minutes
+
 export async function startHoneypotTracking(client: Client) {
-  // todo - this cache may need future eviction processes
-  const configCache = {} as Record<string, HoneypotConfig[]>;
+  const configCache = {} as Record<
+    string,
+    { config: HoneypotConfig[]; cachedAt: number }
+  >;
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
     if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
@@ -33,22 +37,22 @@ export async function startHoneypotTracking(client: Client) {
       throw Error("Missing guild info when tracking honeypot messages");
     }
     let config: HoneypotConfig[];
-    if (configCache[msg.guildId]) {
-      config = configCache[msg.guildId];
-    } else {
+    const cacheEntry = configCache[msg.guildId];
+    if (!cacheEntry || cacheEntry.cachedAt + CACHE_TTL_IN_MS < Date.now()) {
       config = await db
         .selectFrom("honeypot_config")
         .selectAll()
         .where("guild_id", "=", msg.guildId)
         .execute();
-      if (config.length > 0) {
-        configCache[msg.guildId] = config;
-      }
+
+      configCache[msg.guildId] = { config, cachedAt: Date.now() };
       log(
         "debug",
         "HoneypotTracking",
         `Added config to in-memory cache for guildId ${msg.guildId}`,
       );
+    } else {
+      config = cacheEntry.config;
     }
 
     const channelIds = config.map((entry) => entry.channel_id);
