@@ -199,7 +199,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
           resolution = resolutions.track;
         } else if (tally.leader) {
           // Clear leader
-          const quorumReached = tally.totalVotes >= flags.quorum;
+          const quorumReached = tally.leaderCount >= flags.quorum;
           if (quorumReached) {
             resolution = tally.leader;
           } else {
