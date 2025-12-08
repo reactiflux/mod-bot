@@ -179,7 +179,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
         const flags = parseFlags(escalation.flags);
 
         // Check if timeout has elapsed
-        if (!shouldAutoResolve(escalation.created_at, tally.totalVotes)) {
+        if (!shouldAutoResolve(escalation.created_at, tally.leaderCount)) {
           continue;
         }
 

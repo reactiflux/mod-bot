@@ -35,20 +35,20 @@ export function buildVoteMessageContent(
   createdAt: string,
 ): string {
   const createdTimestamp = Math.floor(new Date(createdAt).getTime() / 1000);
-  const timeoutHours = calculateTimeoutHours(tally.totalVotes);
+  const timeoutHours = calculateTimeoutHours(tally.leaderCount);
 
   let status: string;
-  if (tally.totalVotes >= quorum) {
+  if (tally.leaderCount >= quorum) {
     if (tally.isTied || !tally.leader) {
       status = `Tied between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Waiting for tiebreaker.`;
     } else {
       status = `Quorum reached. Leading: ${humanReadableResolutions[tally.leader]} (${tally.leaderCount} votes)`;
     }
   } else {
-    status = `${tally.totalVotes} voter(s), quorum at ${quorum}.`;
-    if (tally.totalVotes > 0 && !tally.isTied) {
+    status = `${tally.leaderCount} voter(s), quorum at ${quorum}.`;
+    if (tally.leaderCount > 0 && !tally.isTied) {
       status += ` Auto-resolves with \`${tally.leader}\` in ${timeoutHours}h if no more votes.`;
-    } else if (tally.totalVotes > 0 && tally.isTied) {
+    } else if (tally.leaderCount > 0 && tally.isTied) {
       status += ` Tiebreak needed in ${timeoutHours}h if no more votes are cast`;
     }
   }
@@ -114,7 +114,7 @@ export function buildConfirmedMessageContent(
   tally: VoteTally,
   createdAt: string,
 ): string {
-  const timeoutHours = calculateTimeoutHours(tally.totalVotes);
+  const timeoutHours = calculateTimeoutHours(tally.leaderCount);
   const executeAt =
     new Date(createdAt).getTime() + timeoutHours * 60 * 60 * 1000;
   const executeTimestamp = Math.floor(executeAt / 1000);
