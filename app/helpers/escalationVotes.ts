@@ -11,11 +11,11 @@ export function parseFlags(flagsJson: string): EscalationFlags {
 }
 
 /**
- * Calculate hours until auto-resolution based on vote count.
- * Formula: 24 - (8 * voteCount), minimum 0
+ * Calculate hours until auto-resolution based on vote count. The goal is to
+ * provide enough time for all mods to weigh in.
  */
 export function calculateTimeoutHours(voteCount: number): number {
-  return Math.max(0, 24 - 8 * voteCount);
+  return Math.max(0, 36 - 4 * voteCount);
 }
 
 /**
