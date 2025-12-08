@@ -339,7 +339,7 @@ ${buildVotesListContent(tally)}`,
       const tally = tallyVotes(votes);
       const flags = parseFlags(escalation.flags);
       const quorum = flags.quorum;
-      const quorumReached = tally.totalVotes >= quorum;
+      const quorumReached = tally.leaderCount >= quorum;
 
       // Check if quorum reached with clear winner - show confirmed state
       if (quorumReached && !tally.isTied && tally.leader) {
