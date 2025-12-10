@@ -15,6 +15,11 @@ import {
 } from "discord.js";
 
 import {
+  createUserThreadLegacy as createUserThread,
+  getUserThreadLegacy as getUserThread,
+  updateUserThreadLegacy as updateUserThread,
+} from "#~/effects/models/userThreads.js";
+import {
   constructDiscordLink,
   describeAttachments,
   describeReactions,
@@ -34,11 +39,6 @@ import {
   ReportReasons,
   type Report,
 } from "#~/models/reportedMessages.server";
-import {
-  createUserThread,
-  getUserThread,
-  updateUserThread,
-} from "#~/models/userThreads.server";
 
 import { retry } from "./misc";
 import { log } from "./observability";
