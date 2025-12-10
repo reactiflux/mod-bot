@@ -15,3 +15,10 @@ export const humanReadableResolutions = {
   [resolutions.ban]: "Ban",
 } as const;
 export type Resolution = (typeof resolutions)[keyof typeof resolutions];
+
+export const votingStrategies = {
+  simple: "simple",
+  majority: "majority",
+} as const;
+export type VotingStrategy =
+  (typeof votingStrategies)[keyof typeof votingStrategies];

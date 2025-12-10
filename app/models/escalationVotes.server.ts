@@ -2,7 +2,7 @@ import type { Selectable } from "kysely";
 
 import db, { type DB } from "#~/db.server";
 import type { EscalationFlags } from "#~/helpers/escalationVotes.js";
-import type { Resolution } from "#~/helpers/modResponse";
+import type { Resolution, VotingStrategy } from "#~/helpers/modResponse";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Escalation = Selectable<DB["escalations"]>;
@@ -16,6 +16,7 @@ export async function createEscalation(data: {
   reportedUserId: Escalation["reported_user_id"];
   initiatorId: Escalation["initiator_id"];
   quorum: number;
+  votingStrategy?: VotingStrategy | null;
 }): Promise<string> {
   return trackPerformance("createEscalation", async () => {
     const id = data.id;
@@ -31,6 +32,7 @@ export async function createEscalation(data: {
         reported_user_id: data.reportedUserId,
         initiator_id: data.initiatorId,
         flags: JSON.stringify(flags),
+        voting_strategy: data.votingStrategy ?? null,
       })
       .execute();
 
@@ -38,6 +40,7 @@ export async function createEscalation(data: {
       id,
       guildId: data.guildId,
       reportedUserId: data.reportedUserId,
+      votingStrategy: data.votingStrategy,
     });
 
     return id;
@@ -132,5 +135,23 @@ export async function resolveEscalation(id: string, resolution: Resolution) {
       .execute();
 
     log("info", "EscalationVotes", "Resolved escalation", { id, resolution });
+  });
+}
+
+export async function updateEscalationStrategy(
+  id: string,
+  votingStrategy: VotingStrategy,
+) {
+  return trackPerformance("updateEscalationStrategy", async () => {
+    await db
+      .updateTable("escalations")
+      .set({ voting_strategy: votingStrategy })
+      .where("id", "=", id)
+      .execute();
+
+    log("info", "EscalationVotes", "Updated escalation strategy", {
+      id,
+      votingStrategy,
+    });
   });
 }

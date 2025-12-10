@@ -13,7 +13,9 @@ import { parseFlags } from "#~/helpers/escalationVotes.js";
 import type { Features } from "#~/helpers/featuresFlags.js";
 import {
   humanReadableResolutions,
+  votingStrategies,
   type Resolution,
+  type VotingStrategy,
 } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
@@ -23,6 +25,7 @@ import {
   getVotesForEscalation,
   recordVote,
   resolveEscalation,
+  updateEscalationStrategy,
 } from "#~/models/escalationVotes.server";
 import {
   DEFAULT_QUORUM,
@@ -37,7 +40,11 @@ import {
   buildVoteMessageContent,
   buildVotesListContent,
 } from "./strings";
-import { tallyVotes, type VoteTally } from "./voting";
+import {
+  shouldTriggerEarlyResolution,
+  tallyVotes,
+  type VoteTally,
+} from "./voting";
 
 export const EscalationHandlers = {
   // Direct action commands (no voting)
@@ -331,10 +338,16 @@ ${buildVotesListContent(tally)}`,
       const tally = tallyVotes(votes);
       const flags = parseFlags(escalation.flags);
       const quorum = flags.quorum;
-      const quorumReached = tally.leaderCount >= quorum;
+      const votingStrategy =
+        escalation.voting_strategy as VotingStrategy | null;
+      const earlyResolution = shouldTriggerEarlyResolution(
+        tally,
+        quorum,
+        votingStrategy,
+      );
 
-      // Check if quorum reached with clear winner - show confirmed state
-      if (quorumReached && !tally.isTied && tally.leader) {
+      // Check if early resolution triggered with clear winner - show confirmed state
+      if (earlyResolution && !tally.isTied && tally.leader) {
         await interaction.update({
           content: buildConfirmedMessageContent(
             escalation.reported_user_id,
@@ -363,12 +376,15 @@ ${buildVotesListContent(tally)}`,
           tally,
           quorum,
           escalation.created_at,
+          votingStrategy,
         ),
         components: buildVoteButtons(
           features,
           escalationId,
+          escalation.reported_user_id,
           tally,
-          quorumReached,
+          earlyResolution,
+          votingStrategy,
         ),
       });
     },
@@ -397,11 +413,11 @@ ${buildVotesListContent(tally)}`,
     if (restricted) {
       features.push("restrict");
     }
-    if (Number(level) >= 1) {
-      features.push("escalate-level-1");
-    }
 
-    // TODO: if level 0, use default_quorum. if level >=1, count a list of all members with the moderator role and require a majority to vote before a resolution is chosen
+    // Determine voting strategy based on level
+    const votingStrategy: VotingStrategy | null =
+      Number(level) >= 1 ? votingStrategies.majority : null;
+
     const quorum = DEFAULT_QUORUM;
 
     try {
@@ -423,8 +439,16 @@ ${buildVotesListContent(tally)}`,
           emptyTally,
           quorum,
           createdAt,
+          votingStrategy,
         ),
-        components: buildVoteButtons(features, escalationId, emptyTally, false),
+        components: buildVoteButtons(
+          features,
+          escalationId,
+          reportedUserId,
+          emptyTally,
+          false,
+          votingStrategy,
+        ),
       };
 
       let voteMessage;
@@ -438,11 +462,26 @@ ${buildVotesListContent(tally)}`,
           return;
         }
         voteMessage = await channel.send(content);
+        // Now create escalation record with the correct message ID
+        await createEscalation({
+          id: escalationId as `${string}-${string}-${string}-${string}-${string}`,
+          guildId,
+          threadId,
+          voteMessageId: voteMessage.id,
+          reportedUserId,
+          initiatorId: interaction.user.id,
+          quorum,
+          votingStrategy,
+        });
+
+        // Send notification
+        await interaction.editReply("Escalation started");
       } else {
+        // Re-escalation: update existing escalation's voting strategy
         const escalation = await getEscalation(escalationId);
         if (!escalation) {
           await interaction.editReply({
-            content: "Failed to re-escalate, couldn’t find escalation",
+            content: "Failed to re-escalate, couldn't find escalation",
           });
           return;
         }
@@ -451,26 +490,46 @@ ${buildVotesListContent(tally)}`,
         );
         if (!voteMessage) {
           await interaction.editReply({
-            content: "Failed to re-escalation: couldn't find vote message",
+            content: "Failed to re-escalate: couldn't find vote message",
           });
           return;
         }
-        await voteMessage.edit(content);
+
+        // Get current votes to display
+        const votes = await getVotesForEscalation(escalationId);
+        const tally = tallyVotes(votes);
+
+        // Update content with current votes and new strategy
+        const updatedContent = {
+          content: buildVoteMessageContent(
+            modRoleId,
+            escalation.initiator_id,
+            reportedUserId,
+            tally,
+            quorum,
+            escalation.created_at,
+            votingStrategy,
+          ),
+          components: buildVoteButtons(
+            features,
+            escalationId,
+            reportedUserId,
+            tally,
+            false, // Never in early resolution state when re-escalating to majority
+            votingStrategy,
+          ),
+        };
+
+        await voteMessage.edit(updatedContent);
+
+        // Update the escalation's voting strategy
+        if (votingStrategy) {
+          await updateEscalationStrategy(escalationId, votingStrategy);
+        }
+
+        // Send notification
+        await interaction.editReply("Escalation upgraded to majority voting");
       }
-
-      // Now create escalation record with the correct message ID
-      await createEscalation({
-        id: escalationId as `${string}-${string}-${string}-${string}-${string}`,
-        guildId,
-        threadId,
-        voteMessageId: voteMessage.id,
-        reportedUserId,
-        initiatorId: interaction.user.id,
-        quorum,
-      });
-
-      // Send notification
-      await interaction.editReply("Escalation started");
     } catch (error) {
       log("error", "EscalationHandlers", "Error creating escalation vote", {
         error,

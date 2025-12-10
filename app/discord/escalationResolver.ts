@@ -1,7 +1,7 @@
 import { type Client, type Guild, type ThreadChannel } from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
-import { parseFlags, shouldAutoResolve } from "#~/helpers/escalationVotes.js";
+import { shouldAutoResolve } from "#~/helpers/escalationVotes.js";
 import {
   humanReadableResolutions,
   resolutions,
@@ -176,7 +176,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
       try {
         const votes = await getVotesForEscalation(escalation.id);
         const tally = tallyVotes(votes);
-        const flags = parseFlags(escalation.flags);
+        const votingStrategy = escalation.voting_strategy;
 
         // Check if timeout has elapsed
         if (!shouldAutoResolve(escalation.created_at, tally.leaderCount)) {
@@ -195,17 +195,12 @@ async function checkPendingEscalations(client: Client): Promise<void> {
           log("warn", "EscalationResolver", "Auto-resolve skipped due to tie", {
             escalationId: escalation.id,
             tiedResolutions: tally.tiedResolutions,
+            votingStrategy,
           });
           resolution = resolutions.track;
         } else if (tally.leader) {
-          // Clear leader
-          const quorumReached = tally.leaderCount >= flags.quorum;
-          if (quorumReached) {
-            resolution = tally.leader;
-          } else {
-            // Not enough votes for quorum, take leading vote anyway on timeout
-            resolution = tally.leader;
-          }
+          // Clear leader - take leading vote on timeout (works for both simple and majority strategies)
+          resolution = tally.leader;
         } else {
           // Shouldn't happen, but default to track
           resolution = resolutions.track;

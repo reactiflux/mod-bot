@@ -1,4 +1,4 @@
-import type { Resolution } from "#~/helpers/modResponse";
+import type { Resolution, VotingStrategy } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability.js";
 
 export interface VoteTally {
@@ -59,4 +59,22 @@ export function tallyVotes(votes: VoteRecord[]): VoteTally {
   log("info", "Voting", "Tallied votes", output);
 
   return output;
+}
+
+/**
+ * Check if early resolution should trigger based on voting strategy.
+ * - simple: triggers when any option hits quorum (e.g., 3 votes)
+ * - majority: never triggers early; must wait for timeout
+ */
+export function shouldTriggerEarlyResolution(
+  tally: VoteTally,
+  quorum: number,
+  strategy: VotingStrategy | null,
+): boolean {
+  // Majority strategy never triggers early - must wait for timeout
+  if (strategy === "majority") {
+    return false;
+  }
+  // Simple strategy (or null/default): trigger when any option hits quorum
+  return tally.leaderCount >= quorum;
 }

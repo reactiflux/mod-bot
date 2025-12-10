@@ -30,6 +30,7 @@ export interface Escalations {
   resolved_at: string | null;
   thread_id: string;
   vote_message_id: string;
+  voting_strategy: string | null;
 }
 
 export interface Guilds {
