@@ -3,20 +3,17 @@ import * as Sentry from "@sentry/node";
 import { isProd, sentryIngest } from "#~/helpers/env.server";
 
 // Only initialize Sentry if DSN is valid (not a placeholder like "example.com")
-const isValidDsn = sentryIngest.startsWith("https://");
+export const isValidDsn = sentryIngest.startsWith("https://");
 
 if (isValidDsn) {
-  const sentryOptions = {
+  const sentryOptions: Sentry.NodeOptions = {
     dsn: sentryIngest,
     environment: isProd() ? "production" : "development",
-    integrations: [
-      new Sentry.Integrations.OnUncaughtException(),
-      new Sentry.Integrations.OnUnhandledRejection(),
-    ],
-
+    // Skip Sentry's auto OpenTelemetry setup - we'll use Effect's OpenTelemetry
+    // and provide the SentrySpanProcessor to it
+    skipOpenTelemetrySetup: true,
     // Set tracesSampleRate to 1.0 to capture 100%
     // of transactions for performance monitoring.
-    // We recommend adjusting this value in production
     tracesSampleRate: isProd() ? 0.2 : 1,
     sendDefaultPii: true,
   };
