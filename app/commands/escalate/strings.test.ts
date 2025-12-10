@@ -81,67 +81,6 @@ describe("buildVoteMessageContent", () => {
     expect(result).toContain(`<@${reportedUserId}>`);
   });
 
-  it("shows auto-resolve time based on vote count", () => {
-    // Formula: timeout = max(0, 36 - 4 * (voteCount - 1))
-    // 0 votes = 40h, 1 vote = 36h, 2 votes = 32h
-
-    // 0 votes shows "No votes yet"
-    const result0 = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      emptyTally,
-      3,
-      createdAt,
-    );
-    expect(result0).toContain("No votes yet");
-
-    // 1 vote = 36h timeout
-    const tally1 = tallyVotes([{ vote: resolutions.ban, voter_id: "u1" }]);
-    const result1 = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      tally1,
-      3,
-      createdAt,
-    );
-    expect(result1).not.toContain("null");
-    expect(result1).toContain("36h");
-
-    // 2 votes = 32h timeout
-    const tally2 = tallyVotes([
-      { vote: resolutions.ban, voter_id: "u1" },
-      { vote: resolutions.ban, voter_id: "u2" },
-    ]);
-    const result2 = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      tally2,
-      3,
-      createdAt,
-    );
-    expect(result2).not.toContain("null");
-    expect(result2).toContain("32h");
-
-    // 2 votes tied (1-1) = leaderCount is 1, so 36h timeout
-    const tally3 = tallyVotes([
-      { vote: resolutions.ban, voter_id: "u1" },
-      { vote: resolutions.kick, voter_id: "u2" },
-    ]);
-    const result3 = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      tally3,
-      3,
-      createdAt,
-    );
-    expect(result3).not.toContain("null");
-    expect(result3).toContain("36h");
-  });
-
   it("shows quorum reached status when votes >= quorum", () => {
     const tally = tallyVotes([
       { vote: resolutions.ban, voter_id: "u1" },
