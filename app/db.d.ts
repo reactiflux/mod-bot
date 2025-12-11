@@ -48,6 +48,11 @@ export interface GuildSubscriptions {
   updated_at: Generated<string | null>;
 }
 
+export interface HoneypotConfig {
+  channel_id: string;
+  guild_id: string;
+}
+
 export interface MessageStats {
   author_id: string;
   channel_category: string | null;
@@ -121,6 +126,7 @@ export interface DB {
   escalations: Escalations;
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
+  honeypot_config: HoneypotConfig;
   message_stats: MessageStats;
   reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;
