@@ -1,6 +1,8 @@
 import { format, parseISO, subDays } from "date-fns";
 import { schedule as scheduleCron } from "node-cron";
 
+import { log } from "./observability";
+
 /**
  * getFirstRun ensures that a newly created interval timer runs at consistent
  * times regardless of when the bot was started.
@@ -32,15 +34,24 @@ export const enum SPECIFIED_TIMES {
  * @param task A function to run every interval
  */
 export const scheduleTask = (
+  serviceName: string,
   interval: number | SPECIFIED_TIMES,
   task: () => void,
 ) => {
   if (typeof interval === "number") {
+    const firstRun = getFirstRun(interval);
+    log(
+      "info",
+      "ScheduleTask",
+      `Scheduling ${serviceName} in ${Math.floor(firstRun / 1000) / 60}min, repeating ${Math.floor(interval / 1000) / 60}`,
+      { serviceName, interval, firstRun },
+    );
     setTimeout(() => {
       task();
       setInterval(task, interval);
-    }, getFirstRun(interval));
+    }, firstRun);
   } else {
+    log("info", "ScheduleTask", JSON.stringify({ serviceName, interval }));
     scheduleCron(interval, task);
   }
 };

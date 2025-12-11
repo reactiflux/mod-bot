@@ -29,8 +29,8 @@
     "build:app": "react-router build",
     "dev:init": "run-s start:migrate kysely:seed generate:db-types",
     "dev:css": "npm run generate:css -- --watch",
-    "dev:bot": "node index.dev.js",
-    "dev:web": "node index.dev.js",
+    "dev:bot": "node --trace-warnings index.dev.js",
+    "dev:web": "node --trace-warnings index.dev.js",
     "kysely:seed": "kysely --no-outdated-check seed:run",
     "generate:css": "tailwindcss -o ./app/styles/tailwind.css",
     "generate:db-types": "kysely-codegen --log-level debug --dialect sqlite --out-file ./app/db.d.ts; prettier --write ./app/db.d.ts"

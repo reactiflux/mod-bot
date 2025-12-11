@@ -1,7 +1,7 @@
 import { data } from "react-router";
 
+import { Page } from "#~/basics/page.js";
 import { GuildSettingsForm } from "#~/components/GuildSettingsForm";
-import { Upgrade } from "#~/components/Upgrade.js";
 import { fetchGuildData } from "#~/helpers/guildData.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
@@ -42,15 +42,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export default function Onboard({
-  loaderData: { guildId, tier, roles, channels },
+  loaderData: { guildId, roles, channels },
 }: Route.ComponentProps) {
   return (
-    <div className="dark: h-full bg-gray-50 px-6 py-8">
-      <div className="space-y-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+    <Page>
+      <h2 className="text-3xl font-extrabold text-gray-100">
+        <div className="inline-block">
+          <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-800">
             <svg
-              className="h-6 w-6 text-green-600"
+              className="h-6 w-6 text-green-300"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -61,28 +61,20 @@ export default function Onboard({
               />
             </svg>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-900">
-            Set up Euno for your server
-          </h2>
-          <p className="mt-2 text-lg text-gray-600">
-            Configure the essential settings to get started
-          </p>
         </div>
+        Set up Euno for your server
+      </h2>
+      <p className="mt-2 text-lg text-gray-300">
+        Configure the essential settings to get started
+      </p>
 
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-            <GuildSettingsForm
-              guildId={guildId}
-              roles={roles}
-              channels={channels}
-              buttonText="Complete Setup"
-            />
-          </div>
-        </div>
-
-        {tier === "free" && <Upgrade guildId={guildId} />}
-      </div>
-    </div>
+      <GuildSettingsForm
+        guildId={guildId}
+        roles={roles}
+        channels={channels}
+        buttonText="Complete Setup"
+      />
+    </Page>
   );
 }
 

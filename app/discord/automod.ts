@@ -1,4 +1,4 @@
-import type { Client } from "discord.js";
+import { Events, type Client } from "discord.js";
 
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
@@ -13,7 +13,7 @@ import { client } from "./client.server";
 const AUTO_SPAM_THRESHOLD = 3;
 
 export default async (bot: Client) => {
-  bot.on("messageCreate", async (msg) => {
+  bot.on(Events.MessageCreate, async (msg) => {
     if (msg.author.id === bot.user?.id || !msg.guild) return;
 
     const [member, message] = await Promise.all([
@@ -25,23 +25,22 @@ export default async (bot: Client) => {
     }
 
     if (isSpam(message.content)) {
-      const [{ warnings, message: logMessage }] = await Promise.all([
-        reportUser({
-          reason: ReportReasons.spam,
-          message: message,
-          staff: client.user ?? false,
-        }),
-        message
-          .delete()
-          .then(() => markMessageAsDeleted(message.id, message.guild!.id)),
-      ]);
+      const { warnings, message: logMessage } = await reportUser({
+        reason: ReportReasons.spam,
+        message: message,
+        staff: client.user ?? false,
+      });
+      await message
+        .delete()
+        .then(() => markMessageAsDeleted(message.id, message.guild!.id));
 
       if (warnings >= AUTO_SPAM_THRESHOLD) {
         await Promise.all([
           member.kick("Autokicked for spamming"),
-          logMessage.reply(
-            `Automatically kicked <@${message.author.id}> for spam`,
-          ),
+          logMessage.reply({
+            content: `Automatically kicked <@${message.author.id}> for spam`,
+            allowedMentions: {},
+          }),
         ]);
       }
     }

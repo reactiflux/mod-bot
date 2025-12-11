@@ -317,9 +317,9 @@ export async function completeOauthLogin(request: Request) {
   cookieSession.unset(DbSessionKeys.authGuildId);
 
   // Determine redirect based on flow
-  let finalRedirectTo = stateRedirectTo || "/guilds";
+  let finalRedirectTo = stateRedirectTo || "/app";
   if (flow !== "user" && guildId) {
-    finalRedirectTo = `/onboard?guild_id=${guildId}`;
+    finalRedirectTo = `app/${guildId}/onboard`;
   }
 
   const [clientCookie, dbCookie] = await Promise.all([

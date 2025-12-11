@@ -1,15 +1,20 @@
-import { ChannelType, type Client, type TextChannel } from "discord.js";
+import { ChannelType, Events, type Client, type TextChannel } from "discord.js";
 
 import { retry } from "#~/helpers/misc";
 import { fetchGuild } from "#~/models/guilds.server";
 
+import { client } from "./client.server";
+import { deployCommands } from "./deployCommands.server";
+
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes
   // available after downtime, or when actually added to a new guild
-  bot.on("guildCreate", async (guild) => {
+  bot.on(Events.GuildCreate, async (guild) => {
     const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
-      const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
+      await deployCommands(client);
+
+      const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
 
       const channels = await guild.channels.fetch();
       const likelyChannels = channels.filter((c): c is TextChannel =>

@@ -1,8 +1,12 @@
+import { Events } from "discord.js";
+
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
+import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
+import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
 import { botStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
@@ -31,7 +35,7 @@ export default function init() {
 
   void login();
 
-  client.on("ready", async () => {
+  client.on(Events.ClientReady, async () => {
     await trackPerformance(
       "gateway_startup",
       async () => {
@@ -46,7 +50,11 @@ export default function init() {
           deployCommands(client),
           startActivityTracking(client),
           startHoneypotTracking(client),
+          startReactjiChanneler(client),
         ]);
+
+        // Start escalation resolver scheduler (must be after client is ready)
+        startEscalationResolver(client);
 
         log("info", "Gateway", "Gateway initialization completed", {
           guildCount: client.guilds.cache.size,
@@ -63,9 +71,9 @@ export default function init() {
     );
   });
 
-  // client.on("messageReactionAdd", () => {});
+  // client.on(Events.messageReactionAdd, () => {});
 
-  client.on("threadCreate", (thread) => {
+  client.on(Events.ThreadCreate, (thread) => {
     log("info", "Gateway", "Thread created", {
       threadId: thread.id,
       guildId: thread.guild.id,
@@ -85,7 +93,7 @@ export default function init() {
     });
   });
 
-  // client.on("messageCreate", async (msg) => {
+  // client.on(Events.messageCreate, async (msg) => {
   //   if (msg.author?.id === client.user?.id) return;
 
   //   //
@@ -107,17 +115,17 @@ export default function init() {
     Sentry.captureException(error);
   };
 
-  client.on("error", errorHandler);
+  client.on(Events.Error, errorHandler);
 
   // Add connection monitoring
-  client.on("disconnect", () => {
+  client.on(Events.ShardDisconnect, () => {
     log("warn", "Gateway", "Client disconnected", {
       guildCount: client.guilds.cache.size,
       userCount: client.users.cache.size,
     });
   });
 
-  client.on("reconnecting", () => {
+  client.on(Events.ShardReconnecting, () => {
     log("info", "Gateway", "Client reconnecting", {
       guildCount: client.guilds.cache.size,
       userCount: client.users.cache.size,

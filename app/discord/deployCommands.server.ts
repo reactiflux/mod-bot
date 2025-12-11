@@ -1,4 +1,5 @@
 import {
+  Events,
   InteractionType,
   Routes,
   type APIApplicationCommand,
@@ -40,8 +41,7 @@ export const deployCommands = async (client: Client) => {
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
 
-  client.on("interactionCreate", (interaction) => {
-    console.log("info", "interaction received", interaction.id);
+  client.on(Events.InteractionCreate, (interaction) => {
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
         const config = matchCommand(interaction.commandName);
@@ -51,6 +51,11 @@ export const deployCommands = async (client: Client) => {
           isMessageContextCommand(config) &&
           interaction.isMessageContextMenuCommand()
         ) {
+          log(
+            "info",
+            "Message Context command received",
+            `${interaction.commandName} ${interaction.id} messageId: ${interaction.targetMessage.id}`,
+          );
           void config.handler(interaction);
           return;
         }
@@ -58,10 +63,20 @@ export const deployCommands = async (client: Client) => {
           isUserContextCommand(config) &&
           interaction.isUserContextMenuCommand()
         ) {
+          log(
+            "info",
+            "User Context command received",
+            `${interaction.commandName} ${interaction.id} userId: ${interaction.targetUser.id}`,
+          );
           void config.handler(interaction);
           return;
         }
         if (isSlashCommand(config) && interaction.isChatInputCommand()) {
+          log(
+            "info",
+            "Slash command received",
+            `${interaction.commandName} ${interaction.id}`,
+          );
           void config.handler(interaction);
           return;
         }
@@ -76,7 +91,13 @@ export const deployCommands = async (client: Client) => {
           isMessageComponentCommand(config) &&
           interaction.isMessageComponent()
         ) {
+          log(
+            "info",
+            "Message component interaction received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message.id}`,
+          );
           void config.handler(interaction);
+          return;
         }
         return;
       }
@@ -85,6 +106,11 @@ export const deployCommands = async (client: Client) => {
         if (!config) return;
 
         if (isModalCommand(config) && interaction.isModalSubmit()) {
+          log(
+            "info",
+            "Modal submit received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message?.id ?? "null"}`,
+          );
           void config.handler(interaction);
         }
         return;

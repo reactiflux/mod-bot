@@ -134,8 +134,6 @@ const urlRegex = /(https?:\/\/\S+|discord.gg\/\S+)\b/g;
 export const escapeDisruptiveContent = (content: string) => {
   return (
     content
-      // Silence pings
-      .replace(/@(\S*)(\s)?/g, "@ $1$2")
       // Wrap links in <> so they don't make a preview
       .replace(urlRegex, "<$1>")
   );
@@ -225,7 +223,7 @@ export async function getMessageStats(msg: Message | PartialMessage) {
         .fetch()
         .catch((_) => ({ content: undefined }));
       if (!content) {
-        throw new NotFoundError();
+        throw new NotFoundError("message", "getMessageStats");
       }
 
       const blocks = parseMarkdownBlocks(content);
@@ -289,4 +287,17 @@ export async function getMessageStats(msg: Message | PartialMessage) {
       return values;
     },
   );
+}
+
+export function hasModRole(
+  interaction: MessageComponentInteraction,
+  modRoleId: string,
+): boolean {
+  const member = interaction.member;
+  if (!member) return false;
+
+  if (Array.isArray(member.roles)) {
+    return member.roles.includes(modRoleId);
+  }
+  return member.roles.cache.has(modRoleId);
 }

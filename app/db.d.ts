@@ -11,6 +11,27 @@ export interface ChannelInfo {
   name: string | null;
 }
 
+export interface EscalationRecords {
+  escalation_id: string;
+  id: string;
+  vote: string;
+  voted_at: Generated<string>;
+  voter_id: string;
+}
+
+export interface Escalations {
+  created_at: Generated<string>;
+  flags: string;
+  guild_id: string;
+  id: string;
+  initiator_id: string;
+  reported_user_id: string;
+  resolution: string | null;
+  resolved_at: string | null;
+  thread_id: string;
+  vote_message_id: string;
+}
+
 export interface Guilds {
   id: string | null;
   settings: string | null;
@@ -45,6 +66,16 @@ export interface MessageStats {
   recipient_id: string | null;
   sent_at: number;
   word_count: number;
+}
+
+export interface ReactjiChannelerConfig {
+  channel_id: string;
+  configured_by_id: string;
+  created_at: Generated<string>;
+  emoji: string;
+  guild_id: string;
+  id: string;
+  threshold: Generated<number>;
 }
 
 export interface ReportedMessages {
@@ -91,10 +122,13 @@ export interface UserThreads {
 
 export interface DB {
   channel_info: ChannelInfo;
+  escalation_records: EscalationRecords;
+  escalations: Escalations;
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   honeypot_config: HoneypotConfig;
   message_stats: MessageStats;
+  reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;
   sessions: Sessions;
   tickets_config: TicketsConfig;

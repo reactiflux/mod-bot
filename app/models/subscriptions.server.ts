@@ -2,7 +2,9 @@ import db from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
-export type ProductTier = "free" | "paid";
+export type ProductTier = "free" | "paid" | "custom";
+// These must match Stripe price lookup_keys
+export type PaidVariants = "standard_annual";
 
 export type AccountStatus = "active" | "inactive";
 
