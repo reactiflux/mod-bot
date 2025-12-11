@@ -36,6 +36,8 @@ export const discordToken = getEnv("DISCORD_HASH");
 export const testGuild = getEnv("DISCORD_TEST_GUILD");
 export const sentryIngest = getEnv("SENTRY_INGEST", true);
 export const sentryReleases = getEnv("SENTRY_RELEASES", true);
+export const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
+export const stripeWebhookSecret = getEnv("STRIPE_WEBHOOK_SECRET");
 
 export const amplitudeKey = getEnv("AMPLITUDE_API_KEY", true);
 
