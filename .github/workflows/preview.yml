@@ -47,12 +47,12 @@ jobs:
           echo "Token starts with: ${TOKEN:0:4}..."
           echo "Token ends with: ...${TOKEN: -4}"
         env:
-          TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TOKEN: ${{ secrets.DIGITAL_OCEAN_K8S }}
 
       - name: Set up kubectl
         uses: matootie/dokube@v1.4.1
         with:
-          personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
           clusterName: k8s-rf
 
       - name: Ensure staging secret exists
@@ -133,11 +133,12 @@ jobs:
       github.event.action == 'closed' ||
       (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
     runs-on: ubuntu-latest
+    environment: CI
     steps:
       - name: Set up kubectl
         uses: matootie/dokube@v1.4.1
         with:
-          personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
           clusterName: k8s-rf
 
       - name: Delete preview resources
