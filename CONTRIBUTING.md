@@ -44,7 +44,6 @@ Adding a new environment variable needs to be done in several places to work cor
 - Add to your own `.env` (and restart the dev server)
 - Add to `.github/workflows/ci.yml` (for E2E tests)
 - Add to `.github/workflows/cd.yml` (in the secret manifest step)
-- Add to `cluster/deployment.yaml` (as a secretKeyRef)
 
 # Useful DevOps commands
 
