@@ -72,12 +72,12 @@ jobs:
             --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
             --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -n staging -f -
 
       - name: Deploy preview environment
         run: |
           export PR_NUMBER=${{ github.event.pull_request.number }}
-          envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
+          envsubst < cluster/preview/deployment.yaml | kubectl apply -n staging -f -
 
       - name: Wait for deployment
         run: |
