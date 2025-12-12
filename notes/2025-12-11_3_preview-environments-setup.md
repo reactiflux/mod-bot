@@ -6,39 +6,32 @@ Per-PR preview deployments at `https://<pr-number>.euno-staging.reactiflux.com`
 
 Complete these before the workflow will function:
 
-### 1. DNS (DigitalOcean)
+### 1. DNS
+
 Add wildcard A record:
+
 ```
 *.euno-staging.reactiflux.com → <cluster ingress IP>
 ```
 
 Get ingress IP:
+
 ```sh
 kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
-### 2. Wildcard TLS Certificate
+### 2. TLS Certificates
 
-Create cert-manager Certificate for wildcard domain. Requires DNS-01 challenge (can't use HTTP-01 for wildcards).
+Using **per-PR HTTP-01 certificates** (not wildcard). Each preview ingress has:
 
-```yaml
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: euno-staging-wildcard
-  namespace: staging
-spec:
-  secretName: euno-staging-wildcard-tls
-  issuerRef:
-    name: letsencrypt-prod
-    kind: ClusterIssuer
-  dnsNames:
-    - "*.euno-staging.reactiflux.com"
-```
+- `cert-manager.io/cluster-issuer: letsencrypt-prod` annotation
+- Unique secret name: `mod-bot-pr-${PR_NUMBER}-tls`
 
-May need to configure DNS-01 solver with DigitalOcean API token if not already set up.
+cert-manager automatically issues certs via HTTP-01 challenge when ingress is created.
+First deploy takes ~1-2 min extra for cert issuance; subsequent deploys are fast.
 
 ### 3. Staging Namespace
+
 ```sh
 kubectl create namespace staging
 ```

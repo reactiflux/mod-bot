@@ -17,9 +17,7 @@ jobs:
       github.event.pull_request.draft == false &&
       !contains(github.event.pull_request.labels.*.name, 'no-preview')
     runs-on: ubuntu-latest
-    environment:
-      name: preview-${{ github.event.pull_request.number }}
-      url: https://${{ github.event.pull_request.number }}.euno-staging.reactiflux.com
+    environment: CI
 
     steps:
       - name: Checkout
@@ -48,6 +46,25 @@ jobs:
         with:
           personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
           clusterName: k8s-rf
+
+      - name: Ensure staging secret exists
+        run: |
+          kubectl create secret generic modbot-staging-env -n staging \
+            --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+            --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
+            --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
+            --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
+            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
+            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
+            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
+            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
+            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+            --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+            --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy preview environment
         run: |
@@ -108,7 +125,6 @@ jobs:
       github.event.action == 'closed' ||
       (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
     runs-on: ubuntu-latest
-
     steps:
       - name: Set up kubectl
         uses: matootie/dokube@v1.4.1

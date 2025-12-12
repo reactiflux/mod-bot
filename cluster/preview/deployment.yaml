@@ -82,6 +82,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
   rules:
@@ -98,4 +99,4 @@ spec:
   tls:
     - hosts:
         - ${PR_NUMBER}.euno-staging.reactiflux.com
-      secretName: euno-staging-wildcard-tls
+      secretName: mod-bot-pr-${PR_NUMBER}-tls
