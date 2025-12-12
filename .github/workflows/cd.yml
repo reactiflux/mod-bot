@@ -75,26 +75,42 @@ jobs:
           personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
           clusterName: k8s-rf
 
+      - name: Create secret manifest
+        run: |
+          cat <<EOF > secret-values.yaml
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: modbot-env
+            namespace: default
+          type: Opaque
+          stringData:
+            SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
+            DISCORD_PUBLIC_KEY: "${{ secrets.DISCORD_PUBLIC_KEY }}"
+            DISCORD_APP_ID: "${{ secrets.DISCORD_APP_ID }}"
+            DISCORD_SECRET: "${{ secrets.DISCORD_SECRET }}"
+            DISCORD_HASH: "${{ secrets.DISCORD_HASH }}"
+            DISCORD_TEST_GUILD: "${{ secrets.DISCORD_TEST_GUILD }}"
+            SENTRY_INGEST: "${{ secrets.SENTRY_INGEST }}"
+            SENTRY_RELEASES: "${{ secrets.SENTRY_RELEASES }}"
+            STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
+            STRIPE_PUBLISHABLE_KEY: "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
+            STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+            VITE_PUBLIC_POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
+            VITE_PUBLIC_POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
+            DATABASE_URL: "${{ secrets.DATABASE_URL }}"
+          EOF
+
       - name: Deploy app
         run: |
-          kubectl diff -k . || echo \n
-          kubectl delete secret modbot-env || echo \n
-          kubectl create secret generic modbot-env \
-            --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
-            --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
-            --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
-            --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
-            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
-            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
-            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
-            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
-            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
-            --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-            --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
-            --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
-            --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }}
+          kubectl diff -k . || true
+          kubectl apply -f secret-values.yaml
           kubectl apply -k .
+          if ! kubectl rollout status statefulset/mod-bot-set --timeout=5m; then
+            echo "Deployment failed, rolling back..."
+            kubectl rollout undo statefulset/mod-bot-set
+            exit 1
+          fi
 
       - name: Set Sentry release
         run: |

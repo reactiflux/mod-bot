@@ -18,9 +18,40 @@ spec:
       containers:
         - name: mod-bot
           image: $(IMAGE)
+          ports:
+            - containerPort: 3000
           volumeMounts:
             - mountPath: "/data"
               name: mod-bot-pvc
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
           env:
             - name: ENVIRONMENT
               value: production

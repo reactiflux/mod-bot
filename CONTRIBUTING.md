@@ -38,12 +38,13 @@ There are subtle issues when making some chaings. These are notes for steps to t
 
 ## Environment variables
 
-Adding a new environment variable needs to be done in several places to work corectly and be predictable for new developers:
+Adding a new environment variable needs to be done in several places to work correctly and be predictable for new developers:
 
 - Add a suitable example to `.env.example`
 - Add to your own `.env` (and restart the dev server)
-- Add to the action in `.github/workflows/node.js.yml`
-- Add to the Kubernetes config under `cluster/deployment.yml
+- Add to `.github/workflows/ci.yml` (for E2E tests)
+- Add to `.github/workflows/cd.yml` (in the secret manifest step)
+- Add to `cluster/deployment.yaml` (as a secretKeyRef)
 
 # Useful DevOps commands
 
@@ -53,9 +54,18 @@ This bot runs on a managed Kubernetes cluster on DigitalOcean. It's possible (th
 # Tail the logs of the production instance
 kubectl logs -f mod-bot-set-0
 
-# Force a restart without merging a PR (as of 2025-11 only 1 replica is in use)
-kubectl scale statefulset mod-bot-set --replicas 0
-kubectl scale statefulset mod-bot-set --replicas 1
+# Check pod health and readiness
+kubectl get pods -l app=mod-bot
+kubectl describe pod mod-bot-set-0
+
+# Check rollout status (CD does this automatically)
+kubectl rollout status statefulset/mod-bot-set
+
+# Rollback to previous version
+kubectl rollout undo statefulset/mod-bot-set
+
+# Force a restart without merging a PR (single replica in use)
+kubectl rollout restart statefulset/mod-bot-set
 
 # Copy out the production database (for backups!)
 kubectl cp mod-bot-set-0:data/mod-bot.sqlite3 ./mod-bot-prod.sqlite3
@@ -66,4 +76,7 @@ kubectl exec mod-bot-set-0 -- npm run start:migrate
 
 # Extract production secrets (in base64)
 kubectl get secret modbot-env -o json
+
+# Check resource usage (requires metrics-server)
+kubectl top pod mod-bot-set-0
 ```
