@@ -1,0 +1,156 @@
+name: Preview Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed, ready_for_review, labeled]
+
+env:
+  HUSKY: 0
+
+jobs:
+  deploy-preview:
+    name: Deploy Preview
+    # Skip if: PR is closed, PR is draft, or PR has 'no-preview' label
+    if: |
+      github.event.action != 'closed' &&
+      github.event.action != 'labeled' &&
+      github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.labels.*.name, 'no-preview')
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-${{ github.event.pull_request.number }}
+      url: https://${{ github.event.pull_request.number }}.euno-staging.reactiflux.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set up kubectl
+        uses: matootie/dokube@v1.4.1
+        with:
+          personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          clusterName: k8s-rf
+
+      - name: Deploy preview environment
+        run: |
+          export PR_NUMBER=${{ github.event.pull_request.number }}
+          envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/mod-bot-pr-${{ github.event.pull_request.number }} \
+            -n staging --timeout=3m
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
+
+            // Check if we already commented
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+            );
+
+            const body = `### Preview deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | Preview | ${previewUrl} |
+
+            This preview will be updated on each push and deleted when the PR is closed.`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            }
+
+  cleanup-preview:
+    name: Cleanup Preview
+    # Clean up when PR is closed OR when 'no-preview' label is added
+    if: |
+      github.event.action == 'closed' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up kubectl
+        uses: matootie/dokube@v1.4.1
+        with:
+          personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          clusterName: k8s-rf
+
+      - name: Delete preview resources
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "Cleaning up preview environment for PR #${PR_NUMBER}"
+
+          # Delete all resources with the preview label
+          kubectl delete deployment mod-bot-pr-${PR_NUMBER} -n staging --ignore-not-found
+          kubectl delete service mod-bot-pr-${PR_NUMBER} -n staging --ignore-not-found
+          kubectl delete ingress mod-bot-pr-${PR_NUMBER} -n staging --ignore-not-found
+
+          echo "Preview environment cleaned up"
+
+      - name: Comment cleanup notice
+        if: github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            // Find and update the preview comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: '### Preview environment removed\n\nThe preview for this PR has been cleaned up.'
+              });
+            }
