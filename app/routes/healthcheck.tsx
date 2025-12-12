@@ -12,8 +12,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     // if we can connect to the database and make a simple query
     // and make a HEAD request to ourselves, then we're good.
     await Promise.all([
-      // @ts-expect-error because kysely doesn't generate types for these
-      db.selectFrom("sqlite_master").where("type", "=", "table").execute(),
+      db
+        // @ts-expect-error because kysely doesn't generate types for sqlite_master
+        .selectFrom("sqlite_master")
+        .select("name")
+        // @ts-expect-error because kysely doesn't generate types for sqlite_master
+        .where("type", "=", "table")
+        .execute(),
       fetch(url.toString(), { method: "HEAD" }).then((r) => {
         if (!r.ok) {
           return Promise.reject(
