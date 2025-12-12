@@ -54,6 +54,23 @@ spec:
                 secretKeyRef:
                   name: modbot-env
                   key: DISCORD_SECRET
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: STRIPE_SECRET_KEY
+
+            - name: STRIPE_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: STRIPE_PUBLISHABLE_KEY
+
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: modbot-env
+                  key: STRIPE_WEBHOOK_SECRET
 
             - name: DISCORD_TEST_GUILD
               valueFrom:
