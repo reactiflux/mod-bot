@@ -85,7 +85,7 @@ export async function executeResolution(
   } catch (error) {
     log("error", "EscalationControls", "Failed to execute resolution", {
       ...logBag,
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
     throw error;
   }
@@ -139,7 +139,7 @@ async function executeScheduledResolution(
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
         ...logBag,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
     }
 
@@ -152,7 +152,7 @@ async function executeScheduledResolution(
   } catch (error) {
     log("error", "EscalationResolver", "Failed to auto-resolve escalation", {
       ...logBag,
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
   }
 }
@@ -215,7 +215,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
       } catch (error) {
         log("error", "EscalationResolver", "Error processing escalation", {
           escalationId: escalation.id,
-          error: error instanceof Error ? error.message : String(error),
+          error,
         });
       }
     }

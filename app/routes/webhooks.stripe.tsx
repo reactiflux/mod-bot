@@ -80,9 +80,7 @@ export async function action({ request }: Route.ActionArgs) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    log("error", "Webhook", "Failed to process webhook", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    log("error", "Webhook", "Failed to process webhook", { error });
     return new Response(
       JSON.stringify({ error: "Webhook processing failed" }),
       {

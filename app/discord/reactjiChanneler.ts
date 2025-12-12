@@ -108,7 +108,7 @@ export async function startReactjiChanneler(client: Client) {
       });
     } catch (error) {
       log("error", "ReactjiChanneler", "Error handling reaction", {
-        error: error instanceof Error ? error.message : String(error),
+        error,
         messageId: partialReaction.message.id,
       });
     }

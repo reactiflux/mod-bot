@@ -42,9 +42,7 @@ export const login = () => {
           guildNames: guildNames.join(", "),
         });
       } catch (error) {
-        log("error", "Client", "Failed to fetch guilds", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        log("error", "Client", "Failed to fetch guilds", { error });
       }
 
       if (client.application) {

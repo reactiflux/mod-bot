@@ -229,7 +229,7 @@ async function deleteSingleMessage(
 
     log("warn", "ReportedMessage", "Failed to delete message", {
       messageId,
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
     return { success: false, messageId, error };
   }
