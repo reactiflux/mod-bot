@@ -1,27 +1,16 @@
 import Stripe from "stripe";
 
+import { stripeSecretKey, stripeWebhookSecret } from "#~/helpers/env.server.js";
 import { NotFoundError } from "#~/helpers/errors.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
-// Initialize Stripe with API key from environment
-const getStripe = () => {
-  const apiKey = process.env.STRIPE_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "STRIPE_SECRET_KEY environment variable is not set. Please configure Stripe credentials.",
-    );
-  }
-  return new Stripe(apiKey, {
-    apiVersion: "2025-10-29.clover",
-    typescript: true,
-  });
-};
+const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2025-10-29.clover",
+  typescript: true,
+});
 
 export const StripeService = {
-  /**
-   * Create a Stripe checkout session for subscription
-   */
   async createCheckoutSession(
     variant: string,
     coupon: string,
@@ -39,8 +28,6 @@ export const StripeService = {
           variant,
           coupon,
         });
-
-        const stripe = getStripe();
 
         const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&guild_id=${guildId}`;
         const settingsUrl = `${baseUrl}/app/${guildId}/settings`;
@@ -93,9 +80,6 @@ export const StripeService = {
     );
   },
 
-  /**
-   * Verify a Stripe checkout session
-   */
   async verifyCheckoutSession(sessionId: string): Promise<{
     payment_status: string;
     client_reference_id: string | null;
@@ -107,8 +91,6 @@ export const StripeService = {
       "verifyCheckoutSession",
       async () => {
         log("info", "Stripe", "Verifying checkout session", { sessionId });
-
-        const stripe = getStripe();
 
         try {
           const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -143,9 +125,6 @@ export const StripeService = {
     );
   },
 
-  /**
-   * Create a Stripe customer
-   */
   async createCustomer(
     email: string,
     guildId: string,
@@ -158,8 +137,6 @@ export const StripeService = {
           guildId,
           email,
         });
-
-        const stripe = getStripe();
 
         try {
           const customer = await stripe.customers.create({
@@ -200,8 +177,6 @@ export const StripeService = {
           guildId,
         });
 
-        const stripe = getStripe();
-
         try {
           const customers = await stripe.customers.search({
             query: `metadata['guild_id']:'${guildId}'`,
@@ -240,8 +215,6 @@ export const StripeService = {
       async () => {
         log("info", "Stripe", "Cancelling subscription", { subscriptionId });
 
-        const stripe = getStripe();
-
         try {
           await stripe.subscriptions.cancel(subscriptionId);
 
@@ -270,15 +243,10 @@ export const StripeService = {
     payload: string | Buffer,
     signature: string,
   ): Stripe.Event {
-    const stripe = getStripe();
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      throw new Error(
-        "STRIPE_WEBHOOK_SECRET environment variable is not set. Please configure webhook secret.",
-      );
-    }
-
-    return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    return stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      stripeWebhookSecret,
+    );
   },
 };
