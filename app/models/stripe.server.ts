@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-import { stripeSecretKey } from "#~/helpers/env.server.js";
+import { stripeSecretKey, stripeWebhookSecret } from "#~/helpers/env.server.js";
 import { NotFoundError } from "#~/helpers/errors.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
@@ -243,14 +243,10 @@ export const StripeService = {
     payload: string | Buffer,
     signature: string,
   ): Stripe.Event {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      throw new Error(
-        "STRIPE_WEBHOOK_SECRET environment variable is not set. Please configure webhook secret.",
-      );
-    }
-
-    return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    return stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      stripeWebhookSecret,
+    );
   },
 };
