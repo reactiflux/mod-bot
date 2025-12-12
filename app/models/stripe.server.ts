@@ -58,7 +58,10 @@ export const StripeService = {
             client_reference_id: guildId,
             customer_email: customerEmail,
             metadata: { guild_id: guildId },
-            subscription_data: { metadata: { guild_id: guildId } },
+            subscription_data: {
+              metadata: { guild_id: guildId },
+              trial_period_days: 90,
+            },
           });
 
           log("info", "Stripe", "Checkout session created successfully", {
