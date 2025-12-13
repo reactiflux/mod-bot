@@ -74,18 +74,18 @@ jobs:
             --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
-            --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            --from-literal=DATABASE_URL=/data/mod-bot.sqlite3 \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy preview environment
         run: |
           export PR_NUMBER=${{ github.event.pull_request.number }}
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
-          kubectl rollout restart deployment/mod-bot-pr-${{ github.event.pull_request.number }}
+          kubectl rollout restart statefulset/mod-bot-pr-${{ github.event.pull_request.number }}
 
       - name: Wait for deployment
         run: |
-          kubectl rollout status deployment/mod-bot-pr-${{ github.event.pull_request.number }} --timeout=3m
+          kubectl rollout status statefulset/mod-bot-pr-${{ github.event.pull_request.number }} --timeout=3m
 
       - name: Comment preview URL on PR
         uses: actions/github-script@v7
@@ -152,9 +152,10 @@ jobs:
           PR_NUMBER=${{ github.event.pull_request.number }}
           echo "Cleaning up preview environment for PR #${PR_NUMBER}"
 
-          kubectl delete deployment mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete statefulset mod-bot-pr-${PR_NUMBER} --ignore-not-found
           kubectl delete service mod-bot-pr-${PR_NUMBER} --ignore-not-found
           kubectl delete ingress mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete pvc -l preview=pr-${PR_NUMBER} --ignore-not-found
 
           echo "Preview environment cleaned up"
 
