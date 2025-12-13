@@ -8,6 +8,8 @@ metadata:
     preview: pr-${PR_NUMBER}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       preview: pr-${PR_NUMBER}
@@ -20,6 +22,7 @@ spec:
       containers:
         - name: mod-bot
           image: ghcr.io/reactiflux/mod-bot:pr-${PR_NUMBER}
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           envFrom:
