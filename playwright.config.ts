@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Check if running against a remote preview
+const isRemote = !!process.env.E2E_PREVIEW_URL;
+const baseURL = process.env.E2E_PREVIEW_URL ?? "http://localhost:3000";
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -17,7 +21,7 @@ export default defineConfig({
     ["json", { outputFile: "test-results/results.json" }],
   ],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     screenshot: "only-on-failure",
     video: "on",
   },
@@ -29,10 +33,13 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: "npm run build; npm start",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  // Only start local server if not running against remote preview
+  webServer: isRemote
+    ? undefined
+    : {
+        command: "npm run build; npm start",
+        url: "http://localhost:3000",
+        reuseExistingServer: !process.env.CI,
+        timeout: 120000,
+      },
 });

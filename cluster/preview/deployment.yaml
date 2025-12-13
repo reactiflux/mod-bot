@@ -22,6 +22,7 @@ spec:
         - name: mod-bot
           image: ghcr.io/reactiflux/mod-bot:pr-${PR_NUMBER}
           imagePullPolicy: Always
+          command: ["npm", "run", "start:staging"]
           ports:
             - containerPort: 3000
           volumeMounts:
