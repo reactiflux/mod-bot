@@ -26,7 +26,9 @@ npm run start:staging     # Migrations + fixtures + bot
 ## Architecture Decisions
 
 ### Single Source of Truth
+
 `scripts/fixtures/constants.ts` centralizes all fixture IDs:
+
 - Test user IDs
 - Test guild IDs
 - Test session IDs
@@ -36,7 +38,9 @@ npm run start:staging     # Migrations + fixtures + bot
 Both `scripts/seed-e2e.ts` and `tests/e2e/fixtures/db.ts` now import from this shared module.
 
 ### Integrity Checks
+
 Validates data consistency before seeding:
+
 - Orphaned guild_subscriptions (no parent guild)
 - Invalid product_tier values
 - Orphaned escalation_records
@@ -47,7 +51,9 @@ Validates data consistency before seeding:
 Outputs warnings but doesn't fail - informational only.
 
 ### Historical Data Generation
+
 Uses seeded random for reproducibility (seed=42):
+
 - 7 days of message_stats (~350 records)
 - 5 reported_messages
 - 2 escalations with votes
