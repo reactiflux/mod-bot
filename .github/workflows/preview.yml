@@ -41,14 +41,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Debug DO token
-        run: |
-          echo "Token length: ${#TOKEN}"
-          echo "Token starts with: ${TOKEN:0:4}..."
-          echo "Token ends with: ...${TOKEN: -4}"
-        env:
-          TOKEN: ${{ secrets.DIGITAL_OCEAN_K8S }}
-
       - name: Set up kubectl
         uses: matootie/dokube@v1.4.1
         with:
