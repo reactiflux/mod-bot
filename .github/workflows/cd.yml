@@ -53,6 +53,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: CI
+    outputs:
+      pr_number: ${{ steps.get-pr.outputs.result }}
+      preview_url: ${{ steps.set-outputs.outputs.preview_url }}
+      is_production: ${{ steps.set-outputs.outputs.is_production }}
 
     steps:
       - name: Checkout
@@ -187,6 +191,20 @@ jobs:
 
           echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
 
+      - name: Set deployment outputs
+        id: set-outputs
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "is_production=true" >> $GITHUB_OUTPUT
+            echo "preview_url=" >> $GITHUB_OUTPUT
+          elif [[ -n "${{ steps.get-pr.outputs.result }}" ]]; then
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "preview_url=https://${{ steps.get-pr.outputs.result }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
+          else
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "preview_url=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Comment preview URL on PR
         if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         uses: actions/github-script@v7
@@ -221,6 +239,136 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            }
+
+  # --- E2E Tests after deployment ---
+  e2e:
+    needs: deployment
+    if: needs.deployment.outputs.preview_url != '' || needs.deployment.outputs.is_production == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_URL: ${{ needs.deployment.outputs.preview_url || 'https://euno.reactiflux.com' }}
+      PR_NUMBER: ${{ needs.deployment.outputs.pr_number }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        env:
+          E2E_PREVIEW_URL: ${{ env.TARGET_URL }}
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      - name: Deploy test report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+          destination_dir: reports/${{ github.run_number }}
+          keep_files: true
+
+      - name: Comment PR with test results
+        if: ${{ always() && env.PR_NUMBER != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = parseInt('${{ env.PR_NUMBER }}');
+            const targetUrl = '${{ env.TARGET_URL }}';
+            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${{ github.run_number }}`;
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            // Parse test results
+            let stats = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
+              const countTests = (suites) => {
+                for (const suite of suites) {
+                  for (const spec of suite.specs || []) {
+                    for (const test of spec.tests || []) {
+                      if (test.status === 'expected') stats.passed++;
+                      else if (test.status === 'unexpected') stats.failed++;
+                      else if (test.status === 'flaky') stats.flaky++;
+                      else if (test.status === 'skipped') stats.skipped++;
+                    }
+                  }
+                  if (suite.suites) countTests(suite.suites);
+                }
+              };
+              countTests(results.suites || []);
+            } catch (e) {
+              console.log('Could not parse test results:', e.message);
+            }
+
+            const emoji = stats.failed > 0 ? '❌' : stats.flaky > 0 ? '⚠️' : '✅';
+            const status = stats.failed > 0 ? 'Failed' : stats.flaky > 0 ? 'Flaky' : 'Passed';
+            const statsParts = [
+              stats.passed > 0 && `**${stats.passed}** passed`,
+              stats.flaky > 0 && `**${stats.flaky}** flaky`,
+              stats.failed > 0 && `**${stats.failed}** failed`,
+              stats.skipped > 0 && `**${stats.skipped}** skipped`,
+            ].filter(Boolean).join(' · ');
+
+            const body = `## ${emoji} E2E Tests ${status}
+
+            ${statsParts}
+
+            [View Report](${reportUrl}) · [View Run](${runUrl})
+
+            Tested against: ${targetUrl}`;
+
+            // Find existing E2E comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('E2E Tests')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
                 body
               });
             } else {

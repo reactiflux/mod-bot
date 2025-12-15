@@ -11,18 +11,10 @@ on:
   push:
     branches-ignore:
       - "main"
-  workflow_call:
-    inputs:
-      preview_url:
-        description: "Preview URL to run e2e tests against"
-        required: true
-        type: string
 
 jobs:
   lint:
     name: ESLint
-    # Only run on push, not when called from preview workflow
-    if: ${{ !inputs.preview_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -40,7 +32,6 @@ jobs:
 
   typecheck:
     name: TypeScript
-    if: ${{ !inputs.preview_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -58,7 +49,6 @@ jobs:
 
   vitest:
     name: Vitest
-    if: ${{ !inputs.preview_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -73,152 +63,3 @@ jobs:
 
       - name: Run vitest
         run: npm run test
-
-  e2e:
-    name: Playwright E2E
-    # Only run when called with preview_url (from preview workflow)
-    if: ${{ inputs.preview_url }}
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - run: npm ci
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Run Playwright tests
-        run: npm run test:e2e
-        env:
-          E2E_PREVIEW_URL: ${{ inputs.preview_url }}
-
-      - name: Upload test artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ github.run_id }}
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 30
-
-      - name: Deploy test report to GitHub Pages
-        if: always()
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./playwright-report
-          destination_dir: reports/${{ github.run_number }}
-          keep_files: true
-
-      - name: Comment PR with test results
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const runId = '${{ github.run_id }}';
-            const runNumber = '${{ github.run_number }}';
-            const previewUrl = '${{ inputs.preview_url }}';
-            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${runNumber}`;
-
-            // Get PR number from the preview URL (format: https://123.euno-staging.reactiflux.com)
-            const prNumber = previewUrl.match(/https:\/\/(\d+)\./)?.[1];
-            if (!prNumber) {
-              console.log('Could not extract PR number from preview URL');
-              return;
-            }
-
-            // Parse test results
-            let testRows = [];
-            let stats = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
-
-            try {
-              const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
-
-              const processSpecs = (suites) => {
-                for (const suite of suites) {
-                  for (const spec of suite.specs || []) {
-                    for (const test of spec.tests || []) {
-                      const status = test.status;
-                      if (status === 'expected') stats.passed++;
-                      else if (status === 'unexpected') stats.failed++;
-                      else if (status === 'flaky') stats.flaky++;
-                      else if (status === 'skipped') stats.skipped++;
-
-                      const lastResult = test.results?.[test.results.length - 1];
-                      const duration = lastResult?.duration || 0;
-                      const durationStr = duration >= 1000
-                        ? `${(duration / 1000).toFixed(1)}s`
-                        : `${duration}ms`;
-
-                      const retryCount = test.results?.length - 1 || 0;
-                      const retryInfo = retryCount > 0 ? ` (${retryCount} ${retryCount === 1 ? 'retry' : 'retries'})` : '';
-
-                      let emoji;
-                      if (status === 'expected') emoji = '✅';
-                      else if (status === 'flaky') emoji = '⚠️';
-                      else if (status === 'unexpected') emoji = '❌';
-                      else emoji = '⏭️';
-
-                      const testLink = spec.id
-                        ? `[${spec.title}](${reportUrl}#?testId=${spec.id})`
-                        : spec.title;
-
-                      testRows.push(`| ${emoji} | ${testLink}${retryInfo} | ${durationStr} |`);
-                    }
-                  }
-
-                  if (suite.suites) {
-                    processSpecs(suite.suites);
-                  }
-                }
-              };
-
-              processSpecs(results.suites || []);
-            } catch (e) {
-              console.log('Could not parse test results:', e.message);
-            }
-
-            const statusEmoji = stats.failed > 0 ? '❌' : '✅';
-            const statusText = stats.failed > 0 ? 'Failed' : stats.flaky > 0 ? 'Flaky' : 'Passed';
-
-            let statsParts = [];
-            if (stats.passed > 0) statsParts.push(`**${stats.passed}** passed`);
-            if (stats.flaky > 0) statsParts.push(`**${stats.flaky}** flaky`);
-            if (stats.failed > 0) statsParts.push(`**${stats.failed}** failed`);
-            if (stats.skipped > 0) statsParts.push(`**${stats.skipped}** skipped`);
-
-            let comment = [
-              `## ${statusEmoji} E2E Tests ${statusText}`,
-              '',
-              statsParts.join(' · '),
-              '',
-              `[View Report](${reportUrl}) · [View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${runId})`,
-              '',
-              `Tested against: ${previewUrl}`,
-              '',
-              '|  | Test | Duration |',
-              '|--|------|----------|',
-              ...testRows
-            ].join('\n');
-
-            await github.rest.issues.createComment({
-              issue_number: parseInt(prNumber),
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
