@@ -51,12 +51,36 @@ jobs:
 
   deployment:
     needs: build
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: CI
 
     steps:
-      - name: Checkout to branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Get PR number
+        id: get-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branch}`
+            });
+            if (prs.data.length > 0 && !prs.data[0].draft) {
+              const pr = prs.data[0];
+              const hasNoPreview = pr.labels.some(l => l.name === 'no-preview');
+              if (!hasNoPreview) {
+                console.log(`Found PR #${pr.number} for branch ${branch}`);
+                return pr.number;
+              }
+            }
+            console.log(`No eligible PR for branch ${branch}`);
+            return '';
+          result-encoding: string
 
       - name: Tag Build
         uses: docker/metadata-action@v5
@@ -76,10 +100,12 @@ jobs:
       - name: Set up kubectl
         uses: matootie/dokube@v1.4.1
         with:
-          personalAccessToken: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
           clusterName: k8s-rf
 
-      - name: Create secret manifest
+      # --- Production deployment (main branch only) ---
+      - name: Create production secret manifest
+        if: github.ref == 'refs/heads/main'
         run: |
           cat <<EOF > secret-values.yaml
           apiVersion: v1
@@ -105,7 +131,8 @@ jobs:
             DATABASE_URL: "${{ secrets.DATABASE_URL }}"
           EOF
 
-      - name: Deploy app
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
         run: |
           kubectl diff -k . || true
           kubectl apply -f secret-values.yaml
@@ -117,8 +144,90 @@ jobs:
           fi
 
       - name: Set Sentry release
+        if: github.ref == 'refs/heads/main'
         run: |
           curl ${{secrets.SENTRY_RELEASES}} \
             -X POST \
             -H 'Content-Type: application/json' \
             -d '{"version": "${{github.sha}}"}'
+
+      # --- Preview deployment (PR branches only) ---
+      - name: Deploy preview
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+        run: |
+          PR_NUMBER=${{ steps.get-pr.outputs.result }}
+          echo "Deploying preview for PR #${PR_NUMBER}"
+
+          kubectl config set-context --current --namespace=staging
+
+          # Ensure staging secret exists
+          kubectl create secret generic modbot-staging-env \
+            --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+            --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
+            --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
+            --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
+            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
+            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
+            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
+            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
+            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+            --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+            --from-literal=DATABASE_URL=/data/mod-bot.sqlite3 \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Deploy preview environment
+          export PR_NUMBER
+          export COMMIT_SHA=${{ github.sha }}
+          envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
+          kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
+          kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
+
+          echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
+
+      - name: Comment preview URL on PR
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
+            const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
+            const commitSha = '${{ github.sha }}';
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+            );
+
+            const body = `### Preview deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | Preview | ${previewUrl} |
+
+            Deployed commit: \`${commitSha.substring(0, 7)}\`
+
+            This preview will be updated on each push and deleted when the PR is closed.`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            }
