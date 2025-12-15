@@ -3,9 +3,8 @@
  * Creates deterministic test users, guilds, sessions, and channel info.
  */
 
-import db from "#~/db.server";
-
-import { FIXTURE_IDS } from "./constants";
+import { FIXTURE_IDS } from "./constants.ts";
+import db from "./db.ts";
 
 export async function seedFixtures(): Promise<void> {
   // 1. Seed test users

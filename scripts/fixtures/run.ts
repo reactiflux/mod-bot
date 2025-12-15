@@ -14,9 +14,9 @@
 
 import "dotenv/config";
 
-import { generateHistoricalData } from "./generate-historical";
-import { runIntegrityChecks } from "./integrity-checks";
-import { seedFixtures } from "./seed-fixtures";
+import { generateHistoricalData } from "./generate-historical.ts";
+import { runIntegrityChecks } from "./integrity-checks.ts";
+import { seedFixtures } from "./seed-fixtures.ts";
 
 async function run() {
   console.log("Running fixture setup...\n");

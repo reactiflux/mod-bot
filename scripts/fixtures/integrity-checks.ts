@@ -3,7 +3,7 @@
  * Identifies orphaned records, invalid values, and other data issues.
  */
 
-import db from "#~/db.server";
+import db from "./db.ts";
 
 interface IntegrityIssue {
   table: string;

@@ -1,8 +1,11 @@
 name: Preview Environment
 
 on:
+  workflow_run:
+    workflows: ["CD"]
+    types: [completed]
   pull_request:
-    types: [opened, synchronize, reopened, closed, ready_for_review, labeled]
+    types: [closed, labeled]
 
 env:
   HUSKY: 0
@@ -10,49 +13,75 @@ env:
 jobs:
   deploy-preview:
     name: Deploy Preview
-    # Skip if: PR is closed, PR is draft, or PR has 'no-preview' label
+    # Only run when CD completes successfully
     if: |
-      github.event.action != 'closed' &&
-      github.event.action != 'labeled' &&
-      github.event.pull_request.draft == false &&
-      !contains(github.event.pull_request.labels.*.name, 'no-preview')
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: CI
     outputs:
       preview_url: ${{ steps.set-url.outputs.preview_url }}
+      pr_number: ${{ steps.get-pr.outputs.result }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Get PR for commit
+        id: get-pr
+        uses: actions/github-script@v7
         with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Find open PR for this branch
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.payload.workflow_run.head_branch}`
+            });
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            if (prs.data.length === 0) {
+              console.log('No open PR found for branch:', context.payload.workflow_run.head_branch);
+              return null;
+            }
+
+            const pr = prs.data[0];
+
+            // Check if PR is draft or has no-preview label
+            if (pr.draft) {
+              console.log('PR is a draft, skipping preview');
+              return null;
+            }
+
+            const hasNoPreview = pr.labels.some(l => l.name === 'no-preview');
+            if (hasNoPreview) {
+              console.log('PR has no-preview label, skipping');
+              return null;
+            }
+
+            console.log('Found PR:', pr.number);
+            return pr.number;
+          result-encoding: string
+
+      - name: Skip if no PR
+        if: steps.get-pr.outputs.result == 'null' || steps.get-pr.outputs.result == ''
+        run: |
+          echo "No eligible PR found, skipping deployment"
+          exit 0
 
       - name: Set up kubectl
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         uses: matootie/dokube@v1.4.1
         with:
           personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
           clusterName: k8s-rf
 
       - name: Set default namespace
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         run: kubectl config set-context --current --namespace=staging
 
       - name: Ensure staging secret exists
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         run: |
           kubectl create secret generic modbot-staging-env \
             --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
@@ -72,25 +101,31 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy preview environment
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         run: |
-          export PR_NUMBER=${{ github.event.pull_request.number }}
+          export PR_NUMBER=${{ steps.get-pr.outputs.result }}
+          export COMMIT_SHA=${{ github.event.workflow_run.head_sha }}
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
-          kubectl rollout restart statefulset/mod-bot-pr-${{ github.event.pull_request.number }}
+          kubectl rollout restart statefulset/mod-bot-pr-${{ steps.get-pr.outputs.result }}
 
       - name: Wait for deployment
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         run: |
-          kubectl rollout status statefulset/mod-bot-pr-${{ github.event.pull_request.number }} --timeout=5m
+          kubectl rollout status statefulset/mod-bot-pr-${{ steps.get-pr.outputs.result }} --timeout=5m
 
       - name: Set preview URL output
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         id: set-url
-        run: echo "preview_url=https://${{ github.event.pull_request.number }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
+        run: echo "preview_url=https://${{ steps.get-pr.outputs.result }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
 
       - name: Comment preview URL on PR
+        if: steps.get-pr.outputs.result != 'null' && steps.get-pr.outputs.result != ''
         uses: actions/github-script@v7
         with:
           script: |
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
             const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
+            const commitSha = '${{ github.event.workflow_run.head_sha }}';
 
             // Check if we already commented
             const comments = await github.rest.issues.listComments({
@@ -108,6 +143,8 @@ jobs:
             | Environment | URL |
             |-------------|-----|
             | Preview | ${previewUrl} |
+
+            Deployed commit: \`${commitSha.substring(0, 7)}\`
 
             This preview will be updated on each push and deleted when the PR is closed.`;
 
@@ -130,6 +167,7 @@ jobs:
   run-e2e:
     name: E2E Tests
     needs: deploy-preview
+    if: needs.deploy-preview.outputs.preview_url != ''
     uses: ./.github/workflows/ci.yml
     with:
       preview_url: ${{ needs.deploy-preview.outputs.preview_url }}
@@ -139,8 +177,9 @@ jobs:
     name: Cleanup Preview
     # Clean up when PR is closed OR when 'no-preview' label is added
     if: |
-      github.event.action == 'closed' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'closed' ||
+       (github.event.action == 'labeled' && github.event.label.name == 'no-preview'))
     runs-on: ubuntu-latest
     environment: CI
     steps:

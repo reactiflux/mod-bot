@@ -9,35 +9,27 @@ export const FIXTURE_IDS = {
   // Users
   users: {
     testUser: {
-      id: "test-user-e2e",
-      externalId: "discord_test_e2e",
-      email: "e2e-test@example.com",
-    },
-    botUser: {
-      id: "bot-user-fixture",
-      externalId: "987654321098765432",
-      email: null,
+      id: "3486c000-6af3-45db-81f4-98bcff8806c9",
+      externalId: "103525876892708864",
+      email: "vcarl@example.com",
     },
   },
 
   // Guilds
   guilds: {
     free: {
-      id: "test-guild-free",
-      name: "Test Guild Free",
+      id: "614601782152265748",
+      name: "Test Server",
     },
     paid: {
-      id: "test-guild-paid",
-      name: "Test Guild Paid",
+      id: "1442358269497577665",
+      name: "Euno",
     },
   },
 
   // Channels (for historical data)
   channels: {
-    general: "100000000000000001",
-    helpReact: "100000000000000002",
-    modLog: "100000000000000003",
-    helpJs: "100000000000000004",
+    testing: "1442382154511155401",
   },
 
   // Sessions

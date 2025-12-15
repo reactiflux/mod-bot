@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: mod-bot
-          image: ghcr.io/reactiflux/mod-bot:pr-${PR_NUMBER}
+          image: ghcr.io/reactiflux/mod-bot:sha-${COMMIT_SHA}
           imagePullPolicy: Always
           command: ["npm", "run", "start:staging"]
           ports:

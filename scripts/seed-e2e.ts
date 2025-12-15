@@ -11,15 +11,14 @@
 
 import "dotenv/config";
 
-import db from "#~/db.server";
-
 import {
   TEST_GUILD_FREE_ID,
   TEST_GUILD_PAID_ID,
   TEST_SESSION_ID,
   TEST_USER_EXTERNAL_ID,
   TEST_USER_ID,
-} from "./fixtures/constants";
+} from "./fixtures/constants.ts";
+import db from "./fixtures/db.ts";
 
 // Re-export for backwards compatibility
 export {

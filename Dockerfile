@@ -22,6 +22,7 @@ RUN npm prune --production
 COPY --from=build /app/build ./build
 ADD index.prod.js ./
 
+COPY scripts ./scripts
 COPY kysely.config.ts ./
 COPY migrations ./migrations
 

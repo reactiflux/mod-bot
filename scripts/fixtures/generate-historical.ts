@@ -5,9 +5,8 @@
 
 import { randomUUID } from "crypto";
 
-import db from "#~/db.server";
-
-import { FIXTURE_IDS } from "./constants";
+import { FIXTURE_IDS } from "./constants.ts";
+import db from "./db.ts";
 
 const DAYS_OF_DATA = 7;
 const MESSAGES_PER_DAY = 50;
@@ -105,7 +104,7 @@ export async function generateHistoricalData(): Promise<void> {
         reported_user_id: reportedUserId,
         guild_id: guildId,
         log_message_id: `${1200000000000000000 + i}`,
-        log_channel_id: FIXTURE_IDS.channels.modLog,
+        log_channel_id: FIXTURE_IDS.channels.testing,
         reason: reasons[Math.floor(random() * reasons.length)],
         staff_id: null,
         staff_username: null,
