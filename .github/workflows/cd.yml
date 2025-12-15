@@ -185,7 +185,12 @@ jobs:
           # Deploy preview environment
           export PR_NUMBER
           export COMMIT_SHA=${{ github.sha }}
+
+          # Delete database to start fresh (ignore errors if pod doesn't exist yet)
+          kubectl exec statefulset/mod-bot-pr-${PR_NUMBER} -- rm -f /data/mod-bot.sqlite3 || true
+
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
+
           kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
           kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
 
