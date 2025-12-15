@@ -4,34 +4,10 @@ import { Kysely, SqliteDialect } from "kysely";
 
 import type { DB } from "#~/db";
 
-// Check if we're running against a remote preview
-const isRemote = !!process.env.E2E_PREVIEW_URL;
+import { FIXTURE_IDS } from "../../../scripts/fixtures/constants";
 
-// Seeded test data IDs - must match scripts/seed-e2e.ts
-export const SEEDED_DATA = {
-  user: {
-    id: "test-user-e2e",
-    externalId: "discord_test_e2e",
-    email: "e2e-test@example.com",
-  },
-  sessionId: "test-session-e2e",
-  freeGuild: {
-    id: "test-guild-free",
-    subscription: {
-      product_tier: "free" as const,
-      status: "active",
-    },
-  },
-  paidGuild: {
-    id: "test-guild-paid",
-    subscription: {
-      product_tier: "paid" as const,
-      status: "active",
-      stripe_customer_id: "cus_test_e2e",
-      stripe_subscription_id: "sub_test_e2e",
-    },
-  },
-};
+// Check if we're running against a remote preview
+export const isRemote = !!process.env.E2E_PREVIEW_URL;
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "./mod-bot.sqlite3";
 
@@ -85,13 +61,20 @@ export class DbFixture {
   }): Promise<TestGuild> {
     // In remote mode, return pre-seeded guild
     if (isRemote) {
-      const seededGuild =
-        options?.productTier === "paid"
-          ? SEEDED_DATA.paidGuild
-          : SEEDED_DATA.freeGuild;
+      const isPaid = options?.productTier === "paid";
+      const guild = isPaid ? FIXTURE_IDS.guilds.paid : FIXTURE_IDS.guilds.free;
       return {
-        id: seededGuild.id,
-        subscription: seededGuild.subscription,
+        id: guild.id,
+        subscription: {
+          product_tier: isPaid ? "paid" : "free",
+          status: "active",
+          stripe_customer_id: isPaid
+            ? FIXTURE_IDS.stripe.customerId
+            : undefined,
+          stripe_subscription_id: isPaid
+            ? FIXTURE_IDS.stripe.subscriptionId
+            : undefined,
+        },
       };
     }
 
@@ -148,7 +131,11 @@ export class DbFixture {
   }): Promise<TestUser> {
     // In remote mode, return pre-seeded user
     if (isRemote) {
-      return SEEDED_DATA.user;
+      return {
+        id: FIXTURE_IDS.users.testUser.id,
+        externalId: FIXTURE_IDS.users.testUser.externalId,
+        email: FIXTURE_IDS.users.testUser.email,
+      };
     }
 
     const userId = options?.id ?? randomUUID();
@@ -178,7 +165,7 @@ export class DbFixture {
   ): Promise<string> {
     // In remote mode, return pre-seeded session
     if (isRemote) {
-      return SEEDED_DATA.sessionId;
+      return FIXTURE_IDS.sessions.testSession;
     }
 
     const sessionId = randomUUID();
@@ -214,16 +201,20 @@ export class DbFixture {
   async getGuildSubscription(guildId: string) {
     if (isRemote) {
       // Return seeded data based on guild ID
-      if (guildId === SEEDED_DATA.freeGuild.id) {
+      if (guildId === FIXTURE_IDS.guilds.free.id) {
         return {
           guild_id: guildId,
-          ...SEEDED_DATA.freeGuild.subscription,
+          product_tier: "free" as const,
+          status: "active",
         };
       }
-      if (guildId === SEEDED_DATA.paidGuild.id) {
+      if (guildId === FIXTURE_IDS.guilds.paid.id) {
         return {
           guild_id: guildId,
-          ...SEEDED_DATA.paidGuild.subscription,
+          product_tier: "paid" as const,
+          status: "active",
+          stripe_customer_id: FIXTURE_IDS.stripe.customerId,
+          stripe_subscription_id: FIXTURE_IDS.stripe.subscriptionId,
         };
       }
       return undefined;
@@ -285,5 +276,3 @@ export class DbFixture {
     return testDb;
   }
 }
-
-export { isRemote };

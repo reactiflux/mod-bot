@@ -4,16 +4,31 @@
  *
  * Run via: npm run seed:e2e
  * Called automatically in staging via: npm run start:staging
+ *
+ * @deprecated Use scripts/fixtures/run.ts for full fixture setup.
+ * This script is kept for backwards compatibility.
  */
+
+import "dotenv/config";
 
 import db from "#~/db.server";
 
-// Known test data IDs - tests reference these directly
-export const TEST_USER_ID = "test-user-e2e";
-export const TEST_USER_EXTERNAL_ID = "discord_test_e2e";
-export const TEST_SESSION_ID = "test-session-e2e";
-export const TEST_GUILD_FREE_ID = "test-guild-free";
-export const TEST_GUILD_PAID_ID = "test-guild-paid";
+import {
+  TEST_GUILD_FREE_ID,
+  TEST_GUILD_PAID_ID,
+  TEST_SESSION_ID,
+  TEST_USER_EXTERNAL_ID,
+  TEST_USER_ID,
+} from "./fixtures/constants";
+
+// Re-export for backwards compatibility
+export {
+  TEST_GUILD_FREE_ID,
+  TEST_GUILD_PAID_ID,
+  TEST_SESSION_ID,
+  TEST_USER_EXTERNAL_ID,
+  TEST_USER_ID,
+};
 
 async function seed() {
   console.log("Seeding e2e test data...");
