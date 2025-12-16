@@ -168,7 +168,11 @@ export async function initOauthLogin({
   flow?: "user" | "signup" | "add-bot";
   guildId?: string;
 }) {
-  const { origin } = new URL(request.url);
+  const url = new URL(request.url);
+  const proto =
+    request.headers.get("X-Forwarded-Proto") ?? url.protocol.replace(":", "");
+  const host = request.headers.get("X-Forwarded-Host") ?? url.host;
+  const origin = `${proto}://${host}`;
   const cookieSession = await getCookieSession(request.headers.get("Cookie"));
 
   const state = JSON.stringify({
@@ -223,7 +227,10 @@ export async function completeOauthLogin(request: Request) {
     throw redirect("/login", 500);
   }
 
-  const origin: string = url.origin;
+  const proto =
+    request.headers.get("X-Forwarded-Proto") ?? url.protocol.replace(":", "");
+  const host = request.headers.get("X-Forwarded-Host") ?? url.host;
+  const origin = `${proto}://${host}`;
   const reqCookie: string = cookie;
   const state: string | undefined = url.searchParams.get("state") ?? undefined;
 

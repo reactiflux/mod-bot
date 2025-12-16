@@ -58,7 +58,10 @@ export const StripeService = {
             client_reference_id: guildId,
             customer_email: customerEmail,
             metadata: { guild_id: guildId },
-            subscription_data: { metadata: { guild_id: guildId } },
+            subscription_data: {
+              metadata: { guild_id: guildId },
+              trial_period_days: 90,
+            },
           });
 
           log("info", "Stripe", "Checkout session created successfully", {
@@ -70,7 +73,7 @@ export const StripeService = {
         } catch (error) {
           log("error", "Stripe", "Failed to create checkout session", {
             guildId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
           Sentry.captureException(error);
           throw error;
@@ -115,7 +118,7 @@ export const StripeService = {
         } catch (error) {
           log("error", "Stripe", "Failed to verify checkout session", {
             sessionId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
           Sentry.captureException(error);
           return null;
@@ -141,10 +144,7 @@ export const StripeService = {
         try {
           const customer = await stripe.customers.create({
             email,
-            metadata: {
-              guild_id: guildId,
-              guild_name: guildName ?? "",
-            },
+            metadata: { guild_id: guildId, guild_name: guildName ?? "" },
           });
 
           log("info", "Stripe", "Customer created successfully", {
@@ -156,7 +156,7 @@ export const StripeService = {
         } catch (error) {
           log("error", "Stripe", "Failed to create customer", {
             guildId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
           Sentry.captureException(error);
           throw error;
@@ -196,7 +196,7 @@ export const StripeService = {
         } catch (error) {
           log("error", "Stripe", "Failed to search for customer", {
             guildId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
           Sentry.captureException(error);
           return null;
@@ -226,7 +226,7 @@ export const StripeService = {
         } catch (error) {
           log("error", "Stripe", "Failed to cancel subscription", {
             subscriptionId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
           Sentry.captureException(error);
           return false;

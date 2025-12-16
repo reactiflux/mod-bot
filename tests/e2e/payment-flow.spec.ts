@@ -153,7 +153,7 @@ test.describe("Payment Flow", () => {
 
       // Submit the payment
       await authenticatedPage
-        .getByRole("button", { name: /subscribe|pay/i })
+        .getByTestId("hosted-payment-submit-button")
         .click();
 
       await authenticatedPage.waitForTimeout(2000);

@@ -2,7 +2,17 @@
 
 import { test as base, type Cookie, type Page } from "@playwright/test";
 
-import { DbFixture, type TestUser } from "./db";
+import { DbFixture, isRemote, type TestUser } from "./db";
+
+// Get domain from preview URL or default to localhost
+function getCookieDomain(): string {
+  const previewUrl = process.env.E2E_PREVIEW_URL;
+  if (previewUrl) {
+    const url = new URL(previewUrl);
+    return url.hostname;
+  }
+  return "localhost";
+}
 
 /**
  * Extended test fixture with authentication support
@@ -36,16 +46,18 @@ export const test = base.extend<{
       "base64",
     );
 
+    const domain = getCookieDomain();
+
     // Create cookies that match what the app expects
     const cookies: Cookie[] = [
       {
         name: "__session",
         value: encodedSessionId,
-        domain: "localhost",
+        domain,
         path: "/",
         expires: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days from now
         httpOnly: true,
-        secure: false,
+        secure: isRemote, // Secure cookies for remote (HTTPS)
         sameSite: "Lax",
       },
     ];

@@ -88,7 +88,7 @@ export default function init() {
       log("error", "Gateway", "Failed to join thread", {
         threadId: thread.id,
         guildId: thread.guild.id,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
     });
   });

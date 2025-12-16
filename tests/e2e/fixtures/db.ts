@@ -4,16 +4,25 @@ import { Kysely, SqliteDialect } from "kysely";
 
 import type { DB } from "#~/db";
 
+import { FIXTURE_IDS } from "../../../scripts/fixtures/constants";
+
+// Check if we're running against a remote preview
+export const isRemote = !!process.env.E2E_PREVIEW_URL;
+
 const DATABASE_URL = process.env.DATABASE_URL ?? "./mod-bot.sqlite3";
 
-// Create a separate db instance for tests
-const testDialect = new SqliteDialect({
-  database: new SQLite(DATABASE_URL),
-});
+// Only create local db connection if not in remote mode
+const testDialect = isRemote
+  ? null
+  : new SqliteDialect({
+      database: new SQLite(DATABASE_URL),
+    });
 
-const testDb = new Kysely<DB>({
-  dialect: testDialect,
-});
+const testDb = isRemote
+  ? null
+  : new Kysely<DB>({
+      dialect: testDialect!,
+    });
 
 export interface TestGuild {
   id: string;
@@ -40,6 +49,7 @@ export interface TestUser {
 export class DbFixture {
   /**
    * Create a test guild with optional subscription
+   * In remote mode, returns pre-seeded guild data
    */
   async createGuild(options?: {
     id?: string;
@@ -49,10 +59,29 @@ export class DbFixture {
     stripeSubscriptionId?: string;
     currentPeriodEnd?: string;
   }): Promise<TestGuild> {
+    // In remote mode, return pre-seeded guild
+    if (isRemote) {
+      const isPaid = options?.productTier === "paid";
+      const guild = isPaid ? FIXTURE_IDS.guilds.paid : FIXTURE_IDS.guilds.free;
+      return {
+        id: guild.id,
+        subscription: {
+          product_tier: isPaid ? "paid" : "free",
+          status: "active",
+          stripe_customer_id: isPaid
+            ? FIXTURE_IDS.stripe.customerId
+            : undefined,
+          stripe_subscription_id: isPaid
+            ? FIXTURE_IDS.stripe.subscriptionId
+            : undefined,
+        },
+      };
+    }
+
     const guildId = options?.id ?? randomUUID();
 
     // Create guild record
-    await testDb
+    await testDb!
       .insertInto("guilds")
       .values({
         id: guildId,
@@ -62,7 +91,7 @@ export class DbFixture {
 
     // Create subscription if tier is provided
     if (options?.productTier) {
-      await testDb
+      await testDb!
         .insertInto("guild_subscriptions")
         .values({
           guild_id: guildId,
@@ -93,17 +122,27 @@ export class DbFixture {
 
   /**
    * Create a test user
+   * In remote mode, returns pre-seeded user data
    */
   async createUser(options?: {
     id?: string;
     externalId?: string;
     email?: string;
   }): Promise<TestUser> {
+    // In remote mode, return pre-seeded user
+    if (isRemote) {
+      return {
+        id: FIXTURE_IDS.users.testUser.id,
+        externalId: FIXTURE_IDS.users.testUser.externalId,
+        email: FIXTURE_IDS.users.testUser.email,
+      };
+    }
+
     const userId = options?.id ?? randomUUID();
     const externalId = options?.externalId ?? `discord_${randomUUID()}`;
     const email = options?.email ?? `test_${randomUUID()}@example.com`;
 
-    await testDb
+    await testDb!
       .insertInto("users")
       .values({
         id: userId,
@@ -118,11 +157,17 @@ export class DbFixture {
 
   /**
    * Create a test session for a user
+   * In remote mode, returns pre-seeded session ID
    */
   async createSession(
     userId: string,
     discordToken?: Record<string, unknown>,
   ): Promise<string> {
+    // In remote mode, return pre-seeded session
+    if (isRemote) {
+      return FIXTURE_IDS.sessions.testSession;
+    }
+
     const sessionId = randomUUID();
 
     const sessionData = {
@@ -137,7 +182,7 @@ export class DbFixture {
       },
     };
 
-    await testDb
+    await testDb!
       .insertInto("sessions")
       .values({
         id: sessionId,
@@ -151,9 +196,31 @@ export class DbFixture {
 
   /**
    * Get subscription for a guild
+   * In remote mode, returns seeded subscription data
    */
   async getGuildSubscription(guildId: string) {
-    return await testDb
+    if (isRemote) {
+      // Return seeded data based on guild ID
+      if (guildId === FIXTURE_IDS.guilds.free.id) {
+        return {
+          guild_id: guildId,
+          product_tier: "free" as const,
+          status: "active",
+        };
+      }
+      if (guildId === FIXTURE_IDS.guilds.paid.id) {
+        return {
+          guild_id: guildId,
+          product_tier: "paid" as const,
+          status: "active",
+          stripe_customer_id: FIXTURE_IDS.stripe.customerId,
+          stripe_subscription_id: FIXTURE_IDS.stripe.subscriptionId,
+        };
+      }
+      return undefined;
+    }
+
+    return await testDb!
       .selectFrom("guild_subscriptions")
       .selectAll()
       .where("guild_id", "=", guildId)
@@ -203,6 +270,7 @@ export class DbFixture {
 
   /**
    * Get database instance for custom queries
+   * Returns null in remote mode
    */
   getDb() {
     return testDb;

@@ -1,4 +1,4 @@
-FROM node:24-alpine as build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -22,6 +22,7 @@ RUN npm prune --production
 COPY --from=build /app/build ./build
 ADD index.prod.js ./
 
+COPY scripts ./scripts
 COPY kysely.config.ts ./
 COPY migrations ./migrations
 
