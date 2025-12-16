@@ -32,6 +32,19 @@
 1. Look for the following message in the logs, and open the URL in a browser where you're logged into Discord.
    - `Bot started. If necessary, add it to your test server:`
 
+## PR Preview Environments
+
+When you open a pull request, a preview environment is automatically deployed at `https://<pr-number>.euno-staging.reactiflux.com`. The bot will comment on your PR with the preview URL.
+
+**What happens on each push:**
+1. Docker image is built and pushed
+2. Preview is deployed to the staging namespace
+3. Database is reset (starts fresh each deploy)
+4. E2E tests run against the preview URL
+5. Test results are posted as a PR comment
+
+**To skip preview deployment:** Add the `no-preview` label to your PR, or mark it as a draft.
+
 # Implementation notes
 
 There are subtle issues when making some chaings. These are notes for steps to take to make sure it's done correctly when needed.
