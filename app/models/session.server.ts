@@ -119,9 +119,33 @@ export const DbSessionKeys = {
   authGuildId: "guildId",
 } as const;
 
+/**
+ * Check if a specific cookie is present in the request headers.
+ */
+function hasCookie(request: Request, cookieName: string): boolean {
+  const cookieHeader = request.headers.get("Cookie");
+  if (!cookieHeader) return false;
+  // Match cookie name at start of string or after semicolon, followed by =
+  const regex = new RegExp(`(?:^|;\\s*)${cookieName}=`);
+  return regex.test(cookieHeader);
+}
+
 async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getDbSession(request.headers.get("Cookie"));
   const userId = session.get(CookieSessionKeys.userId) as string;
+
+  // If session cookies are present but we got no userId, the cookies are
+  // invalid (e.g., session expired, database session deleted, cookie
+  // corrupted). Clear them to prevent the client from repeatedly sending
+  // invalid cookies.
+  if (!userId) {
+    const hasSessionCookie = hasCookie(request, "__session");
+    const hasClientSessionCookie = hasCookie(request, "__client-session");
+    if (hasSessionCookie || hasClientSessionCookie) {
+      throw await logout(request);
+    }
+  }
+
   return userId;
 }
 
