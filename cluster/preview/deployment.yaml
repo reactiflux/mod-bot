@@ -34,13 +34,6 @@ spec:
           env:
             - name: ENVIRONMENT
               value: staging
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "50m"
-            limits:
-              memory: "256Mi"
-              cpu: "500m"
           startupProbe:
             httpGet:
               path: /healthcheck

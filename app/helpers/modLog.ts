@@ -2,7 +2,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import {
   ChannelType,
   messageLink,
-  MessageType,
+  MessageReferenceType,
   type AnyThreadChannel,
   type APIEmbed,
   type Message,
@@ -46,6 +46,20 @@ const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.modResolution]: "Mod vote resolved",
   [ReportReasons.spam]: "detected as spam",
 };
+
+const isForwardedMessage = (message: Message): boolean => {
+  return message.reference?.type === MessageReferenceType.Forward;
+};
+
+const getMessageContent = (message: Message): string => {
+  if (isForwardedMessage(message)) {
+    // For forwards, content is in the snapshot
+    const snapshot = message.messageSnapshots.first();
+    return snapshot?.content ?? message.content;
+  }
+  return message.content;
+};
+
 interface Reported {
   message: Message;
   warnings: number;
@@ -200,7 +214,7 @@ export const reportUser = async ({
   // If it has the data for a poll, use a specialized formatting function
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
-    : quoteAndEscape(message.content).trim();
+    : quoteAndEscape(getMessageContent(message)).trim();
   // Send the detailed log message to thread
   const [logMessage] = await Promise.all([
     thread.send(logBody),
@@ -243,13 +257,13 @@ export const reportUser = async ({
 
   // Send summary to parent channel if possible
   if (thread.parent?.isSendable()) {
-    const singleLine = message.cleanContent
-      .slice(0, 80)
-      .replaceAll("\n", "\\n ");
+    // For forwarded messages, cleanContent is empty - use snapshot content instead
+    const content = isForwardedMessage(message)
+      ? getMessageContent(message)
+      : message.cleanContent;
+    const singleLine = content.slice(0, 80).replaceAll("\n", "\\n ");
     const truncatedMessage =
-      message.cleanContent.length > 80
-        ? `${singleLine.slice(0, 80)}…`
-        : singleLine;
+      singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
 
     try {
       const stats = await getMessageStats(message);
@@ -312,15 +326,7 @@ const constructLog = async ({
   const { moderator } = await fetchSettings(lastReport.message.guild.id, [
     SETTINGS.moderator,
   ]);
-  let { message } = lastReport;
-  if (
-    // If there's a reference and it's not a reply, it's a forwarded message.
-    // Fetch the reference and track that message.
-    lastReport.message.type !== MessageType.Reply &&
-    lastReport.message.reference
-  ) {
-    message = await message.fetchReference();
-  }
+  const { message } = lastReport;
 
   // This should never be possible but we gotta satisfy types
   if (!moderator) {
@@ -330,15 +336,21 @@ const constructLog = async ({
   const { content: report, embeds: reactions = [] } =
     makeReportMessage(lastReport);
 
-  const preface = `${report} ${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
+  // Add indicator if this is forwarded content
+  const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
+  const preface = `${report}${forwardNote} ${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
     lastReport.message.author.username
   })`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
-  const embeds = [
-    describeAttachments(message.attachments),
-    ...reactions,
-  ].filter((e): e is APIEmbed => Boolean(e));
+  // For forwarded messages, get attachments from the snapshot
+  const attachments = isForwardedMessage(message)
+    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
+    : message.attachments;
+
+  const embeds = [describeAttachments(attachments), ...reactions].filter(
+    (e): e is APIEmbed => Boolean(e),
+  );
   return {
     content: truncateMessage(`${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
