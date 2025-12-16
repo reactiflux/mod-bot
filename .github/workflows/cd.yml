@@ -192,7 +192,6 @@ jobs:
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
 
           kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
-          kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
 
           echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
 
@@ -230,6 +229,8 @@ jobs:
             );
 
             const body = `### Preview deployed
+
+            It may take a few minutes before the service becomes available.
 
             | Environment | URL |
             |-------------|-----|
@@ -283,6 +284,19 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
+
+      - name: Wait for service to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf "$TARGET_URL" > /dev/null; then
+              echo "Service is ready"
+              exit 0
+            fi
+            echo "Waiting for service... ($i/30)"
+            sleep 10
+          done
+          echo "Service did not become ready in time"
+          exit 1
 
       - name: Run Playwright tests
         run: npm run test:e2e
