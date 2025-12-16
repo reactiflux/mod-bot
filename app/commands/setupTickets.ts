@@ -15,9 +15,8 @@ import {
   type ChatInputCommandInteraction,
 } from "discord.js";
 
-import { REST } from "@discordjs/rest";
-
 import db from "#~/db.server.js";
+import { ssrDiscordSdk as rest } from "#~/discord/api";
 import {
   quoteMessageContent,
   type AnyCommand,
@@ -25,10 +24,7 @@ import {
   type ModalCommand,
   type SlashCommand,
 } from "#~/helpers/discord";
-import { discordToken } from "#~/helpers/env.server";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
-
-const rest = new REST({ version: "10" }).setToken(discordToken);
 
 const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
