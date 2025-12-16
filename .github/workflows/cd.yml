@@ -52,7 +52,7 @@ jobs:
   deployment:
     needs: build
     runs-on: ubuntu-latest
-    environment: CI
+    environment: ${{ github.ref == 'refs/heads/main' && 'Main branch' || 'CI' }}
     outputs:
       pr_number: ${{ steps.get-pr.outputs.result }}
       preview_url: ${{ steps.set-outputs.outputs.preview_url }}
