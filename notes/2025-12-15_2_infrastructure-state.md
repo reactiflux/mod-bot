@@ -16,11 +16,11 @@ PR → main (production)
 
 ## Workflows
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| ci.yml | push (non-main), workflow_call | lint, typecheck, vitest; e2e when called with preview_url |
-| cd.yml | push (all) | Build image; deploy production (main) or preview (PR branches) |
-| preview.yml | PR closed/labeled | Cleanup preview resources only |
+| Workflow    | Trigger                        | Purpose                                                        |
+| ----------- | ------------------------------ | -------------------------------------------------------------- |
+| ci.yml      | push (non-main), workflow_call | lint, typecheck, vitest; e2e when called with preview_url      |
+| cd.yml      | push (all)                     | Build image; deploy production (main) or preview (PR branches) |
+| preview.yml | PR closed/labeled              | Cleanup preview resources only                                 |
 
 Preview deploy and E2E orchestration consolidated into cd.yml.
 
@@ -49,6 +49,7 @@ scripts/fixtures/
 Each preview has unique URL but Stripe only has one registered webhook endpoint. Payment flow E2E tests in preview environments won't receive webhooks.
 
 **Status**: Architectural limitation. Options:
+
 - Mock Stripe in previews
 - Document payment testing as local-only
 - Shared staging webhook with routing
@@ -90,15 +91,15 @@ See `2025-12-14_1_ci-cd-architecture-review.md` for full proposal.
 
 ## Key Files
 
-| Purpose | File |
-|---------|------|
-| CI | .github/workflows/ci.yml |
-| CD + Preview deploy | .github/workflows/cd.yml |
-| Preview cleanup | .github/workflows/preview.yml |
-| Production K8s | cluster/deployment.yaml |
-| Preview K8s | cluster/preview/deployment.yaml |
-| Fixtures | scripts/fixtures/ |
-| E2E tests | tests/e2e/payment-flow.spec.ts |
+| Purpose             | File                            |
+| ------------------- | ------------------------------- |
+| CI                  | .github/workflows/ci.yml        |
+| CD + Preview deploy | .github/workflows/cd.yml        |
+| Preview cleanup     | .github/workflows/preview.yml   |
+| Production K8s      | cluster/deployment.yaml         |
+| Preview K8s         | cluster/preview/deployment.yaml |
+| Fixtures            | scripts/fixtures/               |
+| E2E tests           | tests/e2e/payment-flow.spec.ts  |
 
 ## Open Questions
 

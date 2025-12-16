@@ -37,6 +37,7 @@
 When you open a pull request, a preview environment is automatically deployed at `https://<pr-number>.euno-staging.reactiflux.com`. The bot will comment on your PR with the preview URL.
 
 **What happens on each push:**
+
 1. Docker image is built and pushed
 2. Preview is deployed to the staging namespace
 3. Database is reset (starts fresh each deploy)
