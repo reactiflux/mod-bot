@@ -23,20 +23,24 @@ AND scheduled_for <= datetime('now')
 ## Changes
 
 ### Migration (`20251217145416_add_scheduled_for.ts`)
+
 - Added `scheduled_for` text column
 - Backfills existing pending escalations based on current vote count
 
 ### Model (`escalationVotes.server.ts`)
+
 - `calculateScheduledFor(createdAt, voteCount)` - computes scheduled time
 - `updateScheduledFor(id, scheduledFor)` - persists new scheduled time
 - `getDueEscalations()` - queries escalations past their scheduled time
 - `createEscalation()` - now sets initial `scheduled_for` (36h from creation)
 
 ### Handlers (`handlers.ts`)
+
 - Vote handler: updates `scheduled_for` after recording vote
 - Re-escalation handler: updates `scheduled_for` when upgrading to majority voting
 
 ### Resolver (`escalationResolver.ts`)
+
 - Simplified to use `getDueEscalations()` instead of `getPendingEscalations()`
 - Removed `shouldAutoResolve()` check—query already filters for due escalations
 

@@ -11,10 +11,12 @@ When session cookies were invalid (expired database sessions, corrupted cookies,
 ## Solution
 
 Modified `getUserId()` in `session.server.ts` to detect when:
+
 1. Session cookies are present in the request (`__session` or `__client-session`)
 2. But no valid userId was found in the session
 
 When this condition is detected, we call `logout(request)` which:
+
 - Destroys both session cookies (sets them to expire)
 - Redirects to `/`
 
