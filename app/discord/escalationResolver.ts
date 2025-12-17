@@ -1,7 +1,7 @@
 import { type Client, type Guild, type ThreadChannel } from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
-import { shouldAutoResolve } from "#~/helpers/escalationVotes.js";
+import { reportUser } from "#~/helpers/modLog.ts";
 import {
   humanReadableResolutions,
   resolutions,
@@ -11,7 +11,7 @@ import { log, trackPerformance } from "#~/helpers/observability";
 import { scheduleTask } from "#~/helpers/schedule";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
-  getPendingEscalations,
+  getDueEscalations,
   getVotesForEscalation,
   resolveEscalation,
   type Escalation,
@@ -114,15 +114,30 @@ async function executeScheduledResolution(
       client.guilds.fetch(escalation.guild_id),
       client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
     ]);
-    const reportedMember = await guild.members
-      .fetch(escalation.reported_user_id)
-      .catch(() => null);
-    const vote = await channel.messages.fetch(escalation.vote_message_id);
+    const [reportedUser, reportedMember, vote] = await Promise.all([
+      client.users.fetch(escalation.reported_user_id).catch(() => null),
+      guild.members.fetch(escalation.reported_user_id).catch(() => null),
+      channel.messages.fetch(escalation.vote_message_id),
+    ]);
 
-    if (!reportedMember) {
-      log("debug", "EscalationResolve", "Reported member failed to load");
+    if (!reportedUser || !reportedMember) {
+      log("debug", "EscalationResolver", "Couldn't load user/member info", {
+        reportUser,
+        reportedMember,
+      });
       return;
     }
+    // todo: fix this mess
+    // if (reportedUser) {
+    //   if (!reportedMember) {
+    //     log(
+    //       "debug",
+    //       "EscalationResolver",
+    //       "Reported user is no longer a member of this server. Marking as resolved.",
+    //     );
+    //     return;
+    //   }
+    // }
 
     await executeResolution(resolution, escalation, guild);
     await resolveEscalation(escalation.id, resolution);
@@ -158,30 +173,26 @@ async function executeScheduledResolution(
 }
 
 /**
- * Check all pending escalations and auto-resolve any that have timed out.
+ * Check all due escalations and auto-resolve them.
+ * Uses scheduled_for column to determine which escalations are ready.
  */
 async function checkPendingEscalations(client: Client): Promise<void> {
   await trackPerformance("checkPendingEscalations", async () => {
-    const pending = await getPendingEscalations();
+    const due = await getDueEscalations();
 
-    if (pending.length === 0) {
+    if (due.length === 0) {
       return;
     }
 
-    log("debug", "EscalationResolver", "Checking pending escalations", {
-      count: pending.length,
+    log("debug", "EscalationResolver", "Processing due escalations", {
+      count: due.length,
     });
 
-    for (const escalation of pending) {
+    for (const escalation of due) {
       try {
         const votes = await getVotesForEscalation(escalation.id);
         const tally = tallyVotes(votes);
         const votingStrategy = escalation.voting_strategy;
-
-        // Check if timeout has elapsed
-        if (!shouldAutoResolve(escalation.created_at, tally.leaderCount)) {
-          continue;
-        }
 
         // Determine the resolution to take
         let resolution: Resolution;

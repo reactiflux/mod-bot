@@ -20,12 +20,14 @@ import {
 import { log } from "#~/helpers/observability";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
+  calculateScheduledFor,
   createEscalation,
   getEscalation,
   getVotesForEscalation,
   recordVote,
   resolveEscalation,
   updateEscalationStrategy,
+  updateScheduledFor,
 } from "#~/models/escalationVotes.server";
 import {
   DEFAULT_QUORUM,
@@ -346,6 +348,13 @@ ${buildVotesListContent(tally)}`,
         votingStrategy,
       );
 
+      // Update scheduled_for based on new vote count
+      const newScheduledFor = calculateScheduledFor(
+        escalation.created_at,
+        tally.totalVotes,
+      );
+      await updateScheduledFor(escalationId, newScheduledFor);
+
       // Check if early resolution triggered with clear winner - show confirmed state
       if (earlyResolution && !tally.isTied && tally.leader) {
         await interaction.update({
@@ -526,6 +535,13 @@ ${buildVotesListContent(tally)}`,
         if (votingStrategy) {
           await updateEscalationStrategy(escalationId, votingStrategy);
         }
+
+        // Recalculate scheduled_for based on current vote count
+        const newScheduledFor = calculateScheduledFor(
+          escalation.created_at,
+          tally.totalVotes,
+        );
+        await updateScheduledFor(escalationId, newScheduledFor);
 
         // Send notification
         await interaction.editReply("Escalation upgraded to majority voting");
