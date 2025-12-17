@@ -1,7 +1,14 @@
-import { type Client, type Guild, type ThreadChannel } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ComponentType,
+  type Client,
+  type Guild,
+  type Message,
+  type ThreadChannel,
+} from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
-import { reportUser } from "#~/helpers/modLog.ts";
 import {
   humanReadableResolutions,
   resolutions,
@@ -16,6 +23,7 @@ import {
   resolveEscalation,
   type Escalation,
 } from "#~/models/escalationVotes.server";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server.ts";
 
 export async function executeResolution(
   resolution: Resolution,
@@ -94,6 +102,32 @@ export async function executeResolution(
 const ONE_MINUTE = 60 * 1000;
 
 /**
+ * Get disabled versions of all button components from a message.
+ */
+function getDisabledButtons(
+  message: Message,
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+
+  for (const row of message.components) {
+    if (!("components" in row)) continue;
+
+    const buttons = row.components.filter(
+      (c) => c.type === ComponentType.Button,
+    );
+    if (buttons.length === 0) continue;
+
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        buttons.map((btn) => ButtonBuilder.from(btn).setDisabled(true)),
+      ),
+    );
+  }
+
+  return rows;
+}
+
+/**
  * Execute a resolution action on a user via scheduled auto-resolution.
  */
 async function executeScheduledResolution(
@@ -110,47 +144,71 @@ async function executeScheduledResolution(
   log("info", "EscalationResolver", "Auto-resolving escalation", logBag);
 
   try {
-    const [guild, channel] = await Promise.all([
+    const { modLog } = await fetchSettings(escalation.guild_id, [
+      SETTINGS.modLog,
+    ]);
+    const [guild, channel, reportedUser] = await Promise.all([
       client.guilds.fetch(escalation.guild_id),
       client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
-    ]);
-    const [reportedUser, reportedMember, vote] = await Promise.all([
       client.users.fetch(escalation.reported_user_id).catch(() => null),
+    ]);
+    const [reportedMember, vote] = await Promise.all([
       guild.members.fetch(escalation.reported_user_id).catch(() => null),
       channel.messages.fetch(escalation.vote_message_id),
     ]);
 
-    if (!reportedUser || !reportedMember) {
-      log("debug", "EscalationResolver", "Couldn't load user/member info", {
-        reportUser,
-        reportedMember,
+    const now = Math.floor(Date.now() / 1000);
+    const createdAt = Math.floor(
+      Number(new Date(escalation.created_at)) / 1000,
+    );
+    const elapsedHours = Math.floor((now - createdAt) / 60 / 60);
+
+    // Handle case where user left the server or deleted their account
+    if (!reportedMember) {
+      const userLeft = reportedUser !== null;
+      const reason = userLeft
+        ? "User left the server"
+        : "User account no longer exists";
+
+      log("info", "EscalationResolver", "Resolving escalation - user gone", {
+        ...logBag,
+        reason,
+        userLeft,
       });
+
+      // Mark as resolved with "track" since we can't take action
+      await resolveEscalation(escalation.id, resolutions.track);
+      await vote.edit({
+        components: getDisabledButtons(vote),
+      });
+      try {
+        const displayName = reportedUser?.username ?? "Unknown User";
+        const notice = await vote.reply({
+          content: `Resolved: **${humanReadableResolutions[resolutions.track]}** <@${escalation.reported_user_id}> (${displayName})
+-# ${reason}. Resolved <t:${now}:d>, ${elapsedHours}hrs after escalation`,
+        });
+        await notice.forward(modLog);
+      } catch (error) {
+        log("warn", "EscalationResolver", "Could not update vote message", {
+          ...logBag,
+          error,
+        });
+      }
       return;
     }
-    // todo: fix this mess
-    // if (reportedUser) {
-    //   if (!reportedMember) {
-    //     log(
-    //       "debug",
-    //       "EscalationResolver",
-    //       "Reported user is no longer a member of this server. Marking as resolved.",
-    //     );
-    //     return;
-    //   }
-    // }
 
     await executeResolution(resolution, escalation, guild);
     await resolveEscalation(escalation.id, resolution);
+    await vote.edit({
+      components: getDisabledButtons(vote),
+    });
 
     try {
-      // @ts-expect-error cuz nullcheck but ! is harder to search for
-      const resolvedAt = new Date(escalation.resolved_at);
-      const elapsed =
-        Number(resolvedAt) - Number(new Date(escalation.created_at));
-      await vote.reply({
-        content: `Escalation Resolved: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}> (${reportedMember.displayName})\n-# _(Resolved <t:${Math.floor(Number(resolvedAt) / 1000)}:t>), ${Math.floor(elapsed / 1000 / 60 / 60)}hrs later_`,
-        components: [],
+      const notice = await vote.reply({
+        content: `Resolved: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedMember.displayName})
+-# Resolved <t:${now}:d>, ${elapsedHours}hrs after escalation`,
       });
+      await notice.forward(modLog);
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
         ...logBag,
