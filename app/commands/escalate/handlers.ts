@@ -28,6 +28,7 @@ import {
   resolveEscalation,
   updateEscalationStrategy,
   updateScheduledFor,
+  type Escalation,
 } from "#~/models/escalationVotes.server";
 import {
   DEFAULT_QUORUM,
@@ -342,11 +343,6 @@ ${buildVotesListContent(tally)}`,
       const quorum = flags.quorum;
       const votingStrategy =
         escalation.voting_strategy as VotingStrategy | null;
-      const earlyResolution = shouldTriggerEarlyResolution(
-        tally,
-        quorum,
-        votingStrategy,
-      );
 
       // Update scheduled_for based on new vote count
       const newScheduledFor = calculateScheduledFor(
@@ -355,14 +351,25 @@ ${buildVotesListContent(tally)}`,
       );
       await updateScheduledFor(escalationId, newScheduledFor);
 
+      // Create updated escalation object with new scheduled_for
+      const updatedEscalation: Escalation = {
+        ...escalation,
+        scheduled_for: newScheduledFor,
+      };
+
+      const earlyResolution = shouldTriggerEarlyResolution(
+        tally,
+        quorum,
+        votingStrategy,
+      );
+
       // Check if early resolution triggered with clear winner - show confirmed state
       if (earlyResolution && !tally.isTied && tally.leader) {
         await interaction.update({
           content: buildConfirmedMessageContent(
-            escalation.reported_user_id,
+            updatedEscalation,
             tally.leader,
             tally,
-            escalation.created_at,
           ),
           components: [
             new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -380,11 +387,8 @@ ${buildVotesListContent(tally)}`,
       await interaction.update({
         content: buildVoteMessageContent(
           modRoleId,
-          escalation.initiator_id,
-          escalation.reported_user_id,
+          updatedEscalation,
           tally,
-          quorum,
-          escalation.created_at,
           votingStrategy,
         ),
         components: buildVoteButtons(
@@ -440,14 +444,29 @@ ${buildVotesListContent(tally)}`,
       };
 
       const createdAt = new Date().toISOString();
+      const scheduledFor = calculateScheduledFor(createdAt, 0);
+
+      // Create a temporary escalation-like object for initial message
+      const tempEscalation: Escalation = {
+        id: escalationId,
+        guild_id: guildId,
+        thread_id: threadId,
+        vote_message_id: "", // Will be set after message is sent
+        reported_user_id: reportedUserId,
+        initiator_id: interaction.user.id,
+        flags: JSON.stringify({ quorum }),
+        created_at: createdAt,
+        resolved_at: null,
+        resolution: null,
+        voting_strategy: votingStrategy,
+        scheduled_for: scheduledFor,
+      };
+
       const content = {
         content: buildVoteMessageContent(
           modRoleId,
-          interaction.user.id,
-          reportedUserId,
+          tempEscalation,
           emptyTally,
-          quorum,
-          createdAt,
           votingStrategy,
         ),
         components: buildVoteButtons(
@@ -472,16 +491,7 @@ ${buildVotesListContent(tally)}`,
         }
         voteMessage = await channel.send(content);
         // Now create escalation record with the correct message ID
-        await createEscalation({
-          id: escalationId as `${string}-${string}-${string}-${string}-${string}`,
-          guildId,
-          threadId,
-          voteMessageId: voteMessage.id,
-          reportedUserId,
-          initiatorId: interaction.user.id,
-          quorum,
-          votingStrategy,
-        });
+        await createEscalation(tempEscalation);
 
         // Send notification
         await interaction.editReply("Escalation started");
@@ -508,15 +518,25 @@ ${buildVotesListContent(tally)}`,
         const votes = await getVotesForEscalation(escalationId);
         const tally = tallyVotes(votes);
 
+        // Recalculate scheduled_for based on current vote count
+        const newScheduledFor = calculateScheduledFor(
+          escalation.created_at,
+          tally.totalVotes,
+        );
+
+        // Create updated escalation object
+        const updatedEscalation: Escalation = {
+          ...escalation,
+          voting_strategy: votingStrategy,
+          scheduled_for: newScheduledFor,
+        };
+
         // Update content with current votes and new strategy
         const updatedContent = {
           content: buildVoteMessageContent(
             modRoleId,
-            escalation.initiator_id,
-            reportedUserId,
+            updatedEscalation,
             tally,
-            quorum,
-            escalation.created_at,
             votingStrategy,
           ),
           components: buildVoteButtons(
@@ -536,11 +556,6 @@ ${buildVotesListContent(tally)}`,
           await updateEscalationStrategy(escalationId, votingStrategy);
         }
 
-        // Recalculate scheduled_for based on current vote count
-        const newScheduledFor = calculateScheduledFor(
-          escalation.created_at,
-          tally.totalVotes,
-        );
         await updateScheduledFor(escalationId, newScheduledFor);
 
         // Send notification

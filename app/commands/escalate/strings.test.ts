@@ -1,5 +1,6 @@
 import { tallyVotes, type VoteTally } from "#~/commands/escalate/voting";
 import { resolutions } from "#~/helpers/modResponse";
+import type { Escalation } from "#~/models/escalationVotes.server";
 
 import {
   buildConfirmedMessageContent,
@@ -8,6 +9,27 @@ import {
 } from "./strings";
 
 const emptyTally: VoteTally = tallyVotes([]);
+
+// Helper to create mock escalation objects for testing
+function createMockEscalation(overrides: Partial<Escalation> = {}): Escalation {
+  const createdAt = new Date("2024-01-01T12:00:00Z").toISOString();
+  const scheduledFor = new Date("2024-01-02T12:00:00Z").toISOString(); // 24h later
+  return {
+    id: "test-escalation-id",
+    guild_id: "test-guild",
+    thread_id: "test-thread",
+    vote_message_id: "test-message",
+    reported_user_id: "123456789",
+    initiator_id: "987654321",
+    flags: JSON.stringify({ quorum: 3 }),
+    created_at: createdAt,
+    resolved_at: null,
+    resolution: null,
+    voting_strategy: null,
+    scheduled_for: scheduledFor,
+    ...overrides,
+  };
+}
 
 describe("buildVotesListContent", () => {
   it("returns empty string for no votes", () => {
@@ -47,60 +69,38 @@ describe("buildVotesListContent", () => {
 });
 
 describe("buildVoteMessageContent", () => {
-  const reportedUserId = "123456789";
-  const initiatorId = "987654321";
   const modRoleId = "564738291";
-  const createdAt = new Date("2024-01-01T12:00:00Z").toISOString();
 
   it("shows vote count toward quorum", () => {
-    const result = buildVoteMessageContent(
-      modRoleId,
-
-      initiatorId,
-      reportedUserId,
-      emptyTally,
-      3,
-      createdAt,
-    );
+    const escalation = createMockEscalation();
+    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
 
     expect(result).toMatch(/0 vote.*quorum at 3/);
     expect(result).not.toMatch("null");
   });
 
   it("mentions the reported user", () => {
-    const result = buildVoteMessageContent(
-      modRoleId,
+    const escalation = createMockEscalation();
+    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
 
-      initiatorId,
-      reportedUserId,
-      emptyTally,
-      3,
-      createdAt,
-    );
-
-    expect(result).toContain(`<@${reportedUserId}>`);
+    expect(result).toContain(`<@${escalation.reported_user_id}>`);
   });
 
   it("shows quorum reached status when votes >= quorum", () => {
+    const escalation = createMockEscalation();
     const tally = tallyVotes([
       { vote: resolutions.ban, voter_id: "u1" },
       { vote: resolutions.ban, voter_id: "u2" },
       { vote: resolutions.ban, voter_id: "u3" },
     ]);
-    const result = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      tally,
-      3,
-      createdAt,
-    );
+    const result = buildVoteMessageContent(modRoleId, escalation, tally);
 
     expect(result).toContain("Quorum reached");
     expect(result).toContain("Ban");
   });
 
   it("shows tied status when quorum reached but tied", () => {
+    const escalation = createMockEscalation();
     // Need 3+ votes for each option to reach quorum while tied
     const tally = tallyVotes([
       { vote: resolutions.ban, voter_id: "u1" },
@@ -110,49 +110,32 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.kick, voter_id: "u5" },
       { vote: resolutions.kick, voter_id: "u6" },
     ]);
-    const result = buildVoteMessageContent(
-      modRoleId,
-      initiatorId,
-      reportedUserId,
-      tally,
-      3,
-      createdAt,
-    );
+    const result = buildVoteMessageContent(modRoleId, escalation, tally);
 
     expect(result).toContain("Tied between");
     expect(result).toContain("tiebreaker");
   });
 
   it("includes Discord timestamp", () => {
-    const result = buildVoteMessageContent(
-      modRoleId,
-
-      initiatorId,
-      reportedUserId,
-      emptyTally,
-      3,
-      createdAt,
-    );
+    const escalation = createMockEscalation();
+    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
 
     expect(result).toMatch(/<t:\d+:R>/);
   });
 });
 
 describe("buildConfirmedMessageContent", () => {
-  const reportedUserId = "123456789";
-  const createdAt = new Date("2024-01-01T12:00:00Z").toISOString();
-
   it("shows the confirmed resolution", () => {
+    const escalation = createMockEscalation();
     const tally = tallyVotes([
       { vote: resolutions.ban, voter_id: "u1" },
       { vote: resolutions.ban, voter_id: "u2" },
       { vote: resolutions.ban, voter_id: "u3" },
     ]);
     const result = buildConfirmedMessageContent(
-      reportedUserId,
+      escalation,
       resolutions.ban,
       tally,
-      createdAt,
     );
 
     expect(result).toContain("Ban");
@@ -160,32 +143,32 @@ describe("buildConfirmedMessageContent", () => {
   });
 
   it("mentions the reported user", () => {
+    const escalation = createMockEscalation();
     const tally = tallyVotes([
       { vote: resolutions.kick, voter_id: "u1" },
       { vote: resolutions.kick, voter_id: "u2" },
       { vote: resolutions.kick, voter_id: "u3" },
     ]);
     const result = buildConfirmedMessageContent(
-      reportedUserId,
+      escalation,
       resolutions.kick,
       tally,
-      createdAt,
     );
 
-    expect(result).toContain(`<@${reportedUserId}>`);
+    expect(result).toContain(`<@${escalation.reported_user_id}>`);
   });
 
   it("shows execution timestamp", () => {
+    const escalation = createMockEscalation();
     const tally = tallyVotes([
       { vote: resolutions.track, voter_id: "u1" },
       { vote: resolutions.track, voter_id: "u2" },
       { vote: resolutions.track, voter_id: "u3" },
     ]);
     const result = buildConfirmedMessageContent(
-      reportedUserId,
+      escalation,
       resolutions.track,
       tally,
-      createdAt,
     );
 
     expect(result).toContain("Executes");
@@ -193,16 +176,16 @@ describe("buildConfirmedMessageContent", () => {
   });
 
   it("includes vote record", () => {
+    const escalation = createMockEscalation();
     const tally = tallyVotes([
       { vote: resolutions.restrict, voter_id: "mod1" },
       { vote: resolutions.restrict, voter_id: "mod2" },
       { vote: resolutions.kick, voter_id: "mod3" },
     ]);
     const result = buildConfirmedMessageContent(
-      reportedUserId,
+      escalation,
       resolutions.restrict,
       tally,
-      createdAt,
     );
 
     expect(result).toContain("<@mod1>");

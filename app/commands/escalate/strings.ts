@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
-import { calculateTimeoutHours } from "#~/helpers/escalationVotes";
+import { parseFlags } from "#~/helpers/escalationVotes";
 import type { Features } from "#~/helpers/featuresFlags.js";
 import {
   humanReadableResolutions,
@@ -8,6 +8,7 @@ import {
   type Resolution,
   type VotingStrategy,
 } from "#~/helpers/modResponse";
+import type { Escalation } from "#~/models/escalationVotes.server";
 
 import type { VoteTally } from "./voting";
 
@@ -29,26 +30,33 @@ export function buildVotesListContent(tally: VoteTally) {
  */
 export function buildVoteMessageContent(
   modRoleId: string,
-  initiatorId: string,
-  reportedUserId: string,
+  escalation: Escalation,
   tally: VoteTally,
-  quorum: number,
-  createdAt: string,
   votingStrategy: VotingStrategy | null = null,
 ): string {
-  const createdTimestamp = Math.floor(new Date(createdAt).getTime() / 1000);
-  const timeoutHours = calculateTimeoutHours(tally.leaderCount);
+  const createdTimestamp = Math.floor(
+    new Date(escalation.created_at).getTime() / 1000,
+  );
+  const scheduledFor = escalation.scheduled_for
+    ? Math.floor(new Date(escalation.scheduled_for).getTime() / 1000)
+    : null;
+  const flags = parseFlags(escalation.flags);
+  const quorum = flags.quorum;
   const isMajority = votingStrategy === "majority";
 
   let status: string;
   if (isMajority) {
     // Majority voting: always wait for timeout, plurality wins
     if (tally.totalVotes === 0) {
-      status = `Majority voting. Resolves in ${timeoutHours}h with leading option.`;
+      status = scheduledFor
+        ? `Majority voting. Resolves <t:${scheduledFor}:R> with leading option.`
+        : `Majority voting. Waiting for votes.`;
     } else if (tally.isTied) {
       status = `Tied between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Tiebreak needed before timeout.`;
     } else {
-      status = `Leading: ${humanReadableResolutions[tally.leader!]} (${tally.leaderCount} votes). Resolves in ${timeoutHours}h.`;
+      status = scheduledFor
+        ? `Leading: ${humanReadableResolutions[tally.leader!]} (${tally.leaderCount} votes). Resolves <t:${scheduledFor}:R>.`
+        : `Leading: ${humanReadableResolutions[tally.leader!]} (${tally.leaderCount} votes).`;
     }
   } else if (tally.leaderCount >= quorum) {
     // Simple voting: quorum reached
@@ -60,17 +68,17 @@ export function buildVoteMessageContent(
   } else {
     // Simple voting: quorum not reached
     status = `${tally.leaderCount} voter(s), quorum at ${quorum}.`;
-    if (tally.leaderCount > 0 && !tally.isTied) {
-      status += ` Auto-resolves with \`${tally.leader}\` in ${timeoutHours}h if no more votes.`;
-    } else if (tally.leaderCount > 0 && tally.isTied) {
-      status += ` Tiebreak needed in ${timeoutHours}h if no more votes are cast`;
+    if (tally.leaderCount > 0 && !tally.isTied && scheduledFor) {
+      status += ` Auto-resolves with \`${tally.leader}\` <t:${scheduledFor}:R> if no more votes.`;
+    } else if (tally.leaderCount > 0 && tally.isTied && scheduledFor) {
+      status += ` Tiebreak needed <t:${scheduledFor}:R> if no more votes are cast`;
     }
   }
 
   const votesList = buildVotesListContent(tally);
   const strategyLabel = isMajority ? " (majority)" : "";
 
-  return `<@${initiatorId}> called for a vote${strategyLabel} by <@&${modRoleId}> <t:${createdTimestamp}:R> regarding user <@${reportedUserId}>
+  return `<@${escalation.initiator_id}> called for a vote${strategyLabel} by <@&${modRoleId}> <t:${createdTimestamp}:R> regarding user <@${escalation.reported_user_id}>
 ${status}
 
 ${votesList || "_No votes yet_"}`;
@@ -142,18 +150,20 @@ export function buildVoteButtons(
  * Build message content for a confirmed resolution (quorum reached, awaiting execution).
  */
 export function buildConfirmedMessageContent(
-  reportedUserId: string,
+  escalation: Escalation,
   resolution: Resolution,
   tally: VoteTally,
-  createdAt: string,
 ): string {
-  const timeoutHours = calculateTimeoutHours(tally.leaderCount);
-  const executeAt =
-    new Date(createdAt).getTime() + timeoutHours * 60 * 60 * 1000;
-  const executeTimestamp = Math.floor(executeAt / 1000);
+  const executeTimestamp = escalation.scheduled_for
+    ? Math.floor(new Date(escalation.scheduled_for).getTime() / 1000)
+    : null;
 
-  return `**${humanReadableResolutions[resolution]}** ✅ <@${reportedUserId}>
-Executes <t:${executeTimestamp}:R>
+  const executesLine = executeTimestamp
+    ? `Executes <t:${executeTimestamp}:R>`
+    : "Executes soon";
+
+  return `**${humanReadableResolutions[resolution]}** ✅ <@${escalation.reported_user_id}>
+${executesLine}
 
 ${buildVotesListContent(tally)}`;
 }
