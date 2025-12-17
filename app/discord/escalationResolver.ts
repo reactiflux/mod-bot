@@ -178,9 +178,7 @@ async function executeScheduledResolution(
 
       // Mark as resolved with "track" since we can't take action
       await resolveEscalation(escalation.id, resolutions.track);
-      await vote.edit({
-        components: getDisabledButtons(vote),
-      });
+      await vote.edit({ components: getDisabledButtons(vote) });
       try {
         const displayName = reportedUser?.username ?? "Unknown User";
         const notice = await vote.reply({

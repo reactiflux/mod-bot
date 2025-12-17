@@ -4,9 +4,12 @@ import {
   ButtonStyle,
   MessageFlags,
   PermissionsBitField,
+  type Message,
   type MessageComponentInteraction,
+  type ThreadChannel,
 } from "discord.js";
 
+import { client } from "#~/discord/client.server.ts";
 import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
 import { parseFlags } from "#~/helpers/escalationVotes.js";
@@ -426,6 +429,7 @@ ${buildVotesListContent(tally)}`,
     if (restricted) {
       features.push("restrict");
     }
+    const guild = await client.guilds.fetch(guildId);
 
     // Determine voting strategy based on level
     const votingStrategy: VotingStrategy | null =
@@ -462,34 +466,35 @@ ${buildVotesListContent(tally)}`,
         scheduled_for: scheduledFor,
       };
 
-      const content = {
-        content: buildVoteMessageContent(
-          modRoleId,
-          tempEscalation,
-          emptyTally,
-          votingStrategy,
-        ),
-        components: buildVoteButtons(
-          features,
-          escalationId,
-          reportedUserId,
-          emptyTally,
-          false,
-          votingStrategy,
-        ),
-      };
-
-      let voteMessage;
+      const channel = (await guild.channels.fetch(
+        interaction.channelId,
+      )) as ThreadChannel;
+      let voteMessage: Message<true>;
       if (Number(level) === 0) {
         // Send vote message first to get its ID
-        const channel = interaction.channel;
         if (!channel || !("send" in channel)) {
           await interaction.editReply({
             content: "Failed to create escalation vote: invalid channel",
           });
           return;
         }
-        voteMessage = await channel.send(content);
+        voteMessage = await channel.send({
+          content: buildVoteMessageContent(
+            modRoleId,
+            tempEscalation,
+            emptyTally,
+            votingStrategy,
+          ),
+          components: buildVoteButtons(
+            features,
+            escalationId,
+            reportedUserId,
+            emptyTally,
+            false,
+            votingStrategy,
+          ),
+        });
+        tempEscalation.vote_message_id = voteMessage.id;
         // Now create escalation record with the correct message ID
         await createEscalation(tempEscalation);
 
@@ -504,9 +509,7 @@ ${buildVotesListContent(tally)}`,
           });
           return;
         }
-        voteMessage = await interaction.channel?.messages.fetch(
-          escalation.vote_message_id,
-        );
+        voteMessage = await channel.messages.fetch(escalation.vote_message_id);
         if (!voteMessage) {
           await interaction.editReply({
             content: "Failed to re-escalate: couldn't find vote message",
@@ -531,8 +534,7 @@ ${buildVotesListContent(tally)}`,
           scheduled_for: newScheduledFor,
         };
 
-        // Update content with current votes and new strategy
-        const updatedContent = {
+        await voteMessage.edit({
           content: buildVoteMessageContent(
             modRoleId,
             updatedEscalation,
@@ -547,9 +549,7 @@ ${buildVotesListContent(tally)}`,
             false, // Never in early resolution state when re-escalating to majority
             votingStrategy,
           ),
-        };
-
-        await voteMessage.edit(updatedContent);
+        });
 
         // Update the escalation's voting strategy
         if (votingStrategy) {
