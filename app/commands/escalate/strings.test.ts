@@ -73,7 +73,12 @@ describe("buildVoteMessageContent", () => {
 
   it("shows vote count toward quorum", () => {
     const escalation = createMockEscalation();
-    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      "simple",
+      escalation,
+      emptyTally,
+    );
 
     expect(result).toMatch(/0 vote.*quorum at 3/);
     expect(result).not.toMatch("null");
@@ -81,7 +86,12 @@ describe("buildVoteMessageContent", () => {
 
   it("mentions the reported user", () => {
     const escalation = createMockEscalation();
-    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      "simple",
+      escalation,
+      emptyTally,
+    );
 
     expect(result).toContain(`<@${escalation.reported_user_id}>`);
   });
@@ -93,7 +103,12 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.ban, voter_id: "u2" },
       { vote: resolutions.ban, voter_id: "u3" },
     ]);
-    const result = buildVoteMessageContent(modRoleId, escalation, tally);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      "simple",
+      escalation,
+      tally,
+    );
 
     expect(result).toContain("Quorum reached");
     expect(result).toContain("Ban");
@@ -110,7 +125,12 @@ describe("buildVoteMessageContent", () => {
       { vote: resolutions.kick, voter_id: "u5" },
       { vote: resolutions.kick, voter_id: "u6" },
     ]);
-    const result = buildVoteMessageContent(modRoleId, escalation, tally);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      "simple",
+      escalation,
+      tally,
+    );
 
     expect(result).toContain("Tied between");
     expect(result).toContain("tiebreaker");
@@ -118,7 +138,12 @@ describe("buildVoteMessageContent", () => {
 
   it("includes Discord timestamp", () => {
     const escalation = createMockEscalation();
-    const result = buildVoteMessageContent(modRoleId, escalation, emptyTally);
+    const result = buildVoteMessageContent(
+      modRoleId,
+      "simple",
+      escalation,
+      emptyTally,
+    );
 
     expect(result).toMatch(/<t:\d+:R>/);
   });

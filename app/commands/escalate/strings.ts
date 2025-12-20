@@ -30,9 +30,9 @@ export function buildVotesListContent(tally: VoteTally) {
  */
 export function buildVoteMessageContent(
   modRoleId: string,
+  votingStrategy: VotingStrategy,
   escalation: Escalation,
   tally: VoteTally,
-  votingStrategy: VotingStrategy | null = null,
 ): string {
   const createdTimestamp = Math.floor(
     new Date(escalation.created_at).getTime() / 1000,
@@ -89,11 +89,10 @@ ${votesList || "_No votes yet_"}`;
  */
 export function buildVoteButtons(
   enabledFeatures: Features[],
-  escalationId: string,
-  reportedUserId: string,
+  votingStrategy: VotingStrategy,
+  escalation: Escalation,
   tally: VoteTally,
   earlyResolutionTriggered: boolean,
-  votingStrategy: VotingStrategy | null = null,
 ): ActionRowBuilder<ButtonBuilder>[] {
   const resolutionList: Resolution[] = [];
   resolutionList.push(resolutions.track);
@@ -121,7 +120,7 @@ export function buildVoteButtons(
     // if (resolution === resolutions.warning) style = ButtonStyle.Primary;
 
     return new ButtonBuilder()
-      .setCustomId(`vote-${resolution}|${escalationId}`)
+      .setCustomId(`vote-${resolution}|${escalation.id}`)
       .setLabel(label)
       .setStyle(style)
       .setDisabled(disabled);
@@ -136,7 +135,9 @@ export function buildVoteButtons(
     rows.push(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
-          .setCustomId(`escalate-escalate|${reportedUserId}|1|${escalationId}`)
+          .setCustomId(
+            `escalate-escalate|${escalation.reported_user_id}|1|${escalation.id}`,
+          )
           .setLabel("Require majority vote")
           .setStyle(ButtonStyle.Primary),
       ),

@@ -345,7 +345,7 @@ ${buildVotesListContent(tally)}`,
       const flags = parseFlags(escalation.flags);
       const quorum = flags.quorum;
       const votingStrategy =
-        escalation.voting_strategy as VotingStrategy | null;
+        (escalation.voting_strategy as VotingStrategy) ?? "simple";
 
       // Update scheduled_for based on new vote count
       const newScheduledFor = calculateScheduledFor(
@@ -390,17 +390,16 @@ ${buildVotesListContent(tally)}`,
       await interaction.update({
         content: buildVoteMessageContent(
           modRoleId,
+          votingStrategy,
           updatedEscalation,
           tally,
-          votingStrategy,
         ),
         components: buildVoteButtons(
           features,
-          escalationId,
-          escalation.reported_user_id,
+          votingStrategy,
+          updatedEscalation,
           tally,
           earlyResolution,
-          votingStrategy,
         ),
       });
     },
@@ -433,39 +432,11 @@ ${buildVotesListContent(tally)}`,
 
     // Determine voting strategy based on level
     const votingStrategy: VotingStrategy | null =
-      Number(level) >= 1 ? votingStrategies.majority : null;
+      Number(level) >= 1 ? votingStrategies.majority : votingStrategies.simple;
 
     const quorum = DEFAULT_QUORUM;
 
     try {
-      const emptyTally: VoteTally = {
-        totalVotes: 0,
-        byResolution: new Map(),
-        leader: null,
-        leaderCount: 0,
-        isTied: false,
-        tiedResolutions: [],
-      };
-
-      const createdAt = new Date().toISOString();
-      const scheduledFor = calculateScheduledFor(createdAt, 0);
-
-      // Create a temporary escalation-like object for initial message
-      const tempEscalation: Escalation = {
-        id: escalationId,
-        guild_id: guildId,
-        thread_id: threadId,
-        vote_message_id: "", // Will be set after message is sent
-        reported_user_id: reportedUserId,
-        initiator_id: interaction.user.id,
-        flags: JSON.stringify({ quorum }),
-        created_at: createdAt,
-        resolved_at: null,
-        resolution: null,
-        voting_strategy: votingStrategy,
-        scheduled_for: scheduledFor,
-      };
-
       const channel = (await guild.channels.fetch(
         interaction.channelId,
       )) as ThreadChannel;
@@ -478,20 +449,45 @@ ${buildVotesListContent(tally)}`,
           });
           return;
         }
+
+        const createdAt = new Date().toISOString();
+        // Create a temporary escalation-like object for initial message
+        const tempEscalation: Escalation = {
+          id: escalationId,
+          guild_id: guildId,
+          thread_id: threadId,
+          vote_message_id: "", // Will be set after message is sent
+          reported_user_id: reportedUserId,
+          initiator_id: interaction.user.id,
+          flags: JSON.stringify({ quorum }),
+          created_at: createdAt,
+          resolved_at: null,
+          resolution: null,
+          voting_strategy: votingStrategy,
+          scheduled_for: calculateScheduledFor(createdAt, 0),
+        };
+        const emptyTally: VoteTally = {
+          totalVotes: 0,
+          byResolution: new Map(),
+          leader: null,
+          leaderCount: 0,
+          isTied: false,
+          tiedResolutions: [],
+        };
+
         voteMessage = await channel.send({
           content: buildVoteMessageContent(
             modRoleId,
+            votingStrategy,
             tempEscalation,
             emptyTally,
-            votingStrategy,
           ),
           components: buildVoteButtons(
             features,
-            escalationId,
-            reportedUserId,
+            votingStrategy,
+            tempEscalation,
             emptyTally,
             false,
-            votingStrategy,
           ),
         });
         tempEscalation.vote_message_id = voteMessage.id;
@@ -537,17 +533,16 @@ ${buildVotesListContent(tally)}`,
         await voteMessage.edit({
           content: buildVoteMessageContent(
             modRoleId,
+            votingStrategy,
             updatedEscalation,
             tally,
-            votingStrategy,
           ),
           components: buildVoteButtons(
             features,
-            escalationId,
-            reportedUserId,
+            votingStrategy,
+            escalation,
             tally,
             false, // Never in early resolution state when re-escalating to majority
-            votingStrategy,
           ),
         });
 
