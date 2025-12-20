@@ -204,7 +204,7 @@ export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.ModalSubmit;
 
-interface CodeStats {
+export interface CodeStats {
   chars: number;
   words: number;
   lines: number;

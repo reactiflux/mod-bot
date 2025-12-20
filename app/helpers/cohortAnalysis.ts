@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { partition } from "lodash-es";
 
-import type { CodeStats } from "#~/discord/activityTracker.js";
+import type { CodeStats } from "#~/helpers/discord";
 import { descriptiveStats, percentile } from "#~/helpers/statistics";
 import { createMessageStatsQuery } from "#~/models/activity.server";
 
@@ -15,11 +15,11 @@ const performanceThresholds = [
   { min: -Infinity, value: "bottom" },
 ] as const;
 
-type MetricConfig = {
+interface MetricConfig {
   key: "messageCount" | "reactionCount" | "codeChars" | "longestStreak";
   strength: string;
   improvement: string;
-};
+}
 
 const metricsConfig: MetricConfig[] = [
   {
@@ -53,11 +53,11 @@ export interface UserCohortMetrics {
     totalChars: number;
     totalLines: number;
     languageBreakdown: Record<string, number>;
-    topLanguages: Array<{
+    topLanguages: {
       language: string;
       chars: number;
       percentage: number;
-    }>;
+    }[];
   };
   streakData: {
     longestStreak: number;
@@ -168,7 +168,7 @@ function calculateUserPercentile(value: number, data: number[]): number {
 }
 
 function calculateStreakData(
-  dailyActivity: Array<{ date: string; messageCount: number }>,
+  dailyActivity: { date: string; messageCount: number }[],
 ): UserCohortMetrics["streakData"] {
   const sortedActivity = dailyActivity.sort((a, b) =>
     a.date.localeCompare(b.date),
@@ -179,8 +179,8 @@ function calculateStreakData(
   let tempStreak = 0;
   let activeDays = 0;
 
-  for (let i = 0; i < sortedActivity.length; i++) {
-    const hasActivity = sortedActivity[i].messageCount > 0;
+  for (const { messageCount } of sortedActivity) {
+    const hasActivity = messageCount > 0;
 
     if (hasActivity) {
       activeDays++;
@@ -217,7 +217,7 @@ function aggregateCodeStats(
 ): UserCohortMetrics["codeStats"] {
   const validCodeStats = codeStatsJson.flatMap((jsonStr) => {
     try {
-      return JSON.parse(jsonStr) as Array<CodeStats>;
+      return JSON.parse(jsonStr) as CodeStats[];
     } catch {
       return [];
     }
@@ -262,7 +262,7 @@ export async function getCohortMetrics(
   guildId: string,
   start: string,
   end: string,
-  minMessageThreshold: number = 10,
+  minMessageThreshold = 10,
 ): Promise<UserCohortMetrics[]> {
   // Get aggregated user data
   const userStatsQuery = createMessageStatsQuery(guildId, start, end)
@@ -312,12 +312,12 @@ export async function getCohortMetrics(
       });
       return acc;
     },
-    {} as Record<string, Array<{ date: string; messageCount: number }>>,
+    {} as Record<string, { date: string; messageCount: number }[]>,
   );
 
   return userStats.map((user) => {
     const codeStatsArray = user.code_stats_json
-      ? String(user.code_stats_json).split(",").filter(Boolean)
+      ? JSON.stringify(user.code_stats_json).split(",").filter(Boolean)
       : [];
 
     const userDailyActivity = fillDateGaps(
@@ -536,7 +536,7 @@ export async function getUserCohortAnalysis(
   userId: string,
   start: string,
   end: string,
-  minMessageThreshold: number = 10,
+  minMessageThreshold = 10,
 ) {
   const cohortMetrics = await getCohortMetrics(
     guildId,
