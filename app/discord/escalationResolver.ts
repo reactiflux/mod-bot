@@ -183,7 +183,7 @@ async function executeScheduledResolution(
         const displayName = reportedUser?.username ?? "Unknown User";
         const notice = await vote.reply({
           content: `Resolved: **${humanReadableResolutions[resolutions.track]}** <@${escalation.reported_user_id}> (${displayName})
--# ${reason}. Resolved <t:${now}:d>, ${elapsedHours}hrs after escalation`,
+-# ${reason}. Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
         });
         await notice.forward(modLog);
       } catch (error) {
@@ -204,7 +204,7 @@ async function executeScheduledResolution(
     try {
       const notice = await vote.reply({
         content: `Resolved: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedMember.displayName})
--# Resolved <t:${now}:d>, ${elapsedHours}hrs after escalation`,
+-# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
       });
       await notice.forward(modLog);
     } catch (error) {
