@@ -67,7 +67,7 @@ export function buildVoteMessageContent(
     }
   } else {
     // Simple voting: quorum not reached
-    status = `${tally.leaderCount} voter(s), quorum at ${quorum}.`;
+    status = `${tally.totalVotes} voter(s), quorum at ${quorum}.`;
     if (tally.leaderCount > 0 && !tally.isTied && scheduledFor) {
       status += ` Auto-resolves with \`${tally.leader}\` <t:${scheduledFor}:R> if no more votes.`;
     } else if (tally.leaderCount > 0 && tally.isTied && scheduledFor) {
