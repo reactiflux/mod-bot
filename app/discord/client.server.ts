@@ -1,5 +1,6 @@
-import { GatewayIntentBits, Client, Partials, ActivityType } from "discord.js";
+import { ActivityType, Client, GatewayIntentBits, Partials } from "discord.js";
 import { ReacordDiscordJs } from "reacord";
+
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -41,9 +42,7 @@ export const login = () => {
           guildNames: guildNames.join(", "),
         });
       } catch (error) {
-        log("error", "Client", "Failed to fetch guilds", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        log("error", "Client", "Failed to fetch guilds", { error });
       }
 
       if (client.application) {

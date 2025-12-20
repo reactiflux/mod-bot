@@ -18,7 +18,19 @@ export const log = (
   };
 
   // Use structured logging for better parsing
-  console.log(JSON.stringify(logEntry));
+  // Error objects have non-enumerable properties, so we need a replacer
+  console.log(
+    JSON.stringify(logEntry, (key, value) => {
+      if (value instanceof Error) {
+        return {
+          name: value.name,
+          message: value.message,
+          stack: value.stack,
+        };
+      }
+      return value;
+    }),
+  );
 };
 
 // Performance tracking helper

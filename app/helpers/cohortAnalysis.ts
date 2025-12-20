@@ -1,8 +1,10 @@
-import { createMessageStatsQuery } from "#~/models/activity.server";
-import { percentile, descriptiveStats } from "#~/helpers/statistics";
 import { sql } from "kysely";
 import { partition } from "lodash-es";
+
 import type { CodeStats } from "#~/discord/activityTracker.js";
+import { descriptiveStats, percentile } from "#~/helpers/statistics";
+import { createMessageStatsQuery } from "#~/models/activity.server";
+
 import { fillDateGaps } from "./dateUtils";
 
 const performanceThresholds = [

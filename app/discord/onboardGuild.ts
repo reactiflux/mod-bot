@@ -1,16 +1,20 @@
-import type { Client, TextChannel } from "discord.js";
-import { ChannelType } from "discord.js";
-import { retry } from "#~/helpers/misc";
+import { ChannelType, Events, type Client, type TextChannel } from "discord.js";
 
+import { retry } from "#~/helpers/misc";
 import { fetchGuild } from "#~/models/guilds.server";
+
+import { client } from "./client.server";
+import { deployCommands } from "./deployCommands.server";
 
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes
   // available after downtime, or when actually added to a new guild
-  bot.on("guildCreate", async (guild) => {
+  bot.on(Events.GuildCreate, async (guild) => {
     const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
-      const welcomeMessage = `You've added automoderation! Configure the bot with the /onboard command or go to http://localhost:3000/onboard`;
+      await deployCommands(client);
+
+      const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
 
       const channels = await guild.channels.fetch();
       const likelyChannels = channels.filter((c): c is TextChannel =>
@@ -24,14 +28,14 @@ export default async (bot: Client) => {
       await retry(5, async (n) => {
         switch (n) {
           case 0:
-            guild.systemChannel!.send(welcomeMessage);
+            void guild.systemChannel!.send(welcomeMessage);
             return;
           case 1:
-            guild.publicUpdatesChannel!.send(welcomeMessage);
+            void guild.publicUpdatesChannel!.send(welcomeMessage);
             return;
           default: {
             if (likelyChannels.size < n - 2) return;
-            likelyChannels.at(n - 2)!.send(welcomeMessage);
+            void likelyChannels.at(n - 2)!.send(welcomeMessage);
             return;
           }
         }

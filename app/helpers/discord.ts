@@ -1,33 +1,34 @@
 import {
-  parseMarkdownBlocks,
-  getChars,
-  getWords,
-} from "#~/helpers/messageParsing";
-import { partition } from "lodash-es";
-import type {
-  Message,
-  GuildMember,
-  PartialMessage,
-  Guild,
-  MessageReaction,
-  PartialMessageReaction,
-  MessageContextMenuCommandInteraction,
-  UserContextMenuCommandInteraction,
-  ChatInputCommandInteraction,
-  Poll,
-  APIEmbed,
-  Collection,
-  MessageComponentInteraction,
-  ModalSubmitInteraction,
-} from "discord.js";
-import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
   InteractionType,
   SlashCommandBuilder,
+  type APIEmbed,
+  type ChatInputCommandInteraction,
+  type Collection,
+  type Guild,
+  type GuildMember,
+  type Message,
+  type MessageComponentInteraction,
+  type MessageContextMenuCommandInteraction,
+  type MessageReaction,
+  type ModalSubmitInteraction,
+  type PartialMessage,
+  type PartialMessageReaction,
+  type Poll,
+  type UserContextMenuCommandInteraction,
 } from "discord.js";
+import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
-import { trackPerformance } from "./observability";
+
+import {
+  getChars,
+  getWords,
+  parseMarkdownBlocks,
+} from "#~/helpers/messageParsing";
+import { trackPerformance } from "#~/helpers/observability";
+
+import { NotFoundError } from "./errors";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -133,8 +134,6 @@ const urlRegex = /(https?:\/\/\S+|discord.gg\/\S+)\b/g;
 export const escapeDisruptiveContent = (content: string) => {
   return (
     content
-      // Silence pings
-      .replace(/@(\S*)(\s)?/g, "@ $1$2")
       // Wrap links in <> so they don't make a preview
       .replace(urlRegex, "<$1>")
   );
@@ -160,57 +159,57 @@ export type AnyCommand =
   | MessageComponentCommand
   | ModalCommand;
 
-export type MessageContextCommand = {
+export interface MessageContextCommand {
   command: ContextMenuCommandBuilder;
   handler: (interaction: MessageContextMenuCommandInteraction) => Promise<void>;
-};
+}
 export const isMessageContextCommand = (
   config: AnyCommand,
 ): config is MessageContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.Message;
 
-export type UserContextCommand = {
+export interface UserContextCommand {
   command: ContextMenuCommandBuilder;
   handler: (interaction: UserContextMenuCommandInteraction) => Promise<void>;
-};
+}
 export const isUserContextCommand = (
   config: AnyCommand,
 ): config is UserContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.User;
 
-export type SlashCommand = {
+export interface SlashCommand {
   command: SlashCommandBuilder;
   handler: (interaction: ChatInputCommandInteraction) => Promise<void>;
-};
+}
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
 
-export type MessageComponentCommand = {
+export interface MessageComponentCommand {
   command: { type: InteractionType.MessageComponent; name: string };
   handler: (interaction: MessageComponentInteraction) => Promise<void>;
-};
+}
 export const isMessageComponentCommand = (
   config: AnyCommand,
 ): config is MessageComponentCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.MessageComponent;
 
-export type ModalCommand = {
+export interface ModalCommand {
   command: { type: InteractionType.ModalSubmit; name: string };
   handler: (interaction: ModalSubmitInteraction) => Promise<void>;
-};
+}
 export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.ModalSubmit;
 
-type CodeStats = {
+interface CodeStats {
   chars: number;
   words: number;
   lines: number;
   lang: string | undefined;
-};
+}
 /**
  * getMessageStats is a helper to retrieve common metrics from a message
  * @param msg A Discord Message or PartialMessage object
@@ -220,7 +219,12 @@ export async function getMessageStats(msg: Message | PartialMessage) {
   return trackPerformance(
     "startActivityTracking: getMessageStats",
     async () => {
-      const { content } = await msg.fetch();
+      const { content } = await msg
+        .fetch()
+        .catch((_) => ({ content: undefined }));
+      if (!content) {
+        throw new NotFoundError("message", "getMessageStats");
+      }
 
       const blocks = parseMarkdownBlocks(content);
 
@@ -283,4 +287,17 @@ export async function getMessageStats(msg: Message | PartialMessage) {
       return values;
     },
   );
+}
+
+export function hasModRole(
+  interaction: MessageComponentInteraction,
+  modRoleId: string,
+): boolean {
+  const member = interaction.member;
+  if (!member) return false;
+
+  if (Array.isArray(member.roles)) {
+    return member.roles.includes(modRoleId);
+  }
+  return member.roles.cache.has(modRoleId);
 }

@@ -1,7 +1,9 @@
-import type { Route } from "./+types/auth";
 import { redirect } from "react-router";
-import { initOauthLogin } from "#~/models/session.server";
+
 import { Login } from "#~/basics/login";
+import { initOauthLogin } from "#~/models/session.server";
+
+import type { Route } from "./+types/auth";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -41,9 +43,11 @@ export default function LoginPage() {
 export async function action({ request }: Route.ActionArgs) {
   // Handle form POST from Login component (existing functionality)
   const form = await request.formData();
+  const redirectTo = form.get("redirectTo");
 
   return initOauthLogin({
     request,
-    redirectTo: form.get("redirectTo")?.toString() ?? "/guilds",
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string
+    redirectTo: redirectTo?.toString() ?? "/app",
   });
 }

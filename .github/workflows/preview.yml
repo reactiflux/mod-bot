@@ -1,0 +1,65 @@
+name: Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed, labeled]
+
+env:
+  HUSKY: 0
+
+jobs:
+  cleanup-preview:
+    name: Cleanup Preview
+    if: |
+      github.event.action == 'closed' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
+    runs-on: ubuntu-latest
+    environment: CI
+
+    steps:
+      - name: Set up kubectl
+        uses: matootie/dokube@v1.4.1
+        with:
+          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
+          clusterName: k8s-rf
+
+      - name: Set default namespace
+        run: kubectl config set-context --current --namespace=staging
+
+      - name: Delete preview resources
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "Cleaning up preview environment for PR #${PR_NUMBER}"
+
+          kubectl delete statefulset mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete service mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete ingress mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete pvc -l preview=pr-${PR_NUMBER} --ignore-not-found
+
+          echo "Preview environment cleaned up"
+
+      - name: Comment cleanup notice
+        if: github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: '### Preview environment removed\n\nThe preview for this PR has been cleaned up.'
+              });
+            }

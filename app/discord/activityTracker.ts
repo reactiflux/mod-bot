@@ -1,71 +1,26 @@
-import { Events, ChannelType } from "discord.js";
-import type { Client, Message, TextChannel } from "discord.js";
+import { ChannelType, Events, type Client } from "discord.js";
+
 import db from "#~/db.server";
-import { log, trackPerformance } from "#~/helpers/observability";
-import { threadStats } from "#~/helpers/metrics";
 import { getMessageStats } from "#~/helpers/discord.js";
+import { threadStats } from "#~/helpers/metrics";
+import { log, trackPerformance } from "#~/helpers/observability";
+
+import { getOrFetchChannel } from "./utils";
 
 export async function startActivityTracking(client: Client) {
   log("info", "ActivityTracker", "Starting activity tracking", {
     guildCount: client.guilds.cache.size,
   });
 
-  async function getOrFetchChannel(msg: Message) {
-    // TODO: cache eviction?
-    const channelInfo = await db
-      .selectFrom("channel_info")
-      .selectAll()
-      .where("id", "=", msg.channelId)
-      .executeTakeFirst();
-
-    if (channelInfo) {
-      log("debug", "ActivityTracker", "Channel info found in cache", {
-        channelId: msg.channelId,
-        channelName: channelInfo.name,
-        category: channelInfo.category,
-      });
-      return channelInfo;
-    }
-
-    log("debug", "ActivityTracker", "Fetching channel info from Discord", {
-      channelId: msg.channelId,
-    });
-
-    const data = (await msg.channel.fetch()) as TextChannel;
-    const values = {
-      id: msg.channelId,
-      category: data?.parent?.name,
-      name: data,
-    };
-
-    await db
-      .insertInto("channel_info")
-      .values({
-        id: msg.channelId,
-        name: data.name,
-        category: data?.parent?.name ?? null,
-      })
-      .execute();
-
-    log("debug", "ActivityTracker", "Channel info added to cache", {
-      channelId: msg.channelId,
-      channelName: data.name,
-      category: data?.parent?.name,
-    });
-
-    return values;
-  }
-
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
-    if (msg.channel.type !== ChannelType.GuildText || msg.author?.bot) {
+    if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
       return;
     }
 
     const info = await getMessageStats(msg);
-    if (!info) return;
 
-    if (!msg.author || !msg.guildId) {
+    if (!msg.guildId) {
       log(
         "error",
         "ActivityTracker",
@@ -94,7 +49,7 @@ export async function startActivityTracking(client: Client) {
         author_id: msg.author.id,
         guild_id: msg.guildId,
         channel_id: msg.channelId,
-        recipient_id: msg.mentions?.repliedUser?.id ?? null,
+        recipient_id: msg.mentions.repliedUser?.id ?? null,
         channel_category: channelInfo.category,
       })
       .execute();
@@ -119,7 +74,6 @@ export async function startActivityTracking(client: Client) {
       "processMessageUpdate",
       async () => {
         const info = await getMessageStats(msg);
-        if (!info) return;
 
         await updateStatsById(msg.id)
           .set({
@@ -146,9 +100,6 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processMessageDelete",
       async () => {
-        const info = await getMessageStats(msg);
-        if (!info) return;
-
         await db
           .deleteFrom("message_stats")
           .where("message_id", "=", msg.id)

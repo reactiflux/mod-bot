@@ -1,17 +1,16 @@
 import {
+  PermissionFlagsBits,
   Routes,
   type APIGuild,
-  PermissionFlagsBits,
 } from "discord-api-types/v10";
+import { type GuildMember } from "discord.js";
+import type { AccessToken } from "simple-oauth2";
 
 import type { REST } from "@discordjs/rest";
-import { type GuildMember } from "discord.js";
 
-import { complement, intersection } from "#~/helpers/sets.js";
-
-import type { AccessToken } from "simple-oauth2";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import { trackPerformance } from "#~/helpers/observability.js";
+import { complement, intersection } from "#~/helpers/sets.js";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 export interface DiscordUserInfo {
   id: string;
@@ -26,7 +25,10 @@ export interface DiscordUserInfo {
 }
 
 export async function fetchUser(access: AccessToken): Promise<DiscordUserInfo> {
-  const { token_type: tokenType, access_token: accessToken } = access.token;
+  const { token_type: tokenType, access_token: accessToken } = access.token as {
+    token_type: string;
+    access_token: string;
+  };
   const res = await fetch("https://discord.com/api/users/@me", {
     headers: { authorization: `${tokenType} ${accessToken}` },
   });
@@ -39,7 +41,7 @@ export async function fetchUser(access: AccessToken): Promise<DiscordUserInfo> {
     locale,
     mfa_enabled: has2FA,
     avatar,
-  } = await res.json();
+  } = (await res.json()) as Record<string, string>;
 
   return {
     id,
@@ -49,7 +51,7 @@ export async function fetchUser(access: AccessToken): Promise<DiscordUserInfo> {
     email,
     verified,
     locale,
-    has2FA,
+    has2FA: has2FA as unknown as boolean,
     avatar,
   };
 }
@@ -80,7 +82,7 @@ export const kick = async (member: GuildMember | null) => {
     console.log("Tried to kick a null member");
     return;
   }
-  return member.kick();
+  return member.guild.members.kick(member, "Voted resolution");
 };
 
 export const ban = async (member: GuildMember | null) => {
@@ -88,7 +90,7 @@ export const ban = async (member: GuildMember | null) => {
     console.log("Tried to ban a null member");
     return;
   }
-  return member.ban();
+  return member.guild.bans.create(member, { reason: "Voted resolution" });
 };
 
 const OVERNIGHT = 1000 * 60 * 60 * 20;
@@ -97,7 +99,7 @@ export const timeout = async (member: GuildMember | null) => {
     console.log("Tried to timeout a null member");
     return;
   }
-  return member.timeout(OVERNIGHT);
+  return member.timeout(OVERNIGHT, "Voted resolution");
 };
 
 const authzRoles = {
@@ -112,7 +114,7 @@ const authzRoles = {
 const isUndefined = (x: unknown): x is undefined => typeof x === "undefined";
 
 const processGuild = (g: APIGuild) => {
-  const perms = BigInt(g.permissions || 0);
+  const perms = BigInt(g.permissions ?? 0);
   const authz = new Set<(typeof authzRoles)[keyof typeof authzRoles]>();
 
   if (perms & PermissionFlagsBits.Administrator) {
@@ -135,9 +137,9 @@ const processGuild = (g: APIGuild) => {
   }
 
   return {
-    id: g.id as string,
+    id: g.id,
     icon: g.icon ?? undefined,
-    name: g.name as string,
+    name: g.name,
     authz: [...authz.values()],
   };
 };

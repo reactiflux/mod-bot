@@ -1,33 +1,30 @@
-import { TextChannel, type ChatInputCommandInteraction } from "discord.js";
+import { format } from "date-fns";
+import { Routes, TextInputStyle } from "discord-api-types/v10";
 import {
-  ChannelType,
-  ComponentType,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
+  ComponentType,
+  InteractionType,
+  MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  MessageFlags,
-  InteractionType,
-  ModalBuilder,
   TextInputBuilder,
+  type ChatInputCommandInteraction,
 } from "discord.js";
-import { REST } from "@discordjs/rest";
-import { Routes, TextInputStyle } from "discord-api-types/v10";
 
-import { discordToken } from "#~/helpers/env.server";
-import { SETTINGS, fetchSettings } from "#~/models/guilds.server";
-import { format } from "date-fns";
-import type {
-  AnyCommand,
-  MessageComponentCommand,
-  ModalCommand,
-  SlashCommand,
-} from "#~/helpers/discord";
-import { quoteMessageContent } from "#~/helpers/discord";
 import db from "#~/db.server.js";
-
-const rest = new REST({ version: "10" }).setToken(discordToken);
+import { ssrDiscordSdk as rest } from "#~/discord/api";
+import {
+  quoteMessageContent,
+  type AnyCommand,
+  type MessageComponentCommand,
+  type ModalCommand,
+  type SlashCommand,
+} from "#~/helpers/discord";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
@@ -70,7 +67,7 @@ export const Command = [
       const pingableRole = interaction.options.getRole("role");
       const ticketChannel = interaction.options.getChannel("channel");
       const buttonText =
-        interaction.options.getString("button-text") || DEFAULT_BUTTON_TEXT;
+        interaction.options.getString("button-text") ?? DEFAULT_BUTTON_TEXT;
 
       if (ticketChannel && ticketChannel.type !== ChannelType.GuildText) {
         await interaction.reply({
@@ -146,7 +143,6 @@ export const Command = [
       if (
         !interaction.channel ||
         interaction.channel.type !== ChannelType.GuildText ||
-        !interaction.user ||
         !interaction.guild ||
         !interaction.message
       ) {
@@ -157,7 +153,7 @@ export const Command = [
         return;
       }
       const { channel, fields, user } = interaction;
-      const concern = fields.getField("concern").value;
+      const concern = fields.getTextInputValue("concern");
 
       let config = await db
         .selectFrom("tickets_config")
@@ -180,11 +176,21 @@ export const Command = [
         }
       }
 
+      // If channel_id is configured but fetch returns null (channel deleted),
+      // this will error, which is intended - the configured channel is invalid
       const ticketsChannel = config.channel_id
-        ? ((await interaction.guild.channels.fetch(
-            config.channel_id,
-          )) as TextChannel) || channel
+        ? await interaction.guild.channels.fetch(config.channel_id)
         : channel;
+
+      if (
+        !ticketsChannel?.isTextBased() ||
+        ticketsChannel.type !== ChannelType.GuildText
+      ) {
+        void interaction.reply(
+          "Couldn’t make a ticket! Tell the admins that their ticket channel is misconfigured.",
+        );
+        return;
+      }
 
       const thread = await ticketsChannel.threads.create({
         name: `${user.username} – ${format(new Date(), "PP kk:mmX")}`,
@@ -218,7 +224,7 @@ ${quoteMessageContent(concern)}`);
         ],
       });
 
-      interaction.reply({
+      void interaction.reply({
         content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
         ephemeral: true,
       });
@@ -255,16 +261,16 @@ ${quoteMessageContent(concern)}`);
         rest.post(Routes.channelMessages(modLog), {
           body: {
             content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}>${feedback ? `. feedback: ${feedback}` : ""}`,
-            allowedMentions: { users: [], roles: [] },
+            allowedMentions: {},
           },
         }),
         interaction.reply({
           content: `The ticket was closed by <@${interactionUserId}>`,
-          allowedMentions: { users: [], roles: [] },
+          allowedMentions: {},
         }),
       ]);
 
       return;
     },
   } as MessageComponentCommand,
-] as Array<AnyCommand>;
+] as AnyCommand[];

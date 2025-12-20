@@ -1,7 +1,15 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  type LoaderFunctionArgs,
+  type MetaFunction,
+} from "react-router";
 
 import "./styles/tailwind.css";
+
 import { getUser } from "./models/session.server";
 
 export const meta: MetaFunction = () => [
@@ -18,15 +26,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
+function Footer() {
+  return null;
+}
+
 export default function App() {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="flex h-full flex-col">
       <head>
         <Meta />
         <Links />
       </head>
-      <body className="h-full">
-        <Outlet />
+      <body className="flex min-h-full flex-col">
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <Footer />
         <ScrollRestoration />
         <Scripts />
       </body>

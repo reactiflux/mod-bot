@@ -2,6 +2,7 @@
 // this way avoids a ton of weird compat hacks with react-router v7.
 
 import "dotenv/config";
+
 import express from "express";
 
 // This only exists after a production build, when this file is copied into Docker
@@ -32,7 +33,7 @@ const errorHandler = (error) => {
 process.on("uncaughtException", errorHandler);
 process.on("unhandledRejection", errorHandler);
 
-const PORT = process.env.PORT || "3000";
+const PORT = process.env.PORT ?? "3000";
 app.listen(PORT, "0.0.0.0", async () => {
   console.log("INI", "Now listening on port", PORT);
 });

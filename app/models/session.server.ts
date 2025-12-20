@@ -1,29 +1,26 @@
+import { randomUUID } from "crypto";
 import {
   createCookieSessionStorage,
   createSessionStorage,
-  redirect,
   data,
+  redirect,
 } from "react-router";
-
-import { randomUUID } from "crypto";
 import { AuthorizationCode } from "simple-oauth2";
 
-import db from "#~/db.server";
-import type { DB } from "#~/db.server";
+import db, { type DB } from "#~/db.server";
+import {
+  applicationId,
+  discordSecret,
+  isProd,
+  sessionSecret,
+} from "#~/helpers/env.server";
+import { fetchUser } from "#~/models/discord.server";
+import { SubscriptionService } from "#~/models/subscriptions.server";
 import {
   createUser,
   getUserByExternalId,
   getUserById,
 } from "#~/models/user.server";
-import { fetchUser } from "#~/models/discord.server";
-import { SubscriptionService } from "#~/models/subscriptions.server";
-
-import {
-  applicationId,
-  discordSecret,
-  sessionSecret,
-  isProd,
-} from "#~/helpers/env.server";
 
 export type Sessions = DB["sessions"];
 
@@ -101,7 +98,7 @@ const {
     await db
       .updateTable("sessions")
       .set("data", JSON.stringify(data))
-      .set("expires", expires?.toString() || null)
+      .set("expires", expires?.toString() ?? null)
       .where("id", "=", id)
       .execute();
   },
@@ -122,9 +119,33 @@ export const DbSessionKeys = {
   authGuildId: "guildId",
 } as const;
 
+/**
+ * Check if a specific cookie is present in the request headers.
+ */
+function hasCookie(request: Request, cookieName: string): boolean {
+  const cookieHeader = request.headers.get("Cookie");
+  if (!cookieHeader) return false;
+  // Match cookie name at start of string or after semicolon, followed by =
+  const regex = new RegExp(`(?:^|;\\s*)${cookieName}=`);
+  return regex.test(cookieHeader);
+}
+
 async function getUserId(request: Request): Promise<string | undefined> {
   const session = await getDbSession(request.headers.get("Cookie"));
-  const userId = session.get(CookieSessionKeys.userId);
+  const userId = session.get(CookieSessionKeys.userId) as string;
+
+  // If session cookies are present but we got no userId, the cookies are
+  // invalid (e.g., session expired, database session deleted, cookie
+  // corrupted). Clear them to prevent the client from repeatedly sending
+  // invalid cookies.
+  if (!userId) {
+    const hasSessionCookie = hasCookie(request, "__session");
+    const hasClientSessionCookie = hasCookie(request, "__client-session");
+    if (hasSessionCookie || hasClientSessionCookie) {
+      throw await logout(request);
+    }
+  }
+
   return userId;
 }
 
@@ -171,7 +192,11 @@ export async function initOauthLogin({
   flow?: "user" | "signup" | "add-bot";
   guildId?: string;
 }) {
-  const { origin } = new URL(request.url);
+  const url = new URL(request.url);
+  const proto =
+    request.headers.get("X-Forwarded-Proto") ?? url.protocol.replace(":", "");
+  const host = request.headers.get("X-Forwarded-Host") ?? url.host;
+  const origin = `${proto}://${host}`;
   const cookieSession = await getCookieSession(request.headers.get("Cookie"));
 
   const state = JSON.stringify({
@@ -226,7 +251,10 @@ export async function completeOauthLogin(request: Request) {
     throw redirect("/login", 500);
   }
 
-  const origin: string = url.origin;
+  const proto =
+    request.headers.get("X-Forwarded-Proto") ?? url.protocol.replace(":", "");
+  const host = request.headers.get("X-Forwarded-Host") ?? url.host;
+  const origin = `${proto}://${host}`;
   const reqCookie: string = cookie;
   const state: string | undefined = url.searchParams.get("state") ?? undefined;
 
@@ -235,15 +263,19 @@ export async function completeOauthLogin(request: Request) {
     getDbSession(reqCookie),
   ]);
 
-  const cookieStateStr = cookieSession.get(DbSessionKeys.authState);
-  const flow = cookieSession.get(DbSessionKeys.authFlow) ?? "user";
-  const guildId = cookieSession.get(DbSessionKeys.authGuildId);
+  const cookieStateStr = cookieSession.get(DbSessionKeys.authState) as string;
+  const flow = (cookieSession.get(DbSessionKeys.authFlow) ?? "user") as string;
+  const guildId = cookieSession.get(DbSessionKeys.authGuildId) as string;
 
   // Parse state to get UUID and redirectTo
   let cookieState;
   let stateRedirectTo = "/app";
   try {
-    const parsedState = JSON.parse(cookieStateStr || "{}");
+    const parsedState = JSON.parse(cookieStateStr || "{}") as {
+      uuid: string;
+      redirectTo: string;
+      [k: string]: unknown;
+    };
     cookieState = parsedState.uuid;
     stateRedirectTo = decodeURIComponent(parsedState.redirectTo) || "/app";
   } catch (e) {
@@ -254,7 +286,10 @@ export async function completeOauthLogin(request: Request) {
   // Parse incoming state
   let incomingStateUuid;
   try {
-    const parsedIncomingState = JSON.parse(state || "{}");
+    const parsedIncomingState = JSON.parse(state ?? "{}") as {
+      uuid: string;
+      [k: string]: unknown;
+    };
     incomingStateUuid = parsedIncomingState.uuid;
   } catch (e) {
     // Fallback for legacy/simple state format
@@ -282,9 +317,7 @@ export async function completeOauthLogin(request: Request) {
     // Do nothing
     // TODO: bail out if there's a network/etc error
   }
-  if (!userId) {
-    userId = await createUser(discordUser.email, discordUser.id);
-  }
+  userId ??= await createUser(discordUser.email, discordUser.id);
   if (!userId) {
     throw data(
       { message: `Couldn't find a user or create a new user` },
@@ -315,9 +348,9 @@ export async function completeOauthLogin(request: Request) {
   cookieSession.unset(DbSessionKeys.authGuildId);
 
   // Determine redirect based on flow
-  let finalRedirectTo = stateRedirectTo || "/guilds";
+  let finalRedirectTo = stateRedirectTo || "/app";
   if (flow !== "user" && guildId) {
-    finalRedirectTo = `/onboard?guild_id=${guildId}`;
+    finalRedirectTo = `app/${guildId}/onboard`;
   }
 
   const [clientCookie, dbCookie] = await Promise.all([
@@ -335,7 +368,10 @@ export async function completeOauthLogin(request: Request) {
 
 export async function retrieveDiscordToken(request: Request) {
   const dbSession = await getDbSession(request.headers.get("Cookie"));
-  const storedToken = dbSession.get(CookieSessionKeys.discordToken);
+  const storedToken = dbSession.get(CookieSessionKeys.discordToken) as {
+    discordToken: string;
+    [k: string]: unknown;
+  };
   const token = authorization.createToken(storedToken);
   return token;
 }

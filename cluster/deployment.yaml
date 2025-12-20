@@ -18,66 +18,43 @@ spec:
       containers:
         - name: mod-bot
           image: $(IMAGE)
+          ports:
+            - containerPort: 3000
           volumeMounts:
             - mountPath: "/data"
               name: mod-bot-pvc
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 3000
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          envFrom:
+            - secretRef:
+                name: modbot-env
           env:
             - name: ENVIRONMENT
               value: production
-
-            - name: DISCORD_HASH
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DISCORD_HASH
-
-            - name: SESSION_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: SESSION_SECRET
-
-            - name: DISCORD_PUBLIC_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DISCORD_PUBLIC_KEY
-
-            - name: DISCORD_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DISCORD_APP_ID
-
-            - name: DISCORD_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DISCORD_SECRET
-
-            - name: DISCORD_TEST_GUILD
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DISCORD_TEST_GUILD
-
-            - name: SENTRY_INGEST
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: SENTRY_INGEST
-
-            - name: SENTRY_RELEASES
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: SENTRY_RELEASES
-
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: modbot-env
-                  key: DATABASE_URL
 
   volumeClaimTemplates:
     - metadata:

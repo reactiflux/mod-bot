@@ -17,11 +17,6 @@ const Label = (props: LabelHTMLAttributes<Element>) => (
   </label>
 );
 
-const percent = new Intl.NumberFormat("en-US", {
-  style: "percent",
-  maximumFractionDigits: 0,
-}).format;
-
 const DATE_FORMAT = "yyyy-MM-dd";
 const DISPLAY_FORMAT = "MMM d, yyyy";
 

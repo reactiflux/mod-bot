@@ -1,0 +1,400 @@
+name: CD
+concurrency:
+  group: cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUSKY: 0
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: CI
+    outputs:
+      image_sha: sha-${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag Build
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # Only tag with latest if we're on main
+          tags: |
+            type=ref,event=pr
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deployment:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'Main branch' || 'CI' }}
+    outputs:
+      pr_number: ${{ steps.get-pr.outputs.result }}
+      preview_url: ${{ steps.set-outputs.outputs.preview_url }}
+      is_production: ${{ steps.set-outputs.outputs.is_production }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get PR number
+        id: get-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${branch}`
+            });
+            if (prs.data.length > 0 && !prs.data[0].draft) {
+              const pr = prs.data[0];
+              const hasNoPreview = pr.labels.some(l => l.name === 'no-preview');
+              if (!hasNoPreview) {
+                console.log(`Found PR #${pr.number} for branch ${branch}`);
+                return pr.number;
+              }
+            }
+            console.log(`No eligible PR for branch ${branch}`);
+            return '';
+          result-encoding: string
+
+      - name: Tag Build
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,format=long
+
+      - name: Create build context for k8s deployment
+        # There should only be 1 tag, so 'join' will just produce a simple string
+        run: |
+          touch k8s-context
+          echo IMAGE=${{ join(steps.meta.outputs.tags, '') }} > k8s-context
+          cat k8s-context
+
+      - name: Set up kubectl
+        uses: matootie/dokube@v1.4.1
+        with:
+          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
+          clusterName: k8s-rf
+
+      # --- Production deployment (main branch only) ---
+      - name: Create production secret manifest
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cat <<EOF > secret-values.yaml
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: modbot-env
+            namespace: default
+          type: Opaque
+          stringData:
+            SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
+            DISCORD_PUBLIC_KEY: "${{ secrets.DISCORD_PUBLIC_KEY }}"
+            DISCORD_APP_ID: "${{ secrets.DISCORD_APP_ID }}"
+            DISCORD_SECRET: "${{ secrets.DISCORD_SECRET }}"
+            DISCORD_HASH: "${{ secrets.DISCORD_HASH }}"
+            DISCORD_TEST_GUILD: "${{ secrets.DISCORD_TEST_GUILD }}"
+            SENTRY_INGEST: "${{ secrets.SENTRY_INGEST }}"
+            SENTRY_RELEASES: "${{ secrets.SENTRY_RELEASES }}"
+            STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
+            STRIPE_PUBLISHABLE_KEY: "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
+            STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+            VITE_PUBLIC_POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
+            VITE_PUBLIC_POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
+            DATABASE_URL: "${{ secrets.DATABASE_URL }}"
+          EOF
+
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
+        run: |
+          kubectl diff -k . || true
+          kubectl apply -f secret-values.yaml
+          kubectl apply -k .
+          if ! kubectl rollout status statefulset/mod-bot-set --timeout=5m; then
+            echo "Deployment failed, rolling back..."
+            kubectl rollout undo statefulset/mod-bot-set
+            exit 1
+          fi
+
+      - name: Set Sentry release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl ${{secrets.SENTRY_RELEASES}} \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"version": "${{github.sha}}"}'
+
+      # --- Preview deployment (PR branches only) ---
+      - name: Deploy preview
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+        run: |
+          PR_NUMBER=${{ steps.get-pr.outputs.result }}
+          echo "Deploying preview for PR #${PR_NUMBER}"
+
+          kubectl config set-context --current --namespace=staging
+
+          # Ensure staging secret exists
+          kubectl create secret generic modbot-staging-env \
+            --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+            --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
+            --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
+            --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
+            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
+            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
+            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
+            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
+            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
+            --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+            --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+            --from-literal=DATABASE_URL=/data/mod-bot.sqlite3 \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Deploy preview environment
+          export PR_NUMBER
+          export COMMIT_SHA=${{ github.sha }}
+
+          # Delete database to start fresh (ignore errors if pod doesn't exist yet)
+          kubectl exec statefulset/mod-bot-pr-${PR_NUMBER} -- rm -f /data/mod-bot.sqlite3 || true
+
+          envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
+
+          kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
+
+          echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
+
+      - name: Set deployment outputs
+        id: set-outputs
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "is_production=true" >> $GITHUB_OUTPUT
+            echo "preview_url=" >> $GITHUB_OUTPUT
+          elif [[ -n "${{ steps.get-pr.outputs.result }}" ]]; then
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "preview_url=https://${{ steps.get-pr.outputs.result }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
+          else
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "preview_url=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment preview URL on PR
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
+            const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
+            const commitSha = '${{ github.sha }}';
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+            );
+
+            const body = `### Preview deployed
+
+            It may take a few minutes before the service becomes available.
+
+            | Environment | URL |
+            |-------------|-----|
+            | Preview | ${previewUrl} |
+
+            Deployed commit: \`${commitSha.substring(0, 7)}\`
+
+            This preview will be updated on each push and deleted when the PR is closed.`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            }
+
+  # --- E2E Tests after deployment ---
+  e2e:
+    needs: deployment
+    if: needs.deployment.outputs.preview_url != '' || needs.deployment.outputs.is_production == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_URL: ${{ needs.deployment.outputs.preview_url || 'https://euno.reactiflux.com' }}
+      PR_NUMBER: ${{ needs.deployment.outputs.pr_number }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Wait for service to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf "$TARGET_URL" > /dev/null; then
+              echo "Service is ready"
+              exit 0
+            fi
+            echo "Waiting for service... ($i/30)"
+            sleep 10
+          done
+          echo "Service did not become ready in time"
+          exit 1
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        env:
+          E2E_PREVIEW_URL: ${{ env.TARGET_URL }}
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      - name: Deploy test report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+          destination_dir: reports/${{ github.run_number }}
+          keep_files: true
+
+      - name: Comment PR with test results
+        if: ${{ always() && env.PR_NUMBER != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = parseInt('${{ env.PR_NUMBER }}');
+            const targetUrl = '${{ env.TARGET_URL }}';
+            const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${{ github.run_number }}`;
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            // Parse test results
+            let stats = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
+              const countTests = (suites) => {
+                for (const suite of suites) {
+                  for (const spec of suite.specs || []) {
+                    for (const test of spec.tests || []) {
+                      if (test.status === 'expected') stats.passed++;
+                      else if (test.status === 'unexpected') stats.failed++;
+                      else if (test.status === 'flaky') stats.flaky++;
+                      else if (test.status === 'skipped') stats.skipped++;
+                    }
+                  }
+                  if (suite.suites) countTests(suite.suites);
+                }
+              };
+              countTests(results.suites || []);
+            } catch (e) {
+              console.log('Could not parse test results:', e.message);
+            }
+
+            const emoji = stats.failed > 0 ? '❌' : stats.flaky > 0 ? '⚠️' : '✅';
+            const status = stats.failed > 0 ? 'Failed' : stats.flaky > 0 ? 'Flaky' : 'Passed';
+            const statsParts = [
+              stats.passed > 0 && `**${stats.passed}** passed`,
+              stats.flaky > 0 && `**${stats.flaky}** flaky`,
+              stats.failed > 0 && `**${stats.failed}** failed`,
+              stats.skipped > 0 && `**${stats.skipped}** skipped`,
+            ].filter(Boolean).join(' · ');
+
+            const body = `## ${emoji} E2E Tests ${status}
+
+            ${statsParts}
+
+            [View Report](${reportUrl}) · [View Run](${runUrl})
+
+            Tested against: ${targetUrl}`;
+
+            // Find existing E2E comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('E2E Tests')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            }

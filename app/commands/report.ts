@@ -1,10 +1,14 @@
-import type { MessageContextMenuCommandInteraction } from "discord.js";
-import { PermissionFlagsBits, ContextMenuCommandBuilder } from "discord.js";
 import { ApplicationCommandType } from "discord-api-types/v10";
-import { reportUser } from "#~/helpers/modLog";
-import { ReportReasons } from "#~/models/reportedMessages.server";
-import { log, trackPerformance } from "#~/helpers/observability";
+import {
+  ContextMenuCommandBuilder,
+  PermissionFlagsBits,
+  type MessageContextMenuCommandInteraction,
+} from "discord.js";
+
 import { commandStats } from "#~/helpers/metrics";
+import { reportUser } from "#~/helpers/modLog";
+import { log, trackPerformance } from "#~/helpers/observability";
+import { ReportReasons } from "#~/models/reportedMessages.server";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Report")
@@ -20,7 +24,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
       log("info", "Commands", "Report command executed", {
         guildId: interaction.guildId,
         reporterUserId: interaction.user.id,
-        targetUserId: message.author?.id,
+        targetUserId: message.author.id,
         targetMessageId: message.id,
         channelId: interaction.channelId,
       });
@@ -35,16 +39,13 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
         log("info", "Commands", "Report submitted successfully", {
           guildId: interaction.guildId,
           reporterUserId: interaction.user.id,
-          targetUserId: message.author?.id,
+          targetUserId: message.author.id,
           targetMessageId: message.id,
           reason: ReportReasons.anonReport,
         });
 
         // Track successful report in business analytics
-        commandStats.reportSubmitted(
-          interaction,
-          message.author?.id ?? "unknown",
-        );
+        commandStats.reportSubmitted(interaction, message.author.id);
 
         // Track command success
         commandStats.commandExecuted(interaction, "report", true);
@@ -59,7 +60,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
         log("error", "Commands", "Report command failed", {
           guildId: interaction.guildId,
           reporterUserId: interaction.user.id,
-          targetUserId: message.author?.id,
+          targetUserId: message.author.id,
           targetMessageId: message.id,
           error: err.message,
           stack: err.stack,
@@ -78,7 +79,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
       commandName: "report",
       guildId: interaction.guildId,
       reporterUserId: interaction.user.id,
-      targetUserId: interaction.targetMessage.author?.id,
+      targetUserId: interaction.targetMessage.author.id,
     },
   );
 };

@@ -1,9 +1,8 @@
 import type { Message, User } from "discord.js";
 
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
-import { log, trackPerformance } from "#~/helpers/observability";
+import db, { type DB } from "#~/db.server";
 import { client } from "#~/discord/client.server";
+import { log, trackPerformance } from "#~/helpers/observability";
 
 export type ReportedMessage = DB["reported_messages"];
 
@@ -113,7 +112,7 @@ export async function getReportsForUser(userId: string, guildId: string) {
 export async function getReportsForMessage(
   messageId: string,
   guildId: string,
-  includeDeleted: boolean = false,
+  includeDeleted = false,
 ) {
   return trackPerformance(
     "getReportsForMessage",
@@ -230,7 +229,7 @@ async function deleteSingleMessage(
 
     log("warn", "ReportedMessage", "Failed to delete message", {
       messageId,
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
     return { success: false, messageId, error };
   }
@@ -256,7 +255,7 @@ export async function deleteAllReportedForUser(
 
       // Delete messages sequentially to avoid rate limits and race conditions
       let deleted = 0;
-      const errors: Array<{ messageId: string; error: unknown }> = [];
+      const errors: { messageId: string; error: unknown }[] = [];
 
       for (const {
         reported_message_id,

@@ -1,5 +1,4 @@
-import db, { SqliteError } from "#~/db.server";
-import type { DB } from "#~/db.server";
+import db, { SqliteError, type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Guild = DB["guilds"];
@@ -8,7 +7,10 @@ export const SETTINGS = {
   modLog: "modLog",
   moderator: "moderator",
   restricted: "restricted",
+  quorum: "quorum",
 } as const;
+
+export const DEFAULT_QUORUM = 3;
 
 // These types are not enforced by the database, they need to be carefully
 // managed by setup guarantees
@@ -16,6 +18,7 @@ interface SettingsRecord {
   [SETTINGS.modLog]: string;
   [SETTINGS.moderator]: string;
   [SETTINGS.restricted]?: string;
+  [SETTINGS.quorum]?: number;
 }
 
 export const fetchGuild = async (guildId: string) => {

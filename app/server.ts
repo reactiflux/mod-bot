@@ -1,30 +1,36 @@
 import "react-router";
-import { verifyKey } from "discord-interactions";
-import { createRequestHandler } from "@react-router/express";
-import express from "express";
+
 import bodyParser from "body-parser";
+import { verifyKey } from "discord-interactions";
+import express from "express";
 import pinoHttp from "pino-http";
 
-import { applicationKey } from "#~/helpers/env.server";
+import { createRequestHandler } from "@react-router/express";
 
-import discordBot from "#~/discord/gateway";
-import { registerCommand } from "#~/discord/deployCommands.server";
-
-import { Command as forceBan } from "#~/commands/force-ban";
-import { Command as setup } from "#~/commands/setup";
-import { Command as report } from "#~/commands/report";
-import { Command as track } from "#~/commands/track";
-import { Command as setupTicket } from "#~/commands/setupTickets";
 import { EscalationCommands } from "#~/commands/escalationControls";
+import { Command as forceBan } from "#~/commands/force-ban";
+import { Command as report } from "#~/commands/report";
+import { Command as setup } from "#~/commands/setup";
+import { Command as setupHoneypot } from "#~/commands/setupHoneypot";
+import { Command as setupReactjiChannel } from "#~/commands/setupReactjiChannel";
+import { Command as setupTicket } from "#~/commands/setupTickets";
+import { Command as track } from "#~/commands/track";
+import { registerCommand } from "#~/discord/deployCommands.server";
+import discordBot from "#~/discord/gateway";
+import { applicationKey } from "#~/helpers/env.server";
 
 export const app = express();
 
 const logger = pinoHttp();
 app.use(logger);
 
+// Suppress Chrome DevTools 404 warnings
+app.get("/.well-known/appspecific/*", (_req, res) => {
+  res.status(204).end();
+});
+
 app.use(
   createRequestHandler({
-    // @ts-expect-error - virtual module provided by React Router at build time
     build: () => import("virtual:react-router/server-build"),
   }),
 );
@@ -33,8 +39,8 @@ app.use(
 app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
   const isValidRequest = await verifyKey(
     JSON.stringify(req.body),
-    req.header("X-Signature-Ed25519") || "bum signature",
-    req.header("X-Signature-Timestamp") || "bum timestamp",
+    req.header("X-Signature-Ed25519") ?? "bum signature",
+    req.header("X-Signature-Timestamp") ?? "bum timestamp",
     applicationKey,
   );
   console.log("WEBHOOK", "isValidRequest:", isValidRequest);
@@ -64,4 +70,6 @@ registerCommand(report);
 registerCommand(forceBan);
 registerCommand(track);
 registerCommand(setupTicket);
+registerCommand(setupReactjiChannel);
 registerCommand(EscalationCommands);
+registerCommand(setupHoneypot);

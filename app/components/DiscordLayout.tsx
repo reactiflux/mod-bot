@@ -1,18 +1,26 @@
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router";
-import { useUser } from "#~/utils";
+
 import { Logout } from "#~/basics/logout";
+import { useUser } from "#~/utils";
 
 interface DiscordLayoutProps {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
-  guilds: Array<{
+  guilds: {
     id: string;
     name: string;
     icon?: string;
     hasBot: boolean;
     authz: string[];
-  }>;
+  }[];
+  manageableGuilds: {
+    id: string;
+    name: string;
+    icon?: string;
+    hasBot: boolean;
+    authz: string[];
+  }[];
 }
 
 export function DiscordLayout({
@@ -28,10 +36,11 @@ export function DiscordLayout({
   // Filter to only show manageable guilds (where Euno is installed) in the server selector
   const manageableGuilds = guilds.filter((guild) => guild.hasBot);
 
-  const isActive = (href: string) => {
-    return (
-      location.pathname === href || location.pathname.startsWith(href + "/")
-    );
+  const isActive = (href: string, strict = false) => {
+    const isExact = location.pathname === href;
+    return strict
+      ? isExact
+      : isExact || location.pathname.startsWith(href + "/");
   };
 
   return (
@@ -41,8 +50,12 @@ export function DiscordLayout({
         {/* Home/Euno Icon */}
         <div className="flex h-16 items-center justify-center border-b border-gray-800">
           <Link
-            to="/"
-            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white transition-all duration-200 hover:rounded-xl hover:bg-indigo-500"
+            to="/app"
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
+              isActive("/app", true)
+                ? "rounded-xl bg-indigo-600"
+                : "bg-gray-800 hover:bg-gray-600"
+            }`}
           >
             E
           </Link>
@@ -53,11 +66,11 @@ export function DiscordLayout({
           {manageableGuilds.map((guild) => (
             <div key={guild.id} className="flex justify-center">
               <Link
-                to={`/app/${guild.id}/sh`}
+                to={`/app/${guild.id}/settings`}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
                   isActive(`/app/${guild.id}`)
                     ? "rounded-xl bg-indigo-600"
-                    : "bg-gray-700 hover:bg-gray-600"
+                    : "bg-gray-800 hover:bg-gray-600"
                 }`}
                 title={guild.name}
               >
@@ -75,10 +88,22 @@ export function DiscordLayout({
               </Link>
             </div>
           ))}
+          <div className="flex justify-center">
+            <Link
+              target="_blank"
+              to={
+                "https://discord.com/oauth2/authorize?client_id=976541718109368361"
+              }
+              className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-700 transition-all duration-200 hover:rounded-xl hover:bg-gray-600`}
+              title={"Add to server"}
+            >
+              <span className="font-semibold text-white">+</span>
+            </Link>
+          </div>
         </div>
 
         {/* Settings gear at bottom */}
-        <div className="pb-3">
+        {/* <div className="pb-3">
           <Link
             to={`/app/${guildId}/settings`}
             className={`mx-3 flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
@@ -89,7 +114,7 @@ export function DiscordLayout({
           >
             <span className="text-lg">⚙️</span>
           </Link>
-        </div>
+        </div> */}
       </div>
 
       {/* Channel Sidebar */}
@@ -101,29 +126,90 @@ export function DiscordLayout({
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
-          <Link
-            to="/"
-            className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive("/guilds")
-                ? "bg-gray-600 text-white"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            <span className="mr-3 text-lg">🏠</span>
-            Servers
-          </Link>
-          <Link
-            to="/analytics"
-            className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              isActive("/analytics")
-                ? "bg-gray-600 text-white"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            <span className="mr-3 text-lg">📊</span>
-            Analytics
-          </Link>
+          {guildId ? (
+            <>
+              <Link
+                to={`/app/${guildId}/sh`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/sh`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                🌟 Star Hunter
+              </Link>
+              <hr className="" />
+              <Link
+                to={`/app/${guildId}/settings`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/settings`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                ⚙️ Settings
+              </Link>
+              <Link
+                to={`/app/${guildId}/onboard`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}/onboard`)
+                    ? "bg-gray-600 text-white"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                🆕 Onboarding flow
+              </Link>
+            </>
+          ) : null}
         </nav>
+
+        {/* Expanded Account Menu */}
+        {accountExpanded && (
+          <div className="border-t border-gray-700 bg-gray-700">
+            <div className="px-3 py-2">
+              <p className="mb-2 text-xs text-gray-400">Account</p>
+              <div className="space-y-1">
+                {/* <Link
+                    to="/profile"
+                    className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  >
+                    Profile
+                  </Link> */}
+                <Link
+                  to="/profile"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Profile
+                </Link>
+
+                <Link
+                  to="/terms"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Terms of Service
+                </Link>
+                <Link
+                  to="/privacy"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  to="mailto:support@euno.reactiflux.com"
+                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                >
+                  Contact Support
+                </Link>
+
+                <hr />
+
+                <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
+                  <Logout>Log Out</Logout>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Account Section */}
         <div className="border-t border-gray-700 bg-gray-800">
@@ -156,34 +242,14 @@ export function DiscordLayout({
               />
             </svg>
           </button>
-
-          {/* Expanded Account Menu */}
-          {accountExpanded && (
-            <div className="border-t border-gray-700 bg-gray-700">
-              <div className="px-3 py-2">
-                <p className="mb-2 text-xs text-gray-400">Account</p>
-                <div className="space-y-1">
-                  <Link
-                    to="/profile"
-                    className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
-                  >
-                    Profile
-                  </Link>
-                  <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
-                    <Logout>Log Out</Logout>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden bg-gray-700">
+      <div className="flex flex-1 overflow-hidden bg-gray-600">
         {/* Main Content */}
         <main className={`flex-1 overflow-auto ${rightPanel ? "pr-0" : ""}`}>
-          <div className="h-full bg-gray-700">{children}</div>
+          {children}
         </main>
 
         {/* Right Panel (conditional) */}

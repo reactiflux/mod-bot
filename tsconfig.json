@@ -26,6 +26,7 @@
     },
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true

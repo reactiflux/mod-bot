@@ -1,9 +1,9 @@
-import type { DB } from "#~/db.server";
-import db from "#~/db.server";
-import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
-import { fillDateGaps } from "#~/helpers/dateUtils";
 import { sql } from "kysely";
+
+import db, { type DB } from "#~/db.server";
 import { getUserCohortAnalysis } from "#~/helpers/cohortAnalysis";
+import { fillDateGaps } from "#~/helpers/dateUtils";
+import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
 
 type MessageStats = DB["message_stats"];
 
@@ -114,13 +114,13 @@ export async function getUserMessageAnalytics(
       getOrFetchUser(userId),
     ]);
 
-  type DailyBreakdown = {
+  interface DailyBreakdown {
     messages: number;
     word_count: number;
     react_count: number;
     avg_words: number;
     date: string;
-  };
+  }
   // Only daily breakdown needs date gap filling
   const dailyBreakdown = fillDateGaps<DailyBreakdown>(
     dailyResults as DailyBreakdown[],
@@ -286,14 +286,14 @@ export async function getTopParticipants(
 }
 
 // copy-pasted out of TopMembers query result
-type MemberData = {
+interface MemberData {
   author_id: string;
   total_word_count: number;
   message_count: number;
   total_reaction_count: number;
   category_count: number;
   channel_count: number;
-};
+}
 function scoreValue(test: number, lookup: [number, number][]) {
   return lookup.reduce((score, [min, value], i, list) => {
     const max = list[i + 1]?.[0] ?? Infinity;
@@ -307,12 +307,12 @@ const scoreLookups = {
   channels: [ [0, 0], [3, 1], [7, 2], [9, 3], ],
 } as { words: [number, number][]; messages: [number, number][]; channels: [number, number][] };
 
-type ParticipationData = {
+interface ParticipationData {
   date: string;
   message_count: number;
   word_count: number;
   channel_count: number;
   category_count: number;
-};
+}
 
 type GroupedResult = Record<string, ParticipationData[]>;

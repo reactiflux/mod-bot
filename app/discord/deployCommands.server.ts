@@ -1,23 +1,25 @@
-import type {
-  APIApplicationCommand,
-  Client,
-  ContextMenuCommandBuilder,
-  OAuth2Guild,
-  SlashCommandBuilder,
+import {
+  Events,
+  InteractionType,
+  Routes,
+  type APIApplicationCommand,
+  type Client,
+  type ContextMenuCommandBuilder,
+  type OAuth2Guild,
+  type SlashCommandBuilder,
 } from "discord.js";
-import { InteractionType, Routes } from "discord.js";
 
 import { ssrDiscordSdk } from "#~/discord/api";
-import type { AnyCommand } from "#~/helpers/discord";
 import {
   isMessageComponentCommand,
   isMessageContextCommand,
   isModalCommand,
   isSlashCommand,
   isUserContextCommand,
+  type AnyCommand,
 } from "#~/helpers/discord";
-import { applicationId, isProd } from "#~/helpers/env.server";
 import { calculateChangedCommands } from "#~/helpers/discordCommands";
+import { applicationId, isProd } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability.js";
 
 /**
@@ -39,8 +41,7 @@ export const deployCommands = async (client: Client) => {
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
 
-  client.on("interactionCreate", (interaction) => {
-    console.log("info", "interaction received", interaction.id);
+  client.on(Events.InteractionCreate, (interaction) => {
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
         const config = matchCommand(interaction.commandName);
@@ -50,18 +51,33 @@ export const deployCommands = async (client: Client) => {
           isMessageContextCommand(config) &&
           interaction.isMessageContextMenuCommand()
         ) {
-          config.handler(interaction);
+          log(
+            "info",
+            "Message Context command received",
+            `${interaction.commandName} ${interaction.id} messageId: ${interaction.targetMessage.id}`,
+          );
+          void config.handler(interaction);
           return;
         }
         if (
           isUserContextCommand(config) &&
           interaction.isUserContextMenuCommand()
         ) {
-          config.handler(interaction);
+          log(
+            "info",
+            "User Context command received",
+            `${interaction.commandName} ${interaction.id} userId: ${interaction.targetUser.id}`,
+          );
+          void config.handler(interaction);
           return;
         }
         if (isSlashCommand(config) && interaction.isChatInputCommand()) {
-          config.handler(interaction);
+          log(
+            "info",
+            "Slash command received",
+            `${interaction.commandName} ${interaction.id}`,
+          );
+          void config.handler(interaction);
           return;
         }
         throw new Error("Didn't find a handler for an interaction");
@@ -75,7 +91,13 @@ export const deployCommands = async (client: Client) => {
           isMessageComponentCommand(config) &&
           interaction.isMessageComponent()
         ) {
-          config.handler(interaction);
+          log(
+            "info",
+            "Message component interaction received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message.id}`,
+          );
+          void config.handler(interaction);
+          return;
         }
         return;
       }
@@ -84,7 +106,12 @@ export const deployCommands = async (client: Client) => {
         if (!config) return;
 
         if (isModalCommand(config) && interaction.isModalSubmit()) {
-          config.handler(interaction);
+          log(
+            "info",
+            "Modal submit received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message?.id ?? "null"}`,
+          );
+          void config.handler(interaction);
         }
         return;
       }
@@ -236,7 +263,7 @@ const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
   return {
     command,
     handler: (interaction: Parameters<T["handler"]>[0]) => {
-      trackPerformance(`withPerf HoF ${command.name}`, async () => {
+      void trackPerformance(`withPerf HoF ${command.name}`, async () => {
         try {
           // @ts-expect-error Unclear why this isn't working but it seems fine
           await handler(interaction);
@@ -267,5 +294,5 @@ const matchCommand = (customId: string) => {
     return config;
   }
   const key = [...commands.keys()].find((k) => customId.startsWith(`${k}|`));
-  return commands.get(key || "??");
+  return commands.get(key ?? "??");
 };

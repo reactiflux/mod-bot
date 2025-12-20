@@ -13,6 +13,7 @@ This document explains how Euno interacts with Discord's API and the patterns us
 
 ```typescript
 import { rest } from "#~/discord/api.js";
+
 const guildRoles = await rest.get(Routes.guildRoles(guildId));
 ```
 
