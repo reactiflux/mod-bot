@@ -1,46 +1,43 @@
-import type { Selectable } from "kysely";
+import type { Insertable, Selectable } from "kysely";
 
 import db, { type DB } from "#~/db.server";
-import type { EscalationFlags } from "#~/helpers/escalationVotes.js";
-import type { Resolution } from "#~/helpers/modResponse";
+import { calculateTimeoutHours } from "#~/helpers/escalationVotes.js";
+import type { Resolution, VotingStrategy } from "#~/helpers/modResponse";
 import { log, trackPerformance } from "#~/helpers/observability";
+
+/**
+ * Calculate the scheduled resolution time based on creation time and vote count.
+ */
+export function calculateScheduledFor(
+  createdAt: string,
+  voteCount: number,
+): string {
+  const timeoutHours = calculateTimeoutHours(voteCount);
+  const scheduledFor = new Date(
+    new Date(createdAt).getTime() + timeoutHours * 60 * 60 * 1000,
+  );
+  return scheduledFor.toISOString();
+}
 
 export type Escalation = Selectable<DB["escalations"]>;
 export type EscalationRecord = Selectable<DB["escalation_records"]>;
+type EscalationInsert = Insertable<DB["escalations"]>;
 
-export async function createEscalation(data: {
-  id: `${string}-${string}-${string}-${string}-${string}`;
-  guildId: Escalation["guild_id"];
-  threadId: Escalation["thread_id"];
-  voteMessageId: Escalation["vote_message_id"];
-  reportedUserId: Escalation["reported_user_id"];
-  initiatorId: Escalation["initiator_id"];
-  quorum: number;
-}): Promise<string> {
+export async function createEscalation(
+  data: EscalationInsert,
+): Promise<EscalationInsert> {
   return trackPerformance("createEscalation", async () => {
-    const id = data.id;
-    const flags: EscalationFlags = { quorum: data.quorum };
+    const createdAt = new Date().toISOString();
+    const newEscalation = {
+      ...data,
+      // Initial scheduled_for is 36 hours from creation (0 votes)
+      scheduled_for: calculateScheduledFor(createdAt, 0),
+    };
 
-    await db
-      .insertInto("escalations")
-      .values({
-        id,
-        guild_id: data.guildId,
-        thread_id: data.threadId,
-        vote_message_id: data.voteMessageId,
-        reported_user_id: data.reportedUserId,
-        initiator_id: data.initiatorId,
-        flags: JSON.stringify(flags),
-      })
-      .execute();
+    await db.insertInto("escalations").values(newEscalation).execute();
 
-    log("info", "EscalationVotes", "Created escalation", {
-      id,
-      guildId: data.guildId,
-      reportedUserId: data.reportedUserId,
-    });
-
-    return id;
+    log("info", "EscalationVotes", "Created escalation", data);
+    return newEscalation;
   });
 }
 
@@ -132,5 +129,54 @@ export async function resolveEscalation(id: string, resolution: Resolution) {
       .execute();
 
     log("info", "EscalationVotes", "Resolved escalation", { id, resolution });
+  });
+}
+
+export async function updateEscalationStrategy(
+  id: string,
+  votingStrategy: VotingStrategy,
+) {
+  return trackPerformance("updateEscalationStrategy", async () => {
+    await db
+      .updateTable("escalations")
+      .set({ voting_strategy: votingStrategy })
+      .where("id", "=", id)
+      .execute();
+
+    log("info", "EscalationVotes", "Updated escalation strategy", {
+      id,
+      votingStrategy,
+    });
+  });
+}
+
+export async function updateScheduledFor(
+  id: string,
+  scheduledFor: string,
+): Promise<void> {
+  return trackPerformance("updateScheduledFor", async () => {
+    await db
+      .updateTable("escalations")
+      .set({ scheduled_for: scheduledFor })
+      .where("id", "=", id)
+      .execute();
+
+    log("info", "EscalationVotes", "Updated escalation scheduled_for", {
+      id,
+      scheduledFor,
+    });
+  });
+}
+
+export async function getDueEscalations() {
+  return trackPerformance("getDueEscalations", async () => {
+    const escalations = await db
+      .selectFrom("escalations")
+      .selectAll()
+      .where("resolved_at", "is", null)
+      .where("scheduled_for", "<=", new Date().toISOString())
+      .execute();
+
+    return escalations;
   });
 }

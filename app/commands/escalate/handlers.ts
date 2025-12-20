@@ -4,25 +4,34 @@ import {
   ButtonStyle,
   MessageFlags,
   PermissionsBitField,
+  type Message,
   type MessageComponentInteraction,
+  type ThreadChannel,
 } from "discord.js";
 
+import { client } from "#~/discord/client.server.ts";
 import { executeResolution } from "#~/discord/escalationResolver.js";
 import { hasModRole } from "#~/helpers/discord.js";
 import { parseFlags } from "#~/helpers/escalationVotes.js";
 import type { Features } from "#~/helpers/featuresFlags.js";
 import {
   humanReadableResolutions,
+  votingStrategies,
   type Resolution,
+  type VotingStrategy,
 } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
+  calculateScheduledFor,
   createEscalation,
   getEscalation,
   getVotesForEscalation,
   recordVote,
   resolveEscalation,
+  updateEscalationStrategy,
+  updateScheduledFor,
+  type Escalation,
 } from "#~/models/escalationVotes.server";
 import {
   DEFAULT_QUORUM,
@@ -37,7 +46,11 @@ import {
   buildVoteMessageContent,
   buildVotesListContent,
 } from "./strings";
-import { tallyVotes, type VoteTally } from "./voting";
+import {
+  shouldTriggerEarlyResolution,
+  tallyVotes,
+  type VoteTally,
+} from "./voting";
 
 export const EscalationHandlers = {
   // Direct action commands (no voting)
@@ -331,16 +344,35 @@ ${buildVotesListContent(tally)}`,
       const tally = tallyVotes(votes);
       const flags = parseFlags(escalation.flags);
       const quorum = flags.quorum;
-      const quorumReached = tally.leaderCount >= quorum;
+      const votingStrategy =
+        (escalation.voting_strategy as VotingStrategy) ?? "simple";
 
-      // Check if quorum reached with clear winner - show confirmed state
-      if (quorumReached && !tally.isTied && tally.leader) {
+      // Update scheduled_for based on new vote count
+      const newScheduledFor = calculateScheduledFor(
+        escalation.created_at,
+        tally.totalVotes,
+      );
+      await updateScheduledFor(escalationId, newScheduledFor);
+
+      // Create updated escalation object with new scheduled_for
+      const updatedEscalation: Escalation = {
+        ...escalation,
+        scheduled_for: newScheduledFor,
+      };
+
+      const earlyResolution = shouldTriggerEarlyResolution(
+        tally,
+        quorum,
+        votingStrategy,
+      );
+
+      // Check if early resolution triggered with clear winner - show confirmed state
+      if (earlyResolution && !tally.isTied && tally.leader) {
         await interaction.update({
           content: buildConfirmedMessageContent(
-            escalation.reported_user_id,
+            updatedEscalation,
             tally.leader,
             tally,
-            escalation.created_at,
           ),
           components: [
             new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -358,17 +390,16 @@ ${buildVotesListContent(tally)}`,
       await interaction.update({
         content: buildVoteMessageContent(
           modRoleId,
-          escalation.initiator_id,
-          escalation.reported_user_id,
+          votingStrategy,
+          updatedEscalation,
           tally,
-          quorum,
-          escalation.created_at,
         ),
         components: buildVoteButtons(
           features,
-          escalationId,
+          votingStrategy,
+          updatedEscalation,
           tally,
-          quorumReached,
+          earlyResolution,
         ),
       });
     },
@@ -397,80 +428,134 @@ ${buildVotesListContent(tally)}`,
     if (restricted) {
       features.push("restrict");
     }
-    if (Number(level) >= 1) {
-      features.push("escalate-level-1");
-    }
+    const guild = await client.guilds.fetch(guildId);
 
-    // TODO: if level 0, use default_quorum. if level >=1, count a list of all members with the moderator role and require a majority to vote before a resolution is chosen
+    // Determine voting strategy based on level
+    const votingStrategy: VotingStrategy | null =
+      Number(level) >= 1 ? votingStrategies.majority : votingStrategies.simple;
+
     const quorum = DEFAULT_QUORUM;
 
     try {
-      const emptyTally: VoteTally = {
-        totalVotes: 0,
-        byResolution: new Map(),
-        leader: null,
-        leaderCount: 0,
-        isTied: false,
-        tiedResolutions: [],
-      };
-
-      const createdAt = new Date().toISOString();
-      const content = {
-        content: buildVoteMessageContent(
-          modRoleId,
-          interaction.user.id,
-          reportedUserId,
-          emptyTally,
-          quorum,
-          createdAt,
-        ),
-        components: buildVoteButtons(features, escalationId, emptyTally, false),
-      };
-
-      let voteMessage;
+      const channel = (await guild.channels.fetch(
+        interaction.channelId,
+      )) as ThreadChannel;
+      let voteMessage: Message<true>;
       if (Number(level) === 0) {
         // Send vote message first to get its ID
-        const channel = interaction.channel;
         if (!channel || !("send" in channel)) {
           await interaction.editReply({
             content: "Failed to create escalation vote: invalid channel",
           });
           return;
         }
-        voteMessage = await channel.send(content);
+
+        const createdAt = new Date().toISOString();
+        // Create a temporary escalation-like object for initial message
+        const tempEscalation: Escalation = {
+          id: escalationId,
+          guild_id: guildId,
+          thread_id: threadId,
+          vote_message_id: "", // Will be set after message is sent
+          reported_user_id: reportedUserId,
+          initiator_id: interaction.user.id,
+          flags: JSON.stringify({ quorum }),
+          created_at: createdAt,
+          resolved_at: null,
+          resolution: null,
+          voting_strategy: votingStrategy,
+          scheduled_for: calculateScheduledFor(createdAt, 0),
+        };
+        const emptyTally: VoteTally = {
+          totalVotes: 0,
+          byResolution: new Map(),
+          leader: null,
+          leaderCount: 0,
+          isTied: false,
+          tiedResolutions: [],
+        };
+
+        voteMessage = await channel.send({
+          content: buildVoteMessageContent(
+            modRoleId,
+            votingStrategy,
+            tempEscalation,
+            emptyTally,
+          ),
+          components: buildVoteButtons(
+            features,
+            votingStrategy,
+            tempEscalation,
+            emptyTally,
+            false,
+          ),
+        });
+        tempEscalation.vote_message_id = voteMessage.id;
+        // Now create escalation record with the correct message ID
+        await createEscalation(tempEscalation);
+
+        // Send notification
+        await interaction.editReply("Escalation started");
       } else {
+        // Re-escalation: update existing escalation's voting strategy
         const escalation = await getEscalation(escalationId);
         if (!escalation) {
           await interaction.editReply({
-            content: "Failed to re-escalate, couldn’t find escalation",
+            content: "Failed to re-escalate, couldn't find escalation",
           });
           return;
         }
-        voteMessage = await interaction.channel?.messages.fetch(
-          escalation.vote_message_id,
-        );
+        voteMessage = await channel.messages.fetch(escalation.vote_message_id);
         if (!voteMessage) {
           await interaction.editReply({
-            content: "Failed to re-escalation: couldn't find vote message",
+            content: "Failed to re-escalate: couldn't find vote message",
           });
           return;
         }
-        await voteMessage.edit(content);
+
+        // Get current votes to display
+        const votes = await getVotesForEscalation(escalationId);
+        const tally = tallyVotes(votes);
+
+        // Recalculate scheduled_for based on current vote count
+        const newScheduledFor = calculateScheduledFor(
+          escalation.created_at,
+          tally.totalVotes,
+        );
+
+        // Create updated escalation object
+        const updatedEscalation: Escalation = {
+          ...escalation,
+          voting_strategy: votingStrategy,
+          scheduled_for: newScheduledFor,
+        };
+
+        await voteMessage.edit({
+          content: buildVoteMessageContent(
+            modRoleId,
+            votingStrategy,
+            updatedEscalation,
+            tally,
+          ),
+          components: buildVoteButtons(
+            features,
+            votingStrategy,
+            escalation,
+            tally,
+            false, // Never in early resolution state when re-escalating to majority
+          ),
+        });
+
+        // Update the escalation's voting strategy
+        if (votingStrategy) {
+          await updateEscalationStrategy(escalationId, votingStrategy);
+        }
+
+        await updateScheduledFor(escalationId, newScheduledFor);
+
+        // Send notification
+        await interaction.editReply("Escalation upgraded to majority voting");
       }
-
-      // Now create escalation record with the correct message ID
-      await createEscalation({
-        id: escalationId as `${string}-${string}-${string}-${string}-${string}`,
-        guildId,
-        threadId,
-        voteMessageId: voteMessage.id,
-        reportedUserId,
-        initiatorId: interaction.user.id,
-        quorum,
-      });
-
-      // Send notification
-      await interaction.editReply("Escalation started");
     } catch (error) {
       log("error", "EscalationHandlers", "Error creating escalation vote", {
         error,

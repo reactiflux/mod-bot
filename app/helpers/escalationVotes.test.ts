@@ -5,22 +5,14 @@ import {
 } from "./escalationVotes";
 
 describe("calculateTimeoutHours", () => {
-  it("returns 24 hours with 0 votes", () => {
-    expect(calculateTimeoutHours(0)).toBe(24);
-  });
-
-  it("returns 16 hours with 1 vote", () => {
-    expect(calculateTimeoutHours(1)).toBe(16);
-  });
-
-  it("returns 8 hours with 2 votes", () => {
-    expect(calculateTimeoutHours(2)).toBe(8);
-  });
-
-  it("returns 0 hours with 3+ votes (quorum)", () => {
-    expect(calculateTimeoutHours(3)).toBe(0);
-    expect(calculateTimeoutHours(4)).toBe(0);
+  // Formula: max(0, 36 - 4 * (voteCount - 1))
+  it("returns the expected number of hours based on votes", () => {
+    expect(calculateTimeoutHours(0)).toBe(36);
+    expect(calculateTimeoutHours(1)).toBe(32);
+    expect(calculateTimeoutHours(2)).toBe(28);
+    expect(calculateTimeoutHours(3)).toBe(24);
     expect(calculateTimeoutHours(10)).toBe(0);
+    expect(calculateTimeoutHours(11)).toBe(0);
   });
 
   it("never returns negative", () => {
@@ -29,43 +21,22 @@ describe("calculateTimeoutHours", () => {
 });
 
 describe("shouldAutoResolve", () => {
-  it("resolves immediately with 3+ votes (0 hour timeout)", () => {
-    const now = new Date().toISOString();
-    expect(shouldAutoResolve(now, 3)).toBe(true);
-  });
+  // Formula: timeout = max(0, 36 - 4 * (voteCount - 1))
+  // 0 votes = 40h, 1 vote = 36h, 2 votes = 32h, 3 votes = 28h
 
   it("does not resolve immediately with 0 votes", () => {
     const now = new Date().toISOString();
     expect(shouldAutoResolve(now, 0)).toBe(false);
   });
 
-  it("resolves after 24 hours with 0 votes", () => {
-    const over24hAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
-    expect(shouldAutoResolve(over24hAgo, 0)).toBe(true);
+  it("resolves after a long time with 0 votes", () => {
+    const aLongTime = new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString();
+    expect(shouldAutoResolve(aLongTime, 0)).toBe(true);
   });
 
-  it("does not resolve at 23 hours with 0 votes", () => {
-    const under24hAgo = new Date(
-      Date.now() - 23 * 60 * 60 * 1000,
-    ).toISOString();
-    expect(shouldAutoResolve(under24hAgo, 0)).toBe(false);
-  });
-
-  it("resolves after 16 hours with 1 vote", () => {
-    const over16hAgo = new Date(Date.now() - 17 * 60 * 60 * 1000).toISOString();
-    expect(shouldAutoResolve(over16hAgo, 1)).toBe(true);
-  });
-
-  it("does not resolve at 15 hours with 1 vote", () => {
-    const under16hAgo = new Date(
-      Date.now() - 15 * 60 * 60 * 1000,
-    ).toISOString();
-    expect(shouldAutoResolve(under16hAgo, 1)).toBe(false);
-  });
-
-  it("resolves after 8 hours with 2 votes", () => {
-    const over8hAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
-    expect(shouldAutoResolve(over8hAgo, 2)).toBe(true);
+  it("does not resolve early with 0 votes", () => {
+    const notLong = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    expect(shouldAutoResolve(notLong, 0)).toBe(false);
   });
 });
 

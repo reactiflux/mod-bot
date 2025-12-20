@@ -1,7 +1,14 @@
-import { type Client, type Guild, type ThreadChannel } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ComponentType,
+  type Client,
+  type Guild,
+  type Message,
+  type ThreadChannel,
+} from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
-import { parseFlags, shouldAutoResolve } from "#~/helpers/escalationVotes.js";
 import {
   humanReadableResolutions,
   resolutions,
@@ -11,11 +18,12 @@ import { log, trackPerformance } from "#~/helpers/observability";
 import { scheduleTask } from "#~/helpers/schedule";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import {
-  getPendingEscalations,
+  getDueEscalations,
   getVotesForEscalation,
   resolveEscalation,
   type Escalation,
 } from "#~/models/escalationVotes.server";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server.ts";
 
 export async function executeResolution(
   resolution: Resolution,
@@ -94,6 +102,32 @@ export async function executeResolution(
 const ONE_MINUTE = 60 * 1000;
 
 /**
+ * Get disabled versions of all button components from a message.
+ */
+function getDisabledButtons(
+  message: Message,
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+
+  for (const row of message.components) {
+    if (!("components" in row)) continue;
+
+    const buttons = row.components.filter(
+      (c) => c.type === ComponentType.Button,
+    );
+    if (buttons.length === 0) continue;
+
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        buttons.map((btn) => ButtonBuilder.from(btn).setDisabled(true)),
+      ),
+    );
+  }
+
+  return rows;
+}
+
+/**
  * Execute a resolution action on a user via scheduled auto-resolution.
  */
 async function executeScheduledResolution(
@@ -110,32 +144,69 @@ async function executeScheduledResolution(
   log("info", "EscalationResolver", "Auto-resolving escalation", logBag);
 
   try {
-    const [guild, channel] = await Promise.all([
+    const { modLog } = await fetchSettings(escalation.guild_id, [
+      SETTINGS.modLog,
+    ]);
+    const [guild, channel, reportedUser] = await Promise.all([
       client.guilds.fetch(escalation.guild_id),
       client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
+      client.users.fetch(escalation.reported_user_id).catch(() => null),
     ]);
-    const reportedMember = await guild.members
-      .fetch(escalation.reported_user_id)
-      .catch(() => null);
-    const vote = await channel.messages.fetch(escalation.vote_message_id);
+    const [reportedMember, vote] = await Promise.all([
+      guild.members.fetch(escalation.reported_user_id).catch(() => null),
+      channel.messages.fetch(escalation.vote_message_id),
+    ]);
 
+    const now = Math.floor(Date.now() / 1000);
+    const createdAt = Math.floor(
+      Number(new Date(escalation.created_at)) / 1000,
+    );
+    const elapsedHours = Math.floor((now - createdAt) / 60 / 60);
+
+    // Handle case where user left the server or deleted their account
     if (!reportedMember) {
-      log("debug", "EscalationResolve", "Reported member failed to load");
+      const userLeft = reportedUser !== null;
+      const reason = userLeft
+        ? "User left the server"
+        : "User account no longer exists";
+
+      log("info", "EscalationResolver", "Resolving escalation - user gone", {
+        ...logBag,
+        reason,
+        userLeft,
+      });
+
+      // Mark as resolved with "track" since we can't take action
+      await resolveEscalation(escalation.id, resolutions.track);
+      await vote.edit({ components: getDisabledButtons(vote) });
+      try {
+        const displayName = reportedUser?.username ?? "Unknown User";
+        const notice = await vote.reply({
+          content: `Resolved: **${humanReadableResolutions[resolutions.track]}** <@${escalation.reported_user_id}> (${displayName})
+-# ${reason}. Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
+        });
+        await notice.forward(modLog);
+      } catch (error) {
+        log("warn", "EscalationResolver", "Could not update vote message", {
+          ...logBag,
+          error,
+        });
+      }
       return;
     }
 
     await executeResolution(resolution, escalation, guild);
     await resolveEscalation(escalation.id, resolution);
+    await vote.edit({
+      components: getDisabledButtons(vote),
+    });
 
     try {
-      // @ts-expect-error cuz nullcheck but ! is harder to search for
-      const resolvedAt = new Date(escalation.resolved_at);
-      const elapsed =
-        Number(resolvedAt) - Number(new Date(escalation.created_at));
-      await vote.reply({
-        content: `Escalation Resolved: **${humanReadableResolutions[resolution]}** on <@${escalation.reported_user_id}> (${reportedMember.displayName})\n-# _(Resolved <t:${Math.floor(Number(resolvedAt) / 1000)}:t>), ${Math.floor(elapsed / 1000 / 60 / 60)}hrs later_`,
-        components: [],
+      const notice = await vote.reply({
+        content: `Resolved: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedMember.displayName})
+-# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
       });
+      await notice.forward(modLog);
     } catch (error) {
       log("warn", "EscalationResolver", "Could not update vote message", {
         ...logBag,
@@ -158,30 +229,26 @@ async function executeScheduledResolution(
 }
 
 /**
- * Check all pending escalations and auto-resolve any that have timed out.
+ * Check all due escalations and auto-resolve them.
+ * Uses scheduled_for column to determine which escalations are ready.
  */
 async function checkPendingEscalations(client: Client): Promise<void> {
   await trackPerformance("checkPendingEscalations", async () => {
-    const pending = await getPendingEscalations();
+    const due = await getDueEscalations();
 
-    if (pending.length === 0) {
+    if (due.length === 0) {
       return;
     }
 
-    log("debug", "EscalationResolver", "Checking pending escalations", {
-      count: pending.length,
+    log("debug", "EscalationResolver", "Processing due escalations", {
+      count: due.length,
     });
 
-    for (const escalation of pending) {
+    for (const escalation of due) {
       try {
         const votes = await getVotesForEscalation(escalation.id);
         const tally = tallyVotes(votes);
-        const flags = parseFlags(escalation.flags);
-
-        // Check if timeout has elapsed
-        if (!shouldAutoResolve(escalation.created_at, tally.totalVotes)) {
-          continue;
-        }
+        const votingStrategy = escalation.voting_strategy;
 
         // Determine the resolution to take
         let resolution: Resolution;
@@ -195,17 +262,12 @@ async function checkPendingEscalations(client: Client): Promise<void> {
           log("warn", "EscalationResolver", "Auto-resolve skipped due to tie", {
             escalationId: escalation.id,
             tiedResolutions: tally.tiedResolutions,
+            votingStrategy,
           });
           resolution = resolutions.track;
         } else if (tally.leader) {
-          // Clear leader
-          const quorumReached = tally.leaderCount >= flags.quorum;
-          if (quorumReached) {
-            resolution = tally.leader;
-          } else {
-            // Not enough votes for quorum, take leading vote anyway on timeout
-            resolution = tally.leader;
-          }
+          // Clear leader - take leading vote on timeout (works for both simple and majority strategies)
+          resolution = tally.leader;
         } else {
           // Shouldn't happen, but default to track
           resolution = resolutions.track;

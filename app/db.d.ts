@@ -28,8 +28,10 @@ export interface Escalations {
   reported_user_id: string;
   resolution: string | null;
   resolved_at: string | null;
+  scheduled_for: string | null;
   thread_id: string;
   vote_message_id: string;
+  voting_strategy: string | null;
 }
 
 export interface Guilds {
