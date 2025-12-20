@@ -1,12 +1,15 @@
-import type { Route } from "./+types/dashboard";
-import { data, useSearchParams, Link } from "react-router";
-import type { LabelHTMLAttributes, PropsWithChildren } from "react";
-import { getTopParticipants } from "#~/models/activity.server";
+import { type PropsWithChildren } from "react";
+import { data, Link, useSearchParams } from "react-router";
+
 import { log, trackPerformance } from "#~/helpers/observability";
+import { getTopParticipants } from "#~/models/activity.server";
+
+import type { Route } from "./+types/dashboard";
 import {
   getCohortMetrics,
   calculateCohortBenchmarks,
 } from "#~/helpers/cohortAnalysis";
+import { RangeForm, type PresetKey } from "#~/features/StarHunter/RangeForm.js";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return trackPerformance(
@@ -60,32 +63,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   );
 }
 
-const Label = (props: LabelHTMLAttributes<Element>) => (
-  <label {...props} className={`${props.className ?? ""} m-4`}>
-    {props.children}
-  </label>
-);
-
 const percent = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 0,
 }).format;
-
-function RangeForm({ values }: { values: { start?: string; end?: string } }) {
-  return (
-    <form method="GET">
-      <Label>
-        Start date
-        <input name="start" type="date" defaultValue={values.start} />
-      </Label>
-      <Label>
-        End date
-        <input name="end" type="date" defaultValue={values.end} />
-      </Label>
-      <input type="submit" value="Submit" />
-    </form>
-  );
-}
 
 const Td = ({ children, ...props }: PropsWithChildren) => (
   <td {...props} className="padding-8">
@@ -109,12 +90,13 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
 
   const start = qs.get("start") ?? undefined;
   const end = qs.get("end") ?? undefined;
+  const interval = (qs.get("interval") as PresetKey) ?? undefined;
 
   if (!loaderData) {
     return (
       <div className="h-full px-6 py-8">
         <div className="flex justify-center">
-          <RangeForm values={{ start, end }} />
+          <RangeForm values={{ start, end }} interval={interval} />
         </div>
         <div></div>
       </div>
@@ -126,7 +108,7 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
   return (
     <div className="px-6 py-8">
       <div className="flex justify-center">
-        <RangeForm values={{ start, end }} />
+        <RangeForm values={{ start, end }} interval={interval} />
       </div>
       <div>
         <textarea readOnly className="resize text-black">
@@ -137,6 +119,7 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
         </textarea>
 
         <textarea
+          readOnly
           className="resize text-black"
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
 ${userResults
