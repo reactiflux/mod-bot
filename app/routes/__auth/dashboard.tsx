@@ -1,6 +1,11 @@
-import type { LabelHTMLAttributes, PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { data, Link, useSearchParams } from "react-router";
 
+import { RangeForm, type PresetKey } from "#~/features/StarHunter/RangeForm.js";
+import {
+  calculateCohortBenchmarks,
+  getCohortMetrics,
+} from "#~/helpers/cohortAnalysis";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { getTopParticipants } from "#~/models/activity.server";
 
@@ -14,6 +19,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       const start = url.searchParams.get("start");
       const end = url.searchParams.get("end");
       const guildId = params.guildId;
+      const minThreshold = Number(url.searchParams.get("minThreshold") ?? 10);
 
       log("info", "Dashboard", "Dashboard loader accessed", {
         guildId,
@@ -37,16 +43,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         return data(null, { status: 400 });
       }
 
-      const output = await getTopParticipants(guildId, start, end);
+      const userResults = await getTopParticipants(guildId, start, end);
 
-      log("info", "Dashboard", "Dashboard data loaded successfully", {
+      // Return full cohort metrics and benchmarks
+      const cohortMetrics = await getCohortMetrics(
         guildId,
         start,
         end,
-        participantCount: output.length || 0,
-      });
-
-      return output;
+        minThreshold,
+      );
+      const benchmarks = calculateCohortBenchmarks(cohortMetrics);
+      return { cohortMetrics, benchmarks, userResults };
     },
     {
       guildId: params.guildId,
@@ -56,70 +63,67 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   );
 }
 
-const Label = (props: LabelHTMLAttributes<Element>) => (
-  <label {...props} className={`${props.className ?? ""} m-4`}>
-    {props.children}
-  </label>
-);
-
 const percentFormatter = new Intl.NumberFormat("en-US", {
   style: "percent",
   maximumFractionDigits: 0,
 });
 const percent = percentFormatter.format.bind(percentFormatter);
 
-function RangeForm({ values }: { values: { start?: string; end?: string } }) {
-  return (
-    <form method="GET">
-      <Label>
-        Start date
-        <input name="start" type="date" defaultValue={values.start} />
-      </Label>
-      <Label>
-        End date
-        <input name="end" type="date" defaultValue={values.end} />
-      </Label>
-      <input type="submit" value="Submit" />
-    </form>
-  );
-}
+const Td = ({ children, ...props }: PropsWithChildren) => (
+  <td {...props} className="padding-8">
+    {children}
+  </td>
+);
+const Th = ({ children, ...props }: PropsWithChildren) => (
+  <th
+    {...props}
+    className="relative max-w-8 origin-bottom-left -rotate-45 text-nowrap"
+  >
+    {children}
+  </th>
+);
+const Tr = ({ children, ...props }: PropsWithChildren) => (
+  <tr {...props}>{children}</tr>
+);
 
-const DataHeading = ({ children }: PropsWithChildren) => {
-  return (
-    <th className="relative max-w-8 origin-bottom-left -rotate-45 text-nowrap">
-      {children}
-    </th>
-  );
-};
-
-export default function DashboardPage({
-  loaderData: data,
-}: Route.ComponentProps) {
+export default function DashboardPage({ loaderData }: Route.ComponentProps) {
   const [qs] = useSearchParams();
 
   const start = qs.get("start") ?? undefined;
   const end = qs.get("end") ?? undefined;
+  const interval = (qs.get("interval") as PresetKey) ?? undefined;
 
-  if (!data) {
+  if (!loaderData) {
     return (
       <div className="h-full px-6 py-8">
         <div className="flex justify-center">
-          <RangeForm values={{ start, end }} />
+          <RangeForm values={{ start, end }} interval={interval} />
         </div>
         <div></div>
       </div>
     );
   }
 
+  const { userResults, cohortMetrics, benchmarks } = loaderData;
+
   return (
     <div className="px-6 py-8">
       <div className="flex justify-center">
-        <RangeForm values={{ start, end }} />
+        <RangeForm values={{ start, end }} interval={interval} />
       </div>
       <div>
+        <textarea readOnly className="resize text-black">
+          {JSON.stringify({ benchmarks }, null, 2)}
+        </textarea>
+        <textarea readOnly className="resize text-black">
+          {JSON.stringify({ cohortMetrics }, null, 2)}
+        </textarea>
+
         <textarea
+          readOnly
+          className="resize text-black"
           defaultValue={`Author ID,Percent Zero Days,Word Count,Message Count,Channel Count,Category Count,Reaction Count,Word Score,Message Score,Channel Score,Consistency Score
-${data
+${userResults
   .map(
     (d) =>
       `${d.data.member.author_id},${d.metadata.percentZeroDays},${d.data.member.total_word_count},${d.data.member.message_count},${d.data.member.channel_count},${d.data.member.category_count},${d.data.member.total_reaction_count},${d.score.wordScore},${d.score.messageScore},${d.score.channelScore},${d.score.consistencyScore}`,
@@ -128,24 +132,24 @@ ${data
         ></textarea>
         <table className="mt-24">
           <thead>
-            <tr>
-              <DataHeading>Author ID</DataHeading>
-              <DataHeading>Percent Zero Days</DataHeading>
-              <DataHeading>Word Count</DataHeading>
-              <DataHeading>Message Count</DataHeading>
-              <DataHeading>Channel Count</DataHeading>
-              <DataHeading>Category Count</DataHeading>
-              <DataHeading>Reaction Count</DataHeading>
-              <DataHeading>Word Score</DataHeading>
-              <DataHeading>Message Score</DataHeading>
-              <DataHeading>Channel Score</DataHeading>
-              <DataHeading>Consistency Score</DataHeading>
-            </tr>
+            <Tr>
+              <Th>Author ID</Th>
+              <Th>Percent Zero Days</Th>
+              <Th>Word Count</Th>
+              <Th>Message Count</Th>
+              <Th>Channel Count</Th>
+              <Th>Category Count</Th>
+              <Th>Reaction Count</Th>
+              <Th>Word Score</Th>
+              <Th>Message Score</Th>
+              <Th>Channel Score</Th>
+              <Th>Consistency Score</Th>
+            </Tr>
           </thead>
           <tbody>
-            {data.map((d) => (
-              <tr key={d.data.member.author_id}>
-                <td>
+            {userResults.map((d) => (
+              <Tr key={d.data.member.author_id}>
+                <Td>
                   <Link
                     to={{
                       pathname: d.data.member.author_id,
@@ -154,18 +158,18 @@ ${data
                   >
                     {d.data.member.username ?? d.data.member.author_id}
                   </Link>
-                </td>
-                <td>{percent(d.metadata.percentZeroDays)}</td>
-                <td>{d.data.member.total_word_count}</td>
-                <td>{d.data.member.message_count}</td>
-                <td>{d.data.member.channel_count}</td>
-                <td>{d.data.member.category_count}</td>
-                <td>{d.data.member.total_reaction_count}</td>
-                <td>{d.score.wordScore}</td>
-                <td>{d.score.messageScore}</td>
-                <td>{d.score.channelScore}</td>
-                <td>{d.score.consistencyScore}</td>
-              </tr>
+                </Td>
+                <Td>{percent(d.metadata.percentZeroDays)}</Td>
+                <Td>{d.data.member.total_word_count}</Td>
+                <Td>{d.data.member.message_count}</Td>
+                <Td>{d.data.member.channel_count}</Td>
+                <Td>{d.data.member.category_count}</Td>
+                <Td>{d.data.member.total_reaction_count}</Td>
+                <Td>{d.score.wordScore}</Td>
+                <Td>{d.score.messageScore}</Td>
+                <Td>{d.score.channelScore}</Td>
+                <Td>{d.score.consistencyScore}</Td>
+              </Tr>
             ))}
           </tbody>
         </table>

@@ -19,6 +19,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { getUserCohortAnalysis } from "#~/helpers/cohortAnalysis.js";
 import { getUserMessageAnalytics } from "#~/models/activity.server";
 
 import type { Route } from "./+types/sh-user";
@@ -32,13 +33,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
+  const minThreshold = Number(url.searchParams.get("minThreshold") ?? 10);
 
   if (!start || !end) {
     throw new Error("cannot load data without start and end range");
   }
 
-  // Use shared analytics function with channel filtering disabled for user view
-  return await getUserMessageAnalytics(guildId, userId, start, end);
+  const [analysis, data] = await Promise.all([
+    getUserCohortAnalysis(guildId, userId, start, end, minThreshold),
+    getUserMessageAnalytics(guildId, userId, start, end),
+  ]);
+
+  return {
+    analysis,
+    data,
+  };
 }
 
 const num = new Intl.NumberFormat("en-US", {
@@ -48,7 +57,7 @@ const num = new Intl.NumberFormat("en-US", {
 
 export default function UserProfile({
   params,
-  loaderData: data,
+  loaderData: { data, analysis },
 }: Route.ComponentProps) {
   const [qs] = useSearchParams();
   const start = qs.get("start");
@@ -130,6 +139,7 @@ text {
           </p>
           <p></p>
           <p>Received {num.format(derivedData.totalReactions)} reactions.</p>
+          <pre>{JSON.stringify(analysis, null, 2)}</pre>
         </div>
         <div className="mx-auto max-w-screen-lg">
           <ResponsiveContainer width="100%" height={200}>

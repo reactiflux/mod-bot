@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 
 import db, { type DB } from "#~/db.server";
+import { getUserCohortAnalysis } from "#~/helpers/cohortAnalysis";
 import { fillDateGaps } from "#~/helpers/dateUtils";
 import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
 
@@ -134,6 +135,23 @@ export async function getUserMessageAnalytics(
   );
 
   return { dailyBreakdown, categoryBreakdown, channelBreakdown, userInfo };
+}
+
+export async function getEnhancedUserAnalytics(
+  guildId: string,
+  userId: string,
+  start: string,
+  end: string,
+) {
+  const [basicAnalytics, cohortComparison] = await Promise.all([
+    getUserMessageAnalytics(guildId, userId, start, end),
+    getUserCohortAnalysis(guildId, userId, start, end),
+  ]);
+
+  return {
+    ...basicAnalytics,
+    cohortComparison,
+  };
 }
 
 export async function getTopParticipants(
