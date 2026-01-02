@@ -1,6 +1,7 @@
 import { Events, type Client } from "discord.js";
 
 import db from "#~/db.server";
+import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";
 
 export async function startReactjiChanneler(client: Client) {
@@ -99,6 +100,8 @@ export async function startReactjiChanneler(client: Client) {
         content: `Forwarded by ${reactorMentions} reacting with ${emoji}`,
         allowedMentions: { users: [] },
       });
+
+      featureStats.reactjiTriggered(guildId, user.id, emoji, message.id);
 
       log("info", "ReactjiChanneler", "Message forwarded successfully", {
         messageId: message.id,

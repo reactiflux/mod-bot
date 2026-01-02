@@ -39,7 +39,8 @@ export const sentryReleases = getEnv("SENTRY_RELEASES", true);
 export const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
 export const stripeWebhookSecret = getEnv("STRIPE_WEBHOOK_SECRET");
 
-export const amplitudeKey = getEnv("AMPLITUDE_API_KEY", true);
+export const posthogApiKey = getEnv("POSTHOG_KEY", true);
+export const posthogHost = getEnv("POSTHOG_HOST", true);
 
 if (!ok) throw new Error("Environment misconfigured");
 console.log("");

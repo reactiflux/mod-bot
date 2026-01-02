@@ -7,6 +7,7 @@ import {
 
 import db from "#~/db.server.js";
 import { type SlashCommand } from "#~/helpers/discord";
+import { featureStats } from "#~/helpers/metrics";
 
 export const Command = {
   command: new SlashCommandBuilder()
@@ -85,6 +86,13 @@ export const Command = {
           }),
         )
         .execute();
+
+      featureStats.reactjiChannelSetup(
+        guildId,
+        configuredById,
+        emoji,
+        threshold,
+      );
 
       const thresholdText =
         threshold === 1 ? "" : ` (after ${threshold} reactions)`;

@@ -6,19 +6,21 @@ import type {
   ThreadChannel,
   UserContextMenuCommandInteraction,
 } from "discord.js";
-import fetch from "node-fetch";
-import queryString from "query-string";
+import { PostHog } from "posthog-node";
 
-import { amplitudeKey } from "#~/helpers/env.server";
+import { posthogApiKey, posthogHost } from "#~/helpers/env.server";
 import { log } from "#~/helpers/observability";
 
-type AmplitudeValue = string | number | boolean;
-type EmitEventData = Record<string, AmplitudeValue | AmplitudeValue[]>;
+type EventValue = string | number | boolean;
+type EmitEventData = Record<string, EventValue | EventValue[]>;
 
 const events = {
+  // Existing events
   messageTracked: "message sent",
   botStarted: "bot started",
-  guildJoined: "guild joined",
+  guildJoined: "bot installed",
+  guildRemoved: "bot uninstalled",
+  guildResurrected: "bot reinstalled",
   threadCreated: "thread created",
   gatewayError: "gateway error",
   reconnection: "bot reconnected",
@@ -26,12 +28,41 @@ const events = {
   commandFailed: "command failed",
   setupCompleted: "setup completed",
   reportSubmitted: "report submitted",
+  // New events from Issue #227
+  userTracked: "user tracked",
+  ticketChannelSetup: "ticket channel setup",
+  ticketCreated: "ticket created",
+  ticketClosed: "ticket closed",
+  honeypotSetup: "honeypot setup",
+  honeypotTriggered: "honeypot triggered",
+  reactjiChannelSetup: "reactji channel setup",
+  reactjiTriggered: "reactji triggered",
+  spamDetected: "spam detected",
+  spamKicked: "spam kicked",
 };
+
+// PostHog client singleton
+let posthogClient: PostHog | null = null;
+
+function getPostHog(): PostHog | null {
+  if (!posthogApiKey) return null;
+  posthogClient ??= new PostHog(posthogApiKey, {
+    host: posthogHost ?? "https://us.i.posthog.com",
+    flushAt: 20,
+    flushInterval: 10000,
+  });
+  return posthogClient;
+}
+
+export async function shutdownMetrics() {
+  await posthogClient?.shutdown();
+}
 
 export const threadStats = {
   messageTracked: (message: Message) =>
     emitEvent(events.messageTracked, {
       data: { guildId: message.guild?.id ?? "none" },
+      guildId: message.guild?.id,
     }),
 };
 
@@ -48,6 +79,27 @@ export const botStats = {
         guildName: guild.name,
         memberCount: guild.memberCount,
       },
+      guildId: guild.id,
+    }),
+
+  guildRemoved: (guild: Guild) =>
+    emitEvent(events.guildRemoved, {
+      data: {
+        guildId: guild.id,
+        guildName: guild.name,
+        memberCount: guild.memberCount,
+      },
+      guildId: guild.id,
+    }),
+
+  guildResurrected: (guild: Guild) =>
+    emitEvent(events.guildResurrected, {
+      data: {
+        guildId: guild.id,
+        guildName: guild.name,
+        memberCount: guild.memberCount,
+      },
+      guildId: guild.id,
     }),
 
   threadCreated: (thread: ThreadChannel) =>
@@ -58,6 +110,7 @@ export const botStats = {
         channelId: thread.parentId ?? "none",
         threadName: thread.name,
       },
+      guildId: thread.guild.id,
     }),
 
   gatewayError: (error: string, guildCount: number) =>
@@ -91,6 +144,7 @@ export const commandStats = {
         duration: duration ?? 0,
       },
       userId: interaction.user.id,
+      guildId: interaction.guildId ?? undefined,
     }),
 
   commandFailed: (
@@ -112,6 +166,7 @@ export const commandStats = {
         duration: duration ?? 0,
       },
       userId: interaction.user.id,
+      guildId: interaction.guildId ?? undefined,
     }),
 
   setupCompleted: (
@@ -128,6 +183,7 @@ export const commandStats = {
         hasRestrictedRole: !!settings.restricted,
       },
       userId: interaction.user.id,
+      guildId: interaction.guildId ?? undefined,
     }),
 
   reportSubmitted: (
@@ -142,38 +198,121 @@ export const commandStats = {
         channelId: interaction.channelId,
       },
       userId: interaction.user.id,
+      guildId: interaction.guildId ?? undefined,
+    }),
+};
+
+export const featureStats = {
+  userTracked: (guildId: string, userId: string, targetUserId: string) =>
+    emitEvent(events.userTracked, {
+      data: { guildId, targetUserId },
+      userId,
+      guildId,
+    }),
+
+  ticketChannelSetup: (guildId: string, userId: string, channelId: string) =>
+    emitEvent(events.ticketChannelSetup, {
+      data: { guildId, channelId },
+      userId,
+      guildId,
+    }),
+
+  ticketCreated: (guildId: string, userId: string, threadId: string) =>
+    emitEvent(events.ticketCreated, {
+      data: { guildId, threadId },
+      userId,
+      guildId,
+    }),
+
+  ticketClosed: (
+    guildId: string,
+    closedByUserId: string,
+    ticketOpenerId: string,
+    hasFeedback: boolean,
+  ) =>
+    emitEvent(events.ticketClosed, {
+      data: { guildId, ticketOpenerId, hasFeedback },
+      userId: closedByUserId,
+      guildId,
+    }),
+
+  honeypotSetup: (guildId: string, userId: string, channelId: string) =>
+    emitEvent(events.honeypotSetup, {
+      data: { guildId, channelId },
+      userId,
+      guildId,
+    }),
+
+  honeypotTriggered: (
+    guildId: string,
+    spammerUserId: string,
+    channelId: string,
+  ) =>
+    emitEvent(events.honeypotTriggered, {
+      data: { guildId, channelId, spammerUserId },
+      guildId,
+    }),
+
+  reactjiChannelSetup: (
+    guildId: string,
+    userId: string,
+    emoji: string,
+    threshold: number,
+  ) =>
+    emitEvent(events.reactjiChannelSetup, {
+      data: { guildId, emoji, threshold },
+      userId,
+      guildId,
+    }),
+
+  reactjiTriggered: (
+    guildId: string,
+    triggeredByUserId: string,
+    emoji: string,
+    messageId: string,
+  ) =>
+    emitEvent(events.reactjiTriggered, {
+      data: { guildId, emoji, messageId },
+      userId: triggeredByUserId,
+      guildId,
+    }),
+
+  spamDetected: (guildId: string, spammerUserId: string, channelId: string) =>
+    emitEvent(events.spamDetected, {
+      data: { guildId, channelId, spammerUserId },
+      guildId,
+    }),
+
+  spamKicked: (guildId: string, kickedUserId: string, warningCount: number) =>
+    emitEvent(events.spamKicked, {
+      data: { guildId, kickedUserId, warningCount },
+      guildId,
     }),
 };
 
 const emitEvent = (
   eventName: string,
-  { data, userId }: { data?: EmitEventData; userId?: string } = {},
+  {
+    data,
+    userId,
+    guildId,
+  }: { data?: EmitEventData; userId?: string; guildId?: string } = {},
 ) => {
-  if (!amplitudeKey) {
-    log("info", "Metrics", "event emitted", {
-      user_id: userId,
-      event_type: eventName,
-      event_properties: data,
-    });
-    return;
-  }
+  const client = getPostHog();
 
-  const fields = {
-    api_key: amplitudeKey,
-    event: JSON.stringify({
-      user_id: userId ?? "0",
-      event_type: eventName,
-      event_properties: data,
-    }),
-  };
+  log("info", "Metrics", "event emitted", {
+    user_id: userId,
+    event_type: eventName,
+    event_properties: data,
+    client: Boolean(client),
+  });
 
-  void (async () => {
-    try {
-      await fetch(
-        `https://api.amplitude.com/httpapi?${queryString.stringify(fields)}`,
-      );
-    } catch (error) {
-      log("error", "Metrics", "Failed to emit event", { error });
-    }
-  })();
+  client?.capture({
+    distinctId: userId ?? "system",
+    event: eventName,
+    properties: {
+      ...data,
+      $groups: guildId ? { guild: guildId } : undefined,
+    },
+  });
 };

@@ -8,6 +8,7 @@ import {
 
 import db from "#~/db.server.js";
 import type { AnyCommand } from "#~/helpers/discord.js";
+import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability.js";
 
 const DEFAULT_MESSAGE_TEXT =
@@ -65,6 +66,11 @@ export const Command = [
           .execute();
         if (result[0].numInsertedOrUpdatedRows ?? 0 > 0) {
           await castedChannel.send(messageText);
+          featureStats.honeypotSetup(
+            interaction.guildId,
+            interaction.user.id,
+            honeypotChannel.id,
+          );
         }
 
         await interaction.reply({

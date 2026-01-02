@@ -1,5 +1,6 @@
 import { ChannelType, Events, type Client, type TextChannel } from "discord.js";
 
+import { botStats } from "#~/helpers/metrics";
 import { retry } from "#~/helpers/misc";
 import { fetchGuild } from "#~/models/guilds.server";
 
@@ -12,6 +13,9 @@ export default async (bot: Client) => {
   bot.on(Events.GuildCreate, async (guild) => {
     const appGuild = await fetchGuild(guild.id);
     if (!appGuild) {
+      // This is a new installation, not a reconnection
+      botStats.guildJoined(guild);
+
       await deployCommands(client);
 
       const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
@@ -41,5 +45,10 @@ export default async (bot: Client) => {
         }
       });
     }
+  });
+
+  // Track when the bot is removed from a guild
+  bot.on(Events.GuildDelete, (guild) => {
+    botStats.guildRemoved(guild);
   });
 };
