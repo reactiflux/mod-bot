@@ -48,7 +48,14 @@ export default async (bot: Client) => {
   });
 
   // Track when the bot is removed from a guild
-  bot.on(Events.GuildDelete, (guild) => {
+  // GuildDelete also fires when a guild becomes temporarily unavailable,
+  // so we check the unavailable flag and verify the guild exists in our DB
+  bot.on(Events.GuildDelete, async (guild) => {
+    if (guild.available === false) return;
+
+    const appGuild = await fetchGuild(guild.id);
+    if (!appGuild) return;
+
     botStats.guildRemoved(guild);
   });
 };

@@ -20,7 +20,6 @@ const events = {
   botStarted: "bot started",
   guildJoined: "bot installed",
   guildRemoved: "bot uninstalled",
-  guildResurrected: "bot reinstalled",
   threadCreated: "thread created",
   gatewayError: "gateway error",
   reconnection: "bot reconnected",
@@ -84,16 +83,6 @@ export const botStats = {
 
   guildRemoved: (guild: Guild) =>
     emitEvent(events.guildRemoved, {
-      data: {
-        guildId: guild.id,
-        guildName: guild.name,
-        memberCount: guild.memberCount,
-      },
-      guildId: guild.id,
-    }),
-
-  guildResurrected: (guild: Guild) =>
-    emitEvent(events.guildResurrected, {
       data: {
         guildId: guild.id,
         guildName: guild.name,
@@ -250,6 +239,7 @@ export const featureStats = {
   ) =>
     emitEvent(events.honeypotTriggered, {
       data: { guildId, channelId, spammerUserId },
+      userId: spammerUserId,
       guildId,
     }),
 
@@ -280,6 +270,7 @@ export const featureStats = {
   spamDetected: (guildId: string, spammerUserId: string, channelId: string) =>
     emitEvent(events.spamDetected, {
       data: { guildId, channelId, spammerUserId },
+      userId: spammerUserId,
       guildId,
     }),
 
