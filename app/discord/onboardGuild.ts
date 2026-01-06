@@ -12,39 +12,38 @@ export default async (bot: Client) => {
   // available after downtime, or when actually added to a new guild
   bot.on(Events.GuildCreate, async (guild) => {
     const appGuild = await fetchGuild(guild.id);
-    if (!appGuild) {
-      // This is a new installation, not a reconnection
-      botStats.guildJoined(guild);
+    botStats.guildJoined(guild);
+    if (appGuild) return;
 
-      await deployCommands(client);
+    // New installation - deploy commands and send welcome message
+    await deployCommands(client);
 
-      const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
+    const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
 
-      const channels = await guild.channels.fetch();
-      const likelyChannels = channels.filter((c): c is TextChannel =>
-        Boolean(
-          c &&
-            c.type === ChannelType.GuildText &&
-            (c.name.includes("mod") || c.name.includes("intro")),
-        ),
-      );
+    const channels = await guild.channels.fetch();
+    const likelyChannels = channels.filter((c): c is TextChannel =>
+      Boolean(
+        c &&
+          c.type === ChannelType.GuildText &&
+          (c.name.includes("mod") || c.name.includes("intro")),
+      ),
+    );
 
-      await retry(5, async (n) => {
-        switch (n) {
-          case 0:
-            void guild.systemChannel!.send(welcomeMessage);
-            return;
-          case 1:
-            void guild.publicUpdatesChannel!.send(welcomeMessage);
-            return;
-          default: {
-            if (likelyChannels.size < n - 2) return;
-            void likelyChannels.at(n - 2)!.send(welcomeMessage);
-            return;
-          }
+    await retry(5, async (n) => {
+      switch (n) {
+        case 0:
+          void guild.systemChannel!.send(welcomeMessage);
+          return;
+        case 1:
+          void guild.publicUpdatesChannel!.send(welcomeMessage);
+          return;
+        default: {
+          if (likelyChannels.size < n - 2) return;
+          void likelyChannels.at(n - 2)!.send(welcomeMessage);
+          return;
         }
-      });
-    }
+      }
+    });
   });
 
   // Track when the bot is removed from a guild
