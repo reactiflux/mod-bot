@@ -24,6 +24,7 @@ import {
   type ModalCommand,
   type SlashCommand,
 } from "#~/helpers/discord";
+import { featureStats } from "#~/helpers/metrics";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
@@ -111,6 +112,12 @@ export const Command = [
             role_id: roleId,
           })
           .execute();
+
+        featureStats.ticketChannelSetup(
+          interaction.guild.id,
+          interaction.user.id,
+          ticketChannel?.id ?? interaction.channelId,
+        );
       } catch (e) {
         console.error(`error:`, e);
       }
@@ -204,7 +211,7 @@ export const Command = [
       await thread.send(`${user.displayName} said:
 ${quoteMessageContent(concern)}`);
       await thread.send({
-        content: "When you’ve finished, please close the ticket.",
+        content: "When you've finished, please close the ticket.",
         components: [
           // @ts-expect-error Types for this are super busted
           new ActionRowBuilder().addComponents(
@@ -223,6 +230,8 @@ ${quoteMessageContent(concern)}`);
           ),
         ],
       });
+
+      featureStats.ticketCreated(interaction.guild.id, user.id, thread.id);
 
       void interaction.reply({
         content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
@@ -260,7 +269,7 @@ ${quoteMessageContent(concern)}`);
         rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
         rest.post(Routes.channelMessages(modLog), {
           body: {
-            content: `<@${ticketOpenerUserId}>’s ticket <#${threadId}> closed by <@${interactionUserId}>${feedback ? `. feedback: ${feedback}` : ""}`,
+            content: `<@${ticketOpenerUserId}>'s ticket <#${threadId}> closed by <@${interactionUserId}>${feedback ? `. feedback: ${feedback}` : ""}`,
             allowedMentions: {},
           },
         }),
@@ -269,6 +278,13 @@ ${quoteMessageContent(concern)}`);
           allowedMentions: {},
         }),
       ]);
+
+      featureStats.ticketClosed(
+        interaction.guild.id,
+        interactionUserId,
+        ticketOpenerUserId,
+        !!feedback?.trim(),
+      );
 
       return;
     },

@@ -24,7 +24,7 @@ async function loadServerModule() {
     currentServerApp = source.app;
     console.log("Server module (re)loaded");
   } catch (error) {
-    if (typeof error === "object" && error instanceof Error) {
+    if (error instanceof Error) {
       viteDevServer.ssrFixStacktrace(error);
     }
     console.error("Error loading server module:", error);
@@ -68,6 +68,23 @@ viteDevServer.watcher.on("change", async (file) => {
     // Reload the server module
     await loadServerModule();
   }
+});
+
+// Fix stack traces for unhandled errors using Vite's source map support
+process.on("uncaughtException", (error) => {
+  if (error instanceof Error) {
+    viteDevServer.ssrFixStacktrace(error);
+  }
+  console.error("Uncaught Exception:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  if (reason instanceof Error) {
+    viteDevServer.ssrFixStacktrace(reason);
+  }
+  console.error("Unhandled Rejection:", reason);
+  process.exit(1);
 });
 
 const PORT = process.env.PORT ?? "3000";

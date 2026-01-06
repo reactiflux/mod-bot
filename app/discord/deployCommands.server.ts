@@ -42,6 +42,10 @@ export const deployCommands = async (client: Client) => {
     : deployTestCommands(client, localCommands));
 
   client.on(Events.InteractionCreate, (interaction) => {
+    log("info", "deployCommands", "Handling interaction", {
+      type: interaction.type,
+      id: interaction.id,
+    });
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
         const config = matchCommand(interaction.commandName);

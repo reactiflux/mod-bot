@@ -7,6 +7,7 @@ import {
 import { Button } from "reacord";
 
 import { reacord } from "#~/discord/client.server";
+import { featureStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog";
 import {
   markMessageAsDeleted,
@@ -26,6 +27,10 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
     message,
     staff: user,
   });
+
+  if (interaction.guildId) {
+    featureStats.userTracked(interaction.guildId, user.id, message.author.id);
+  }
 
   const instance = reacord.ephemeralReply(
     interaction,

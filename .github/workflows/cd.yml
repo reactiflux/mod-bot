@@ -132,6 +132,8 @@ jobs:
             STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
             VITE_PUBLIC_POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
             VITE_PUBLIC_POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
+            POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
+            POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
             DATABASE_URL: "${{ secrets.DATABASE_URL }}"
           EOF
 
@@ -179,6 +181,8 @@ jobs:
             --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
             --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
+            --from-literal=POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
+            --from-literal=POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
             --from-literal=DATABASE_URL=/data/mod-bot.sqlite3 \
             --dry-run=client -o yaml | kubectl apply -f -
 

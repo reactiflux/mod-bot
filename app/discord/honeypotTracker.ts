@@ -1,6 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 
 import db from "#~/db.server.js";
+import { featureStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog.js";
 import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
@@ -103,6 +104,7 @@ export async function startHoneypotTracking(client: Client) {
           staff: client.user ?? false,
         }),
       ]);
+      featureStats.honeypotTriggered(msg.guildId, member.id, msg.channelId);
     } catch (e) {
       log(
         "error",

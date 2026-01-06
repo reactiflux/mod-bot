@@ -7,7 +7,7 @@ import { deployCommands } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
-import { botStats } from "#~/helpers/metrics";
+import { botStats, shutdownMetrics } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
@@ -134,4 +134,14 @@ export default function init() {
     // Track reconnections in business analytics
     botStats.reconnection(client.guilds.cache.size, client.users.cache.size);
   });
+
+  // Graceful shutdown handler to flush metrics
+  const handleShutdown = async (signal: string) => {
+    log("info", "Gateway", `Received ${signal}, shutting down gracefully`, {});
+    await shutdownMetrics();
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
+  process.on("SIGINT", () => void handleShutdown("SIGINT"));
 }

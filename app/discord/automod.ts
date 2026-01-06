@@ -2,6 +2,7 @@ import { Events, type Client } from "discord.js";
 
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
+import { featureStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog";
 import {
   markMessageAsDeleted,
@@ -34,6 +35,12 @@ export default async (bot: Client) => {
         .delete()
         .then(() => markMessageAsDeleted(message.id, message.guild!.id));
 
+      featureStats.spamDetected(
+        message.guild.id,
+        message.author.id,
+        message.channelId,
+      );
+
       if (warnings >= AUTO_SPAM_THRESHOLD) {
         await Promise.all([
           member.kick("Autokicked for spamming"),
@@ -42,6 +49,7 @@ export default async (bot: Client) => {
             allowedMentions: {},
           }),
         ]);
+        featureStats.spamKicked(message.guild.id, message.author.id, warnings);
       }
     }
   });
