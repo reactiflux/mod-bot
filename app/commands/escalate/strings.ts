@@ -49,7 +49,7 @@ export function buildVoteMessageContent(
     // Majority voting: always wait for timeout, plurality wins
     if (tally.totalVotes === 0) {
       status = scheduledFor
-        ? `Majority voting. Resolves <t:${scheduledFor}:R> with leading option.`
+        ? `Majority voting. Resolves <t:${scheduledFor}:R> with a simple majority of participants.`
         : `Majority voting. Waiting for votes.`;
     } else if (tally.isTied) {
       status = `Tied between: ${tally.tiedResolutions.map((r) => humanReadableResolutions[r]).join(", ")}. Tiebreak needed before timeout.`;

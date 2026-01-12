@@ -147,11 +147,13 @@ async function executeScheduledResolution(
     const { modLog } = await fetchSettings(escalation.guild_id, [
       SETTINGS.modLog,
     ]);
-    const [guild, channel, reportedUser] = await Promise.all([
+    const [guild, channel, reportedUser, votes] = await Promise.all([
       client.guilds.fetch(escalation.guild_id),
       client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
       client.users.fetch(escalation.reported_user_id).catch(() => null),
+      getVotesForEscalation(escalation.id),
     ]);
+    const voters = new Set(votes.map((v) => v.voter_id));
     const [reportedMember, vote] = await Promise.all([
       guild.members.fetch(escalation.reported_user_id).catch(() => null),
       channel.messages.fetch(escalation.vote_message_id),
@@ -162,13 +164,16 @@ async function executeScheduledResolution(
       Number(new Date(escalation.created_at)) / 1000,
     );
     const elapsedHours = Math.floor((now - createdAt) / 60 / 60);
+    const totalVotes = votes.length;
+    const totalVoters = voters.size;
+
+    const noticeText = `Resolved with ${totalVotes} votes from ${totalVoters} voters: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedUser?.displayName ?? "no user"})`;
+    const timing = `-# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`;
 
     // Handle case where user left the server or deleted their account
     if (!reportedMember) {
       const userLeft = reportedUser !== null;
-      const reason = userLeft
-        ? "User left the server"
-        : "User account no longer exists";
+      const reason = userLeft ? "left the server" : "account no longer exists";
 
       log("info", "EscalationResolver", "Resolving escalation - user gone", {
         ...logBag,
@@ -180,10 +185,8 @@ async function executeScheduledResolution(
       await resolveEscalation(escalation.id, resolutions.track);
       await vote.edit({ components: getDisabledButtons(vote) });
       try {
-        const displayName = reportedUser?.username ?? "Unknown User";
         const notice = await vote.reply({
-          content: `Resolved: **${humanReadableResolutions[resolutions.track]}** <@${escalation.reported_user_id}> (${displayName})
--# ${reason}. Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
+          content: `${noticeText}\n${timing} (${reason})`,
         });
         await notice.forward(modLog);
       } catch (error) {
@@ -203,8 +206,7 @@ async function executeScheduledResolution(
 
     try {
       const notice = await vote.reply({
-        content: `Resolved: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedMember.displayName})
--# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`,
+        content: `${noticeText}\n${timing}`,
       });
       await notice.forward(modLog);
     } catch (error) {

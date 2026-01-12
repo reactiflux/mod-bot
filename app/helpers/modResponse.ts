@@ -7,7 +7,7 @@ export const resolutions = {
   ban: "ban",
 } as const;
 export const humanReadableResolutions = {
-  [resolutions.track]: "No action",
+  [resolutions.track]: "No action (abstain)",
   // [resolutions.warning]: "Formal Warning",
   [resolutions.timeout]: "Timeout Overnight",
   [resolutions.restrict]: "Restrict",
