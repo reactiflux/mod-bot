@@ -77,29 +77,29 @@ export const applyRestriction = async (member: GuildMember | null) => {
   return member.roles.add(restrictedRole);
 };
 
-export const kick = async (member: GuildMember | null) => {
+export const kick = async (member: GuildMember | null, reason: string) => {
   if (!member) {
     console.log("Tried to kick a null member");
     return;
   }
-  return member.guild.members.kick(member, "Voted resolution");
+  return member.guild.members.kick(member, reason);
 };
 
-export const ban = async (member: GuildMember | null) => {
+export const ban = async (member: GuildMember | null, reason: string) => {
   if (!member) {
     console.log("Tried to ban a null member");
     return;
   }
-  return member.guild.bans.create(member, { reason: "Voted resolution" });
+  return member.guild.bans.create(member, { reason });
 };
 
 const OVERNIGHT = 1000 * 60 * 60 * 20;
-export const timeout = async (member: GuildMember | null) => {
+export const timeout = async (member: GuildMember | null, reason: string) => {
   if (!member) {
     console.log("Tried to timeout a null member");
     return;
   }
-  return member.timeout(OVERNIGHT, "Voted resolution");
+  return member.timeout(OVERNIGHT, reason);
 };
 
 const authzRoles = {

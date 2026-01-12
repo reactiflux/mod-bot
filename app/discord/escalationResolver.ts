@@ -75,7 +75,7 @@ export async function executeResolution(
       //       }
 
       case resolutions.timeout:
-        await timeout(reportedMember);
+        await timeout(reportedMember, "voted resolution");
         break;
 
       case resolutions.restrict:
@@ -83,11 +83,11 @@ export async function executeResolution(
         break;
 
       case resolutions.kick:
-        await kick(reportedMember);
+        await kick(reportedMember, "voted resolution");
         break;
 
       case resolutions.ban:
-        await ban(reportedMember);
+        await ban(reportedMember, "voted resolution");
         break;
     }
   } catch (error) {

@@ -102,7 +102,7 @@ export const EscalationHandlers = {
       const reportedMember =
         await interaction.guild!.members.fetch(reportedUserId);
       await Promise.allSettled([
-        kick(reportedMember),
+        kick(reportedMember, "single moderator decision"),
         interaction.reply(
           `<@${reportedUserId}> kicked by ${interaction.user.username}`,
         ),
@@ -136,7 +136,7 @@ export const EscalationHandlers = {
       const reportedMember =
         await interaction.guild!.members.fetch(reportedUserId);
       await Promise.allSettled([
-        ban(reportedMember),
+        ban(reportedMember, "single moderator decision"),
         interaction.reply(
           `<@${reportedUserId}> banned by ${interaction.user.username}`,
         ),
@@ -204,7 +204,7 @@ export const EscalationHandlers = {
       const reportedMember =
         await interaction.guild!.members.fetch(reportedUserId);
       await Promise.allSettled([
-        timeout(reportedMember),
+        timeout(reportedMember, "single moderator decision"),
         interaction.reply(
           `<@${reportedUserId}> timed out by ${interaction.user.username}`,
         ),
