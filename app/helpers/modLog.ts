@@ -338,9 +338,9 @@ const constructLog = async ({
 
   // Add indicator if this is forwarded content
   const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
-  const preface = `${report}${forwardNote} ${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
+  const preface = `${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
     lastReport.message.author.username
-  })`;
+  })${forwardNote}`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   // For forwarded messages, get attachments from the snapshot
@@ -353,7 +353,7 @@ const constructLog = async ({
   );
   return {
     content: truncateMessage(`${preface}
--# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
+-# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> · ${report}`).trim(),
     embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
