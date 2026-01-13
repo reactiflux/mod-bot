@@ -1,6 +1,7 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Metric } from "effect";
 
 import { DatabaseConstraintError, DatabaseError } from "../errors.js";
+import { dbErrors, dbQueries, dbQueryLatency, tagCounter } from "../metrics.js";
 
 /**
  * Database service interface for Effect-based database operations.
@@ -47,12 +48,28 @@ const isConstraintError = (error: unknown, constraintName: string): boolean => {
 /**
  * Live implementation of the DatabaseService.
  * Uses the global Kysely db instance.
+ * Tracks query latency, counts, and errors via Effect.Metric.
  */
 export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
   query: <T>(fn: () => Promise<T>, operation: string) =>
-    Effect.tryPromise({
-      try: fn,
-      catch: (error) => new DatabaseError({ operation, cause: error }),
+    Effect.gen(function* () {
+      const start = Date.now();
+      const taggedQueries = tagCounter(dbQueries, { operation });
+      const taggedErrors = tagCounter(dbErrors, { operation });
+
+      // Increment query counter
+      yield* Metric.increment(taggedQueries);
+
+      const result = yield* Effect.tryPromise({
+        try: fn,
+        catch: (error) => new DatabaseError({ operation, cause: error }),
+      }).pipe(Effect.tapError(() => Metric.increment(taggedErrors)));
+
+      // Record latency
+      const duration = Date.now() - start;
+      yield* Metric.update(dbQueryLatency, duration);
+
+      return result;
     }),
 
   queryWithConstraint: <T>(
@@ -60,17 +77,32 @@ export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
     operation: string,
     constraintName: string,
   ) =>
-    Effect.tryPromise({
-      try: fn,
-      catch: (error) => {
-        if (isConstraintError(error, constraintName)) {
-          return new DatabaseConstraintError({
-            operation,
-            constraint: constraintName,
-            cause: error,
-          });
-        }
-        return new DatabaseError({ operation, cause: error });
-      },
+    Effect.gen(function* () {
+      const start = Date.now();
+      const taggedQueries = tagCounter(dbQueries, { operation });
+      const taggedErrors = tagCounter(dbErrors, { operation });
+
+      // Increment query counter
+      yield* Metric.increment(taggedQueries);
+
+      const result = yield* Effect.tryPromise({
+        try: fn,
+        catch: (error) => {
+          if (isConstraintError(error, constraintName)) {
+            return new DatabaseConstraintError({
+              operation,
+              constraint: constraintName,
+              cause: error,
+            });
+          }
+          return new DatabaseError({ operation, cause: error });
+        },
+      }).pipe(Effect.tapError(() => Metric.increment(taggedErrors)));
+
+      // Record latency
+      const duration = Date.now() - start;
+      yield* Metric.update(dbQueryLatency, duration);
+
+      return result;
     }),
 });

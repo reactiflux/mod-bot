@@ -8,7 +8,6 @@ import db, { type DB } from "#~/db.server.js";
 // =============================================================================
 
 import { client } from "#~/discord/client.server.js";
-import { log } from "#~/helpers/observability.js";
 
 import { logEffect } from "../observability.js";
 import { runEffect } from "../runtime.js";
@@ -345,85 +344,150 @@ export const getUniqueNonDeletedMessagesLegacy = (
 
 /**
  * Deletes a single Discord message and marks it as deleted in database.
+ * Uses Effect-native logging.
  * @internal
  */
-async function deleteSingleMessage(
+const deleteSingleMessage = (
   messageId: string,
   channelId: string,
   guildId: string,
-) {
-  try {
-    const channel = await client.channels.fetch(channelId);
-    if (!channel || !("messages" in channel)) {
-      throw new Error("Channel not found or not a text channel");
-    }
-
-    const message = await channel.messages.fetch(messageId);
-    await message.delete();
-    await markMessageAsDeletedLegacy(messageId, guildId);
-
-    log("debug", "ReportedMessage", "Deleted message", { messageId });
-    return { success: true, messageId };
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("Unknown Message")) {
-      await markMessageAsDeletedLegacy(messageId, guildId);
-      return { success: true, messageId };
-    }
-
-    log("warn", "ReportedMessage", "Failed to delete message", {
-      messageId,
-      error: error instanceof Error ? error.message : String(error),
+) =>
+  Effect.gen(function* () {
+    const channel = yield* Effect.tryPromise({
+      try: () => client.channels.fetch(channelId),
+      catch: (error) => error,
     });
-    return { success: false, messageId, error };
-  }
-}
+
+    if (!channel || !("messages" in channel)) {
+      yield* logEffect(
+        "warn",
+        "ReportedMessage",
+        "Channel not found or not a text channel",
+        {
+          messageId,
+          channelId,
+        },
+      );
+      return { success: false as const, messageId, error: "Channel not found" };
+    }
+
+    const result = yield* Effect.tryPromise({
+      try: async () => {
+        const message = await channel.messages.fetch(messageId);
+        await message.delete();
+        return { deleted: true };
+      },
+      catch: (error) => error,
+    }).pipe(
+      Effect.catchAll((error) => {
+        // If message is already deleted, that's fine - mark it as deleted in DB
+        if (
+          error instanceof Error &&
+          error.message.includes("Unknown Message")
+        ) {
+          return Effect.succeed({ deleted: false, alreadyGone: true });
+        }
+        return Effect.fail(error);
+      }),
+    );
+
+    // Mark as deleted in database
+    yield* Effect.provide(
+      markMessageAsDeleted(messageId, guildId),
+      DatabaseServiceLive,
+    );
+
+    if (result.deleted) {
+      yield* logEffect("debug", "ReportedMessage", "Deleted message", {
+        messageId,
+      });
+    } else {
+      yield* logEffect("debug", "ReportedMessage", "Message already deleted", {
+        messageId,
+      });
+    }
+
+    return { success: true as const, messageId };
+  }).pipe(
+    Effect.catchAll((error) => {
+      return Effect.gen(function* () {
+        yield* logEffect(
+          "warn",
+          "ReportedMessage",
+          "Failed to delete message",
+          {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+        return { success: false as const, messageId, error };
+      });
+    }),
+  );
 
 /**
  * Delete all reported messages for a user.
- * This function still uses the Discord client directly.
- * TODO: Migrate to Effect when DiscordService is created.
+ * Uses Effect-native logging throughout.
  */
-export async function deleteAllReportedForUser(
+export const deleteAllReportedForUserEffect = (
   userId: string,
   guildId: string,
-) {
-  const uniqueMessages = await getUniqueNonDeletedMessagesLegacy(
-    userId,
-    guildId,
-  );
-
-  if (uniqueMessages.length === 0) {
-    log("info", "ReportedMessage", "No messages to delete", {
-      userId,
-      guildId,
-    });
-    return { total: 0, deleted: 0 };
-  }
-
-  let deleted = 0;
-  const errors: { messageId: string; error: unknown }[] = [];
-
-  for (const { reported_message_id, reported_channel_id } of uniqueMessages) {
-    const result = await deleteSingleMessage(
-      reported_message_id,
-      reported_channel_id,
-      guildId,
+) =>
+  Effect.gen(function* () {
+    const uniqueMessages = yield* Effect.provide(
+      getUniqueNonDeletedMessages(userId, guildId),
+      DatabaseServiceLive,
     );
 
-    if (result.success) {
-      deleted++;
-    } else {
-      errors.push({ messageId: reported_message_id, error: result.error });
+    if (uniqueMessages.length === 0) {
+      yield* logEffect("info", "ReportedMessage", "No messages to delete", {
+        userId,
+        guildId,
+      });
+      return { total: 0, deleted: 0 };
     }
-  }
 
-  log("info", "ReportedMessage", "Deletion complete", {
-    userId,
-    guildId,
-    total: uniqueMessages.length,
-    deleted,
-    failed: errors.length,
-  });
+    yield* logEffect("info", "ReportedMessage", "Starting message deletion", {
+      userId,
+      guildId,
+      messageCount: uniqueMessages.length,
+    });
 
-  return { total: uniqueMessages.length, deleted };
-}
+    let deleted = 0;
+    const errors: { messageId: string; error: unknown }[] = [];
+
+    for (const { reported_message_id, reported_channel_id } of uniqueMessages) {
+      const result = yield* deleteSingleMessage(
+        reported_message_id,
+        reported_channel_id,
+        guildId,
+      );
+
+      if (result.success) {
+        deleted++;
+      } else {
+        errors.push({ messageId: reported_message_id, error: result.error });
+      }
+    }
+
+    yield* logEffect("info", "ReportedMessage", "Deletion complete", {
+      userId,
+      guildId,
+      total: uniqueMessages.length,
+      deleted,
+      failed: errors.length,
+    });
+
+    return { total: uniqueMessages.length, deleted };
+  }).pipe(
+    Effect.withSpan("deleteAllReportedForUser", {
+      attributes: { userId, guildId },
+    }),
+  );
+
+/**
+ * Delete all reported messages for a user.
+ * Legacy wrapper that runs the Effect.
+ */
+export const deleteAllReportedForUser = (userId: string, guildId: string) =>
+  runEffect(deleteAllReportedForUserEffect(userId, guildId));
