@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Metric } from "effect";
 
 import { DatabaseConstraintError, DatabaseError } from "../errors.js";
-import { dbErrors, dbQueries, dbQueryLatency, tagCounter } from "../metrics.js";
+import { dbErrors, dbQueries, dbQueryLatency } from "../metrics";
 
 /**
  * Database service interface for Effect-based database operations.
@@ -54,8 +54,8 @@ export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
   query: <T>(fn: () => Promise<T>, operation: string) =>
     Effect.gen(function* () {
       const start = Date.now();
-      const taggedQueries = tagCounter(dbQueries, { operation });
-      const taggedErrors = tagCounter(dbErrors, { operation });
+      const taggedQueries = Metric.tagged(dbQueries, "operation", operation);
+      const taggedErrors = Metric.tagged(dbErrors, "operation", operation);
 
       // Increment query counter
       yield* Metric.increment(taggedQueries);
@@ -79,8 +79,8 @@ export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
   ) =>
     Effect.gen(function* () {
       const start = Date.now();
-      const taggedQueries = tagCounter(dbQueries, { operation });
-      const taggedErrors = tagCounter(dbErrors, { operation });
+      const taggedQueries = Metric.tagged(dbQueries, "operation", operation);
+      const taggedErrors = Metric.tagged(dbErrors, "operation", operation);
 
       // Increment query counter
       yield* Metric.increment(taggedQueries);

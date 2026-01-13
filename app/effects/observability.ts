@@ -11,6 +11,12 @@ import { Effect } from "effect";
  * {"timestamp":"...","level":"INFO","message":"...","service":"Gateway",...}
  */
 
+const logFn = {
+  debug: Effect.logDebug,
+  info: Effect.logInfo,
+  warn: Effect.logWarning,
+  error: Effect.logError,
+};
 /**
  * Log a message at the specified level with service name and context.
  * Returns an Effect that performs the logging as a side effect.
@@ -24,16 +30,10 @@ export const logEffect = (
   message: string,
   context: Record<string, unknown> = {},
 ): Effect.Effect<void, never, never> => {
-  // Select the appropriate Effect log function based on level
-  const logFn = {
-    debug: Effect.logDebug,
-    info: Effect.logInfo,
-    warn: Effect.logWarning,
-    error: Effect.logError,
-  }[level];
-
   // Use Effect.annotateLogs to add service and context as structured data
-  return logFn(message).pipe(Effect.annotateLogs({ service, ...context }));
+  return logFn[level](message).pipe(
+    Effect.annotateLogs({ service, ...context }),
+  );
 };
 
 /**
