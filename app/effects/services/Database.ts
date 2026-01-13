@@ -70,7 +70,7 @@ export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
       yield* Metric.update(dbQueryLatency, duration);
 
       return result;
-    }),
+    }).pipe(Effect.withSpan(`db.query ${operation}`)),
 
   queryWithConstraint: <T>(
     fn: () => Promise<T>,
@@ -104,5 +104,5 @@ export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
       yield* Metric.update(dbQueryLatency, duration);
 
       return result;
-    }),
+    }).pipe(Effect.withSpan(`db.queryWithConstraint ${operation}`)),
 });
