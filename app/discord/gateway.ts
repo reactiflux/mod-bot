@@ -25,15 +25,27 @@ export default function init() {
       "info",
       "Gateway",
       "Gateway already initialized, skipping duplicate init",
-      {},
     );
     return;
   }
 
-  log("info", "Gateway", "Initializing Discord gateway", {});
+  log("info", "Gateway", "Initializing Discord gateway");
   globalThis.__discordGatewayInitialized = true;
 
   void login();
+
+  // Diagnostic: log all raw gateway events
+  client.on(
+    Events.Raw,
+    (packet: { t?: string; op?: number; d?: Record<string, unknown> }) => {
+      log("debug", "Gateway.Raw", packet.t ?? "unknown", {
+        op: packet.op,
+        guildId: packet.d?.guild_id,
+        channelId: packet.d?.channel_id,
+        userId: packet.d?.user_id,
+      });
+    },
+  );
 
   client.on(Events.ClientReady, async () => {
     await trackPerformance(

@@ -32,8 +32,7 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
     autoModerationRule,
   } = execution;
 
-  // Only log actions that actually affected a message (BlockMessage, SendAlertMessage)
-  // Skip Timeout actions as they don't have associated message content
+  // Only log actions that actually affected a message
   if (action.type === AutoModerationActionType.Timeout) {
     log("debug", "Automod", "Skipping timeout action (no message to log)", {
       userId,
@@ -101,10 +100,11 @@ export default async (bot: Client) => {
   // Handle Discord's built-in automod actions
   bot.on(Events.AutoModerationActionExecution, async (execution) => {
     try {
+      log("info", "automod.logging", "handling automod event", { execution });
       await handleAutomodAction(execution);
     } catch (e) {
       log("error", "Automod", "Failed to handle automod action", {
-        error: e instanceof Error ? e.message : String(e),
+        error: e,
         userId: execution.userId,
         guildId: execution.guild.id,
       });
