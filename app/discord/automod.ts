@@ -52,35 +52,6 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
     matchedKeyword,
   });
 
-  // Try to fetch the message if we have a messageId
-  // The message may have been deleted by automod before we can fetch it
-  if (messageId && channelId) {
-    try {
-      const channel = await guild.channels.fetch(channelId);
-      if (channel?.isTextBased() && "messages" in channel) {
-        const message = await channel.messages.fetch(messageId);
-        // We have the full message, use reportUser
-        await reportUser({
-          reason: ReportReasons.automod,
-          message,
-          staff: client.user ?? false,
-          extra: `Rule: ${autoModerationRule?.name ?? "Unknown"}\nMatched: ${matchedKeyword ?? matchedContent ?? "Unknown"}`,
-        });
-        return;
-      }
-    } catch (e) {
-      log(
-        "debug",
-        "Automod",
-        "Could not fetch message, using fallback logging",
-        {
-          messageId,
-          error: e instanceof Error ? e.message : String(e),
-        },
-      );
-    }
-  }
-
   // Fallback: message was blocked/deleted or we couldn't fetch it
   // Use reportAutomod which doesn't require a Message object
   const user = await guild.client.users.fetch(userId);
