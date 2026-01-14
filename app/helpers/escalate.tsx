@@ -7,10 +7,13 @@ import {
 } from "discord.js";
 
 export async function escalationControls(
-  reportedMessage: Message,
+  reportedMessageOrUserId: Message | string,
   thread: ThreadChannel,
 ) {
-  const reportedUserId = reportedMessage.author.id;
+  const reportedUserId =
+    typeof reportedMessageOrUserId === "string"
+      ? reportedMessageOrUserId
+      : reportedMessageOrUserId.author.id;
 
   await thread.send({
     content: "Moderator controls",

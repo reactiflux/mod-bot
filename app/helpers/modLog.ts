@@ -1,10 +1,12 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import {
+  AutoModerationActionType,
   ChannelType,
   messageLink,
   MessageReferenceType,
   type AnyThreadChannel,
   type APIEmbed,
+  type Guild,
   type Message,
   type MessageCreateOptions,
   type TextChannel,
@@ -45,6 +47,7 @@ const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.track]: "tracked",
   [ReportReasons.modResolution]: "Mod vote resolved",
   [ReportReasons.spam]: "detected as spam",
+  [ReportReasons.automod]: "detected by automod",
 };
 
 const isForwardedMessage = (message: Message): boolean => {
@@ -116,6 +119,167 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
   }
 
   return thread;
+};
+
+export interface AutomodReport {
+  guild: Guild;
+  user: User;
+  content: string;
+  channelId?: string;
+  messageId?: string;
+  ruleName: string;
+  matchedKeyword?: string;
+  actionType: AutoModerationActionType;
+}
+
+const ActionTypeLabels: Record<AutoModerationActionType, string> = {
+  [AutoModerationActionType.BlockMessage]: "blocked message",
+  [AutoModerationActionType.SendAlertMessage]: "sent alert",
+  [AutoModerationActionType.Timeout]: "timed out user",
+  [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
+};
+
+const getOrCreateUserThreadForAutomod = async (guild: Guild, user: User) => {
+  // Check if we already have a thread for this user
+  const existingThread = await getUserThread(user.id, guild.id);
+
+  if (existingThread) {
+    try {
+      // Verify the thread still exists and is accessible
+      const thread = await guild.channels.fetch(existingThread.thread_id);
+      if (thread?.isThread()) {
+        return thread;
+      }
+    } catch (error) {
+      log(
+        "warn",
+        "getOrCreateUserThreadForAutomod",
+        "Existing thread not accessible, will create new one",
+        { error },
+      );
+    }
+  }
+
+  // Create new thread and store in database
+  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+  const modLog = await guild.channels.fetch(modLogId);
+  if (!modLog || modLog.type !== ChannelType.GuildText) {
+    throw new Error("Invalid mod log channel");
+  }
+
+  // Create freestanding private thread
+  const thread = await makeUserThread(modLog, user);
+  await escalationControls(user.id, thread);
+
+  // Store or update the thread reference
+  if (existingThread) {
+    await updateUserThread(user.id, guild.id, thread.id);
+  } else {
+    await createUserThread(user.id, guild.id, thread.id);
+  }
+
+  return thread;
+};
+
+/**
+ * Reports an automod action when we don't have a full Message object.
+ * Used when Discord's automod blocks/deletes a message before we can fetch it.
+ */
+export const reportAutomod = async ({
+  guild,
+  user,
+  content,
+  channelId,
+  messageId,
+  ruleName,
+  matchedKeyword,
+  actionType,
+}: AutomodReport): Promise<void> => {
+  log("info", "reportAutomod", `Automod triggered for ${user.username}`, {
+    userId: user.id,
+    guildId: guild.id,
+    ruleName,
+    actionType,
+  });
+
+  // Get or create persistent user thread
+  const thread = await getOrCreateUserThreadForAutomod(guild, user);
+
+  // Get mod log for forwarding
+  const { modLog, moderator } = await fetchSettings(guild.id, [
+    SETTINGS.modLog,
+    SETTINGS.moderator,
+  ]);
+
+  // Construct the log message
+  const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
+  const actionLabel = ActionTypeLabels[actionType] ?? "took action";
+
+  const logContent = truncateMessage(`**Automod ${actionLabel}**
+<@${user.id}> (${user.username}) in ${channelMention}
+-# Rule: ${ruleName}${matchedKeyword ? ` · Matched: \`${matchedKeyword}\`` : ""}`).trim();
+
+  // Send log to thread
+  const [logMessage] = await Promise.all([
+    thread.send({
+      content: logContent,
+      allowedMentions: { roles: moderator ? [moderator] : [] },
+    }),
+    thread.send({
+      content: quoteAndEscape(content).trim(),
+      allowedMentions: {},
+    }),
+  ]);
+
+  // Record to database if we have a messageId
+  if (messageId) {
+    await retry(3, async () => {
+      const result = await recordReport({
+        reportedMessageId: messageId,
+        reportedChannelId: channelId ?? "unknown",
+        reportedUserId: user.id,
+        guildId: guild.id,
+        logMessageId: logMessage.id,
+        logChannelId: thread.id,
+        reason: ReportReasons.automod,
+        extra: `Rule: ${ruleName}`,
+      });
+
+      if (!result.wasInserted) {
+        log(
+          "warn",
+          "reportAutomod",
+          "duplicate detected at database level, retrying check",
+        );
+        throw new Error("Race condition detected in recordReport, retrying…");
+      }
+
+      return result;
+    });
+  }
+
+  // Forward to mod log
+  await logMessage.forward(modLog).catch((e) => {
+    log("error", "reportAutomod", "failed to forward to modLog", { error: e });
+  });
+
+  // Send summary to parent channel
+  if (thread.parent?.isSendable()) {
+    const singleLine = content.slice(0, 80).replaceAll("\n", "\\n ");
+    const truncatedContent =
+      singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
+
+    await thread.parent
+      .send({
+        allowedMentions: {},
+        content: `> ${escapeDisruptiveContent(truncatedContent)}\n-# [Automod: ${ruleName}](${messageLink(logMessage.channelId, logMessage.id)})`,
+      })
+      .catch((e) => {
+        log("error", "reportAutomod", "failed to send summary to parent", {
+          error: e,
+        });
+      });
+  }
 };
 
 // const warningMessages = new ();
