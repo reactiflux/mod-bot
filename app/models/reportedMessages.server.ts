@@ -18,6 +18,7 @@ export const enum ReportReasons {
   track = "track",
   modResolution = "modResolution",
   spam = "spam",
+  automod = "automod",
 }
 
 export async function recordReport(data: {

@@ -2,16 +2,13 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  type Message,
   type ThreadChannel,
 } from "discord.js";
 
 export async function escalationControls(
-  reportedMessage: Message,
+  reportedUserId: string,
   thread: ThreadChannel,
 ) {
-  const reportedUserId = reportedMessage.author.id;
-
   await thread.send({
     content: "Moderator controls",
     components: [
