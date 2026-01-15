@@ -145,7 +145,6 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
 export const reportAutomod = async ({
   guild,
   user,
-  content,
   channelId,
   messageId,
   ruleName,
@@ -172,21 +171,15 @@ export const reportAutomod = async ({
   const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
   const actionLabel = ActionTypeLabels[actionType] ?? "took action";
 
-  const logContent = truncateMessage(`**Automod ${actionLabel}**
-<@${user.id}> (${user.username}) in ${channelMention}
--# Rule: ${ruleName}${matchedKeyword ? ` · Matched: \`${matchedKeyword}\`` : ""}`).trim();
+  const logContent =
+    truncateMessage(`<@${user.id}> (${user.username}) triggered automod ${matchedKeyword ? `with text  \`${matchedKeyword}\` ` : ""}in ${channelMention}
+-# ${ruleName} · Automod ${actionLabel}`).trim();
 
   // Send log to thread
-  const [logMessage] = await Promise.all([
-    thread.send({
-      content: logContent,
-      allowedMentions: { roles: moderator ? [moderator] : [] },
-    }),
-    thread.send({
-      content: quoteAndEscape(content).trim(),
-      allowedMentions: {},
-    }),
-  ]);
+  const logMessage = await thread.send({
+    content: logContent,
+    allowedMentions: { roles: [moderator] },
+  });
 
   // Record to database if we have a messageId
   if (messageId) {
@@ -219,24 +212,6 @@ export const reportAutomod = async ({
   await logMessage.forward(modLog).catch((e) => {
     log("error", "reportAutomod", "failed to forward to modLog", { error: e });
   });
-
-  // Send summary to parent channel
-  if (thread.parent?.isSendable()) {
-    const singleLine = content.slice(0, 80).replaceAll("\n", "\\n ");
-    const truncatedContent =
-      singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
-
-    await thread.parent
-      .send({
-        allowedMentions: {},
-        content: `> ${escapeDisruptiveContent(truncatedContent)}\n-# [Automod: ${ruleName}](${messageLink(logMessage.channelId, logMessage.id)})`,
-      })
-      .catch((e) => {
-        log("error", "reportAutomod", "failed to send summary to parent", {
-          error: e,
-        });
-      });
-  }
 };
 
 // const warningMessages = new ();
