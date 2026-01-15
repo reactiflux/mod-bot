@@ -146,7 +146,6 @@ export const reportAutomod = async ({
   guild,
   user,
   channelId,
-  messageId,
   ruleName,
   matchedKeyword,
   actionType,
@@ -180,33 +179,6 @@ export const reportAutomod = async ({
     content: logContent,
     allowedMentions: { roles: [moderator] },
   });
-
-  // Record to database if we have a messageId
-  if (messageId) {
-    await retry(3, async () => {
-      const result = await recordReport({
-        reportedMessageId: messageId,
-        reportedChannelId: channelId ?? "unknown",
-        reportedUserId: user.id,
-        guildId: guild.id,
-        logMessageId: logMessage.id,
-        logChannelId: thread.id,
-        reason: ReportReasons.automod,
-        extra: `Rule: ${ruleName}`,
-      });
-
-      if (!result.wasInserted) {
-        log(
-          "warn",
-          "reportAutomod",
-          "duplicate detected at database level, retrying check",
-        );
-        throw new Error("Race condition detected in recordReport, retrying…");
-      }
-
-      return result;
-    });
-  }
 
   // Forward to mod log
   await logMessage.forward(modLog).catch((e) => {
