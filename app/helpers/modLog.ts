@@ -76,8 +76,7 @@ const makeUserThread = (channel: TextChannel, user: User) => {
   });
 };
 
-const getOrCreateUserThread = async (message: Message, user: User) => {
-  const { guild } = message;
+const getOrCreateUserThread = async (guild: Guild, user: User) => {
   if (!guild) throw new Error("Message has no guild");
 
   // Check if we already have a thread for this user
@@ -109,7 +108,7 @@ const getOrCreateUserThread = async (message: Message, user: User) => {
 
   // Create freestanding private thread
   const thread = await makeUserThread(modLog, user);
-  await escalationControls(message, thread);
+  await escalationControls(user.id, thread);
 
   // Store or update the thread reference
   if (existingThread) {
@@ -139,48 +138,6 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
   [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
 };
 
-const getOrCreateUserThreadForAutomod = async (guild: Guild, user: User) => {
-  // Check if we already have a thread for this user
-  const existingThread = await getUserThread(user.id, guild.id);
-
-  if (existingThread) {
-    try {
-      // Verify the thread still exists and is accessible
-      const thread = await guild.channels.fetch(existingThread.thread_id);
-      if (thread?.isThread()) {
-        return thread;
-      }
-    } catch (error) {
-      log(
-        "warn",
-        "getOrCreateUserThreadForAutomod",
-        "Existing thread not accessible, will create new one",
-        { error },
-      );
-    }
-  }
-
-  // Create new thread and store in database
-  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
-  const modLog = await guild.channels.fetch(modLogId);
-  if (!modLog || modLog.type !== ChannelType.GuildText) {
-    throw new Error("Invalid mod log channel");
-  }
-
-  // Create freestanding private thread
-  const thread = await makeUserThread(modLog, user);
-  await escalationControls(user.id, thread);
-
-  // Store or update the thread reference
-  if (existingThread) {
-    await updateUserThread(user.id, guild.id, thread.id);
-  } else {
-    await createUserThread(user.id, guild.id, thread.id);
-  }
-
-  return thread;
-};
-
 /**
  * Reports an automod action when we don't have a full Message object.
  * Used when Discord's automod blocks/deletes a message before we can fetch it.
@@ -203,7 +160,7 @@ export const reportAutomod = async ({
   });
 
   // Get or create persistent user thread
-  const thread = await getOrCreateUserThreadForAutomod(guild, user);
+  const thread = await getOrCreateUserThread(guild, user);
 
   // Get mod log for forwarding
   const { modLog, moderator } = await fetchSettings(guild.id, [
@@ -291,13 +248,14 @@ export const reportUser = async ({
 }: Omit<Report, "date">): Promise<
   Reported & { allReportedMessages: Report[] }
 > => {
-  const { guild } = message;
+  const { guild, author } = message;
   if (!guild) throw new Error("Tried to report a message without a guild");
 
   // Check if this exact message has already been reported
-  const existingReports = await getReportsForMessage(message.id, guild.id);
-
-  const { modLog } = await fetchSettings(guild.id, [SETTINGS.modLog]);
+  const [existingReports, { modLog }] = await Promise.all([
+    getReportsForMessage(message.id, guild.id),
+    fetchSettings(guild.id, [SETTINGS.modLog]),
+  ]);
   const alreadyReported = existingReports.find(
     (r) => r.reported_message_id === message.id,
   );
@@ -305,11 +263,11 @@ export const reportUser = async ({
   log(
     "info",
     "reportUser",
-    `${message.author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
+    `${author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
   );
 
   // Get or create persistent user thread first
-  const thread = await getOrCreateUserThread(message, message.author);
+  const thread = await getOrCreateUserThread(guild, author);
 
   if (alreadyReported && reason !== ReportReasons.modResolution) {
     // Message already reported with this reason, just add to thread
@@ -338,7 +296,7 @@ export const reportUser = async ({
         await recordReport({
           reportedMessageId: message.id,
           reportedChannelId: message.channel.id,
-          reportedUserId: message.author.id,
+          reportedUserId: author.id,
           guildId: guild.id,
           logMessageId: latestReport.id,
           logChannelId: thread.id,
@@ -363,10 +321,7 @@ export const reportUser = async ({
   log("info", "reportUser", "new message reported");
 
   // Get user stats for constructing the log
-  const previousWarnings = await getUserReportStats(
-    message.author.id,
-    guild.id,
-  );
+  const previousWarnings = await getUserReportStats(author.id, guild.id);
 
   // Send detailed report info to the user thread
   const logBody = await constructLog({
@@ -390,7 +345,7 @@ export const reportUser = async ({
     const result = await recordReport({
       reportedMessageId: message.id,
       reportedChannelId: message.channel.id,
-      reportedUserId: message.author.id,
+      reportedUserId: author.id,
       guildId: guild.id,
       logMessageId: logMessage.id,
       logChannelId: thread.id,
