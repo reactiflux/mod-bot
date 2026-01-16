@@ -277,6 +277,16 @@ export const reportUser = async ({
     staff,
   });
 
+  // For forwarded messages, get attachments from the snapshot
+  const attachments = isForwardedMessage(message)
+    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
+    : message.attachments;
+
+  const embeds = [
+    describeAttachments(attachments),
+    describeReactions(message.reactions.cache),
+  ].filter((e): e is APIEmbed => Boolean(e));
+
   // If it has the data for a poll, use a specialized formatting function
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
@@ -284,7 +294,11 @@ export const reportUser = async ({
   // Send the detailed log message to thread
   const [logMessage] = await Promise.all([
     thread.send(logBody),
-    thread.send({ content: reportedMessage, allowedMentions: {} }),
+    thread.send({
+      content: reportedMessage,
+      allowedMentions: {},
+      embeds: embeds.length === 0 ? undefined : embeds,
+    }),
   ]);
 
   // Try to record the report in database with retry logic
@@ -368,14 +382,9 @@ export const reportUser = async ({
   };
 };
 
-const makeReportMessage = ({ message, reason, staff }: Report) => {
-  const embeds = [describeReactions(message.reactions.cache)].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
-
+const makeReportMessage = ({ message: _, reason, staff }: Report) => {
   return {
     content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
-    embeds: embeds.length === 0 ? undefined : embeds,
   };
 };
 
@@ -399,8 +408,7 @@ const constructLog = async ({
     throw new Error("No role configured to be used as moderator");
   }
 
-  const { content: report, embeds: reactions = [] } =
-    makeReportMessage(lastReport);
+  const { content: report } = makeReportMessage(lastReport);
 
   // Add indicator if this is forwarded content
   const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
@@ -409,18 +417,9 @@ const constructLog = async ({
   })${forwardNote}`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
-  // For forwarded messages, get attachments from the snapshot
-  const attachments = isForwardedMessage(message)
-    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
-    : message.attachments;
-
-  const embeds = [describeAttachments(attachments), ...reactions].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
   return {
     content: truncateMessage(`${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> · ${report}`).trim(),
-    embeds: embeds.length === 0 ? undefined : embeds,
     allowedMentions: { roles: [moderator] },
   };
 };

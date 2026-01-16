@@ -88,21 +88,17 @@ export const describeAttachments = (
   return attachments.size === 0
     ? undefined
     : {
-        description:
-          "Attachments:\n" +
-          attachments
-            .map(
-              ({ size, name, contentType, url }) =>
-                // Include size of the file and the filename
-                `${prettyBytes(size)}: ${
-                  // If it's a video or image, include a link.
-                  // Renders as `1.12mb: [some-image.jpg](<original image url>)`
-                  contentType?.match(/(image|video)/)
-                    ? `[${name}](${url})`
-                    : name
-                }`,
-            )
-            .join("\n"),
+        description: attachments
+          .map(
+            ({ size, name, contentType, url }) =>
+              // Include size of the file and the filename
+              `${prettyBytes(size)}: ${
+                // If it's a video or image, include a link.
+                // Renders as `1.12mb: [some-image.jpg](<original image url>)`
+                contentType?.match(/(image|video)/) ? `[${name}](${url})` : name
+              }`,
+          )
+          .join("\n"),
       };
 };
 
@@ -115,7 +111,6 @@ export const describeReactions = (
   return reactions.size === 0
     ? undefined
     : {
-        title: "Reactions",
         fields: reactions.map((r) => ({
           name: "",
           value: `${r.count} ${

@@ -34,7 +34,7 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
 
   // Only log actions that actually affected a message
   if (action.type === AutoModerationActionType.Timeout) {
-    log("debug", "Automod", "Skipping timeout action (no message to log)", {
+    log("info", "Automod", "Skipping timeout action (no message to log)", {
       userId,
       guildId: guild.id,
       ruleId: autoModerationRule?.name,
