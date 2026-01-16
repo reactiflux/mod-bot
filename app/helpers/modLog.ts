@@ -398,10 +398,11 @@ const constructLog = async ({
   if (!lastReport?.message.guild) {
     throw new Error("Something went wrong when trying to retrieve last report");
   }
+  const { message } = lastReport;
+  const { author } = message;
   const { moderator } = await fetchSettings(lastReport.message.guild.id, [
     SETTINGS.moderator,
   ]);
-  const { message } = lastReport;
 
   // This should never be possible but we gotta satisfy types
   if (!moderator) {
@@ -412,14 +413,15 @@ const constructLog = async ({
 
   // Add indicator if this is forwarded content
   const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
-  const preface = `${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
-    lastReport.message.author.username
+  const preface = `${constructDiscordLink(message)} by <@${author.id}> (${
+    author.username
   })${forwardNote}`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
   return {
     content: truncateMessage(`${preface}
--# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> · ${report}`).trim(),
+-# ${report}
+-# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
     allowedMentions: { roles: [moderator] },
   };
 };
