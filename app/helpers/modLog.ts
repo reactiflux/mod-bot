@@ -254,9 +254,11 @@ export const reportModAction = async ({
     ? ` by <@${executor.id}> (${executor.username})`
     : " by unknown";
 
+  const reasonText = reason ? ` ${reason}` : " for no reason";
+
   const logContent = truncateMessage(
     `<@${user.id}> (${user.username}) ${actionLabel}
--# ${executorMention} ${reason ?? "for no reason"} <t:${Math.floor(Date.now() / 1000)}:R>`,
+-# ${executorMention}${reasonText} <t:${Math.floor(Date.now() / 1000)}:R>`,
   ).trim();
 
   // Send log to thread

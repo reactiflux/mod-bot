@@ -41,7 +41,7 @@ async function handleBanAdd(ban: GuildBan) {
     );
 
     executor = banEntry?.executor ?? null;
-    reason = banEntry?.reason;
+    reason = banEntry?.reason ?? reason;
 
     // Skip if the bot performed this action (it's already logged elsewhere)
     if (executor?.id === guild.client.user?.id) {
