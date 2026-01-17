@@ -27,66 +27,37 @@ async function handleBanAdd(ban: GuildBan) {
     reason,
   });
 
-  try {
-    // Check audit log for who performed the ban
-    const auditLogs = await guild.fetchAuditLogs({
-      type: AuditLogEvent.MemberBanAdd,
-      limit: 5,
-    });
+  // Check audit log for who performed the ban
+  const auditLogs = await guild.fetchAuditLogs({
+    type: AuditLogEvent.MemberBanAdd,
+    limit: 5,
+  });
 
-    const banEntry = auditLogs.entries.find(
-      (entry) =>
-        entry.target?.id === user.id &&
-        Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
-    );
+  const banEntry = auditLogs.entries.find(
+    (entry) =>
+      entry.target?.id === user.id &&
+      Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
+  );
 
-    executor = banEntry?.executor ?? null;
-    reason = banEntry?.reason ?? reason;
+  executor = banEntry?.executor ?? null;
+  reason = banEntry?.reason ?? reason;
 
-    // Skip if the bot performed this action (it's already logged elsewhere)
-    if (executor?.id === guild.client.user?.id) {
-      log("debug", "ModActionLogger", "Skipping self-ban", {
-        userId: user.id,
-        guildId: guild.id,
-      });
-      return;
-    }
-  } catch (error) {
-    // If we can't access audit log, still log the ban but without executor info
-    if (
-      error instanceof Error &&
-      error.message.includes("Missing Permissions")
-    ) {
-      log(
-        "warn",
-        "ModActionLogger",
-        "Cannot access audit log for ban details",
-        { userId: user.id, guildId: guild.id },
-      );
-    } else {
-      log("error", "ModActionLogger", "Failed to fetch audit log for ban", {
-        userId: user.id,
-        guildId: guild.id,
-        error,
-      });
-    }
-  }
-
-  try {
-    await reportModAction({
-      guild,
-      user,
-      actionType: "ban",
-      executor,
-      reason: reason ?? "",
-    });
-  } catch (error) {
-    log("error", "ModActionLogger", "Failed to report ban", {
+  // Skip if the bot performed this action (it's already logged elsewhere)
+  if (executor?.id === guild.client.user?.id) {
+    log("debug", "ModActionLogger", "Skipping self-ban", {
       userId: user.id,
       guildId: guild.id,
-      error,
     });
+    return;
   }
+
+  await reportModAction({
+    guild,
+    user,
+    actionType: "ban",
+    executor,
+    reason: reason ?? "",
+  });
 }
 
 async function fetchAuditLogs(
@@ -152,34 +123,19 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
     guildId: guild.id,
   });
 
-  try {
-    const auditLogs = await fetchAuditLogs(guild, user);
-
-    if (auditLogs) {
-      const { executor = null, reason = "" } = auditLogs;
-      await reportModAction({
-        guild,
-        user,
-        actionType: "kick",
-        executor,
-        reason,
-      });
-      return;
-    }
-    await reportModAction({
-      guild,
-      user,
-      actionType: "left",
-      executor: undefined,
-      reason: undefined,
-    });
-  } catch (error) {
-    log("error", "ModActionLogger", "Failed to handle member removal", {
-      userId: user.id,
-      guildId: guild.id,
-      error,
-    });
+  const auditLogs = await fetchAuditLogs(guild, user);
+  if (!auditLogs || auditLogs?.actionType === "left") {
+    return;
   }
+
+  const { executor = null, reason = "" } = auditLogs;
+  await reportModAction({
+    guild,
+    user,
+    actionType: "kick",
+    executor,
+    reason,
+  });
 }
 
 export default async (bot: Client) => {
@@ -187,6 +143,19 @@ export default async (bot: Client) => {
     try {
       await handleBanAdd(ban);
     } catch (error) {
+      // If we can't access audit log, still log the ban but without executor info
+      if (
+        error instanceof Error &&
+        error.message.includes("Missing Permissions")
+      ) {
+        log(
+          "warn",
+          "ModActionLogger",
+          "Cannot access audit log for ban details",
+          { userId: ban.user.id, guildId: ban.guild.id },
+        );
+        return;
+      }
       log("error", "ModActionLogger", "Unhandled error in ban handler", {
         userId: ban.user.id,
         guildId: ban.guild.id,
@@ -203,11 +172,7 @@ export default async (bot: Client) => {
         "error",
         "ModActionLogger",
         "Unhandled error in member remove handler",
-        {
-          userId: member.user?.id,
-          guildId: member.guild.id,
-          error,
-        },
+        { userId: member.user?.id, guildId: member.guild.id, error },
       );
     }
   });
