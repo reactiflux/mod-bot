@@ -9,6 +9,7 @@ import {
   type Guild,
   type Message,
   type MessageCreateOptions,
+  type PartialUser,
   type TextChannel,
   type User,
 } from "discord.js";
@@ -70,12 +71,14 @@ interface Reported {
   latestReport?: Message;
 }
 
+// todo: make an effect
 const makeUserThread = (channel: TextChannel, user: User) => {
   return channel.threads.create({
     name: `${user.username} logs`,
   });
 };
 
+// todo: make an effect
 const getOrCreateUserThread = async (guild: Guild, user: User) => {
   if (!guild) throw new Error("Message has no guild");
 
@@ -141,6 +144,7 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
 /**
  * Reports an automod action when we don't have a full Message object.
  * Used when Discord's automod blocks/deletes a message before we can fetch it.
+ * todo: make this into an effect, and don't use Discord.js classes in the api
  */
 export const reportAutomod = async ({
   guild,
@@ -183,6 +187,89 @@ export const reportAutomod = async ({
   // Forward to mod log
   await logMessage.forward(modLog).catch((e) => {
     log("error", "reportAutomod", "failed to forward to modLog", { error: e });
+  });
+};
+
+export type ModActionReport =
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "kick" | "ban";
+      executor: User | PartialUser | null;
+      reason: string;
+    }
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "left";
+      executor: undefined;
+      reason: undefined;
+    };
+
+/**
+ * Reports a mod action (kick/ban) to the user's persistent thread.
+ * Used when Discord events indicate a kick or ban occurred.
+ */
+export const reportModAction = async ({
+  guild,
+  user,
+  actionType,
+  executor,
+  reason,
+}: ModActionReport): Promise<void> => {
+  log(
+    "info",
+    "reportModAction",
+    `${actionType} detected for ${user.username}`,
+    {
+      userId: user.id,
+      guildId: guild.id,
+      actionType,
+      executorId: executor?.id,
+      reason,
+    },
+  );
+
+  if (actionType === "left") {
+    return;
+  }
+
+  // Get or create persistent user thread
+  const thread = await getOrCreateUserThread(guild, user);
+
+  // Get mod log for forwarding
+  const { modLog, moderator } = await fetchSettings(guild.id, [
+    SETTINGS.modLog,
+    SETTINGS.moderator,
+  ]);
+
+  // Construct the log message
+  const actionLabels: Record<ModActionReport["actionType"], string> = {
+    ban: "was banned",
+    kick: "was kicked",
+    left: "left",
+  };
+  const actionLabel = actionLabels[actionType];
+  const executorMention = executor
+    ? ` by <@${executor.id}> (${executor.username})`
+    : " by unknown";
+
+  const logContent = truncateMessage(
+    `<@${user.id}> (${user.username}) ${actionLabel}
+-# ${executorMention} ${reason ?? "for no reason"} <t:${Math.floor(Date.now() / 1000)}:R>`,
+  ).trim();
+
+  // Send log to thread
+  const logMessage = await thread.send({
+    content: logContent,
+    allowedMentions: { roles: [moderator] },
+  });
+
+  // Forward to mod log
+  await logMessage.forward(modLog).catch((e) => {
+    log("error", "reportModAction", "failed to forward to modLog", {
+      error: e,
+    });
   });
 };
 
