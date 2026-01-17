@@ -9,6 +9,7 @@ import {
   type Guild,
   type Message,
   type MessageCreateOptions,
+  type PartialUser,
   type TextChannel,
   type User,
 } from "discord.js";
@@ -70,12 +71,14 @@ interface Reported {
   latestReport?: Message;
 }
 
+// todo: make an effect
 const makeUserThread = (channel: TextChannel, user: User) => {
   return channel.threads.create({
     name: `${user.username} logs`,
   });
 };
 
+// todo: make an effect
 const getOrCreateUserThread = async (guild: Guild, user: User) => {
   if (!guild) throw new Error("Message has no guild");
 
@@ -141,6 +144,7 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
 /**
  * Reports an automod action when we don't have a full Message object.
  * Used when Discord's automod blocks/deletes a message before we can fetch it.
+ * todo: make this into an effect, and don't use Discord.js classes in the api
  */
 export const reportAutomod = async ({
   guild,
@@ -183,6 +187,91 @@ export const reportAutomod = async ({
   // Forward to mod log
   await logMessage.forward(modLog).catch((e) => {
     log("error", "reportAutomod", "failed to forward to modLog", { error: e });
+  });
+};
+
+export type ModActionReport =
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "kick" | "ban";
+      executor: User | PartialUser | null;
+      reason: string;
+    }
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "left";
+      executor: undefined;
+      reason: undefined;
+    };
+
+/**
+ * Reports a mod action (kick/ban) to the user's persistent thread.
+ * Used when Discord events indicate a kick or ban occurred.
+ */
+export const reportModAction = async ({
+  guild,
+  user,
+  actionType,
+  executor,
+  reason,
+}: ModActionReport): Promise<void> => {
+  log(
+    "info",
+    "reportModAction",
+    `${actionType} detected for ${user.username}`,
+    {
+      userId: user.id,
+      guildId: guild.id,
+      actionType,
+      executorId: executor?.id,
+      reason,
+    },
+  );
+
+  if (actionType === "left") {
+    return;
+  }
+
+  // Get or create persistent user thread
+  const thread = await getOrCreateUserThread(guild, user);
+
+  // Get mod log for forwarding
+  const { modLog, moderator } = await fetchSettings(guild.id, [
+    SETTINGS.modLog,
+    SETTINGS.moderator,
+  ]);
+
+  // Construct the log message
+  const actionLabels: Record<ModActionReport["actionType"], string> = {
+    ban: "was banned",
+    kick: "was kicked",
+    left: "left",
+  };
+  const actionLabel = actionLabels[actionType];
+  const executorMention = executor
+    ? ` by <@${executor.id}> (${executor.username})`
+    : " by unknown";
+
+  const reasonText = reason ? ` ${reason}` : " for no reason";
+
+  const logContent = truncateMessage(
+    `<@${user.id}> (${user.username}) ${actionLabel}
+-# ${executorMention}${reasonText} <t:${Math.floor(Date.now() / 1000)}:R>`,
+  ).trim();
+
+  // Send log to thread
+  const logMessage = await thread.send({
+    content: logContent,
+    allowedMentions: { roles: [moderator] },
+  });
+
+  // Forward to mod log
+  await logMessage.forward(modLog).catch((e) => {
+    log("error", "reportModAction", "failed to forward to modLog", {
+      error: e,
+    });
   });
 };
 
@@ -277,6 +366,16 @@ export const reportUser = async ({
     staff,
   });
 
+  // For forwarded messages, get attachments from the snapshot
+  const attachments = isForwardedMessage(message)
+    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
+    : message.attachments;
+
+  const embeds = [
+    describeAttachments(attachments),
+    describeReactions(message.reactions.cache),
+  ].filter((e): e is APIEmbed => Boolean(e));
+
   // If it has the data for a poll, use a specialized formatting function
   const reportedMessage = message.poll
     ? quoteAndEscapePoll(message.poll)
@@ -284,7 +383,11 @@ export const reportUser = async ({
   // Send the detailed log message to thread
   const [logMessage] = await Promise.all([
     thread.send(logBody),
-    thread.send({ content: reportedMessage, allowedMentions: {} }),
+    thread.send({
+      content: reportedMessage,
+      allowedMentions: {},
+      embeds: embeds.length === 0 ? undefined : embeds,
+    }),
   ]);
 
   // Try to record the report in database with retry logic
@@ -335,7 +438,7 @@ export const reportUser = async ({
       const stats = await getMessageStats(message);
       await thread.parent.send({
         allowedMentions: {},
-        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code](${messageLink(logMessage.channelId, logMessage.id)})`,
+        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions](${messageLink(logMessage.channelId, logMessage.id)})`,
       });
     } catch (e) {
       // If message was deleted or stats unavailable, send without stats
@@ -368,14 +471,9 @@ export const reportUser = async ({
   };
 };
 
-const makeReportMessage = ({ message, reason, staff }: Report) => {
-  const embeds = [describeReactions(message.reactions.cache)].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
-
+const makeReportMessage = ({ message: _, reason, staff }: Report) => {
   return {
     content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
-    embeds: embeds.length === 0 ? undefined : embeds,
   };
 };
 
@@ -389,38 +487,30 @@ const constructLog = async ({
   if (!lastReport?.message.guild) {
     throw new Error("Something went wrong when trying to retrieve last report");
   }
+  const { message } = lastReport;
+  const { author } = message;
   const { moderator } = await fetchSettings(lastReport.message.guild.id, [
     SETTINGS.moderator,
   ]);
-  const { message } = lastReport;
 
   // This should never be possible but we gotta satisfy types
   if (!moderator) {
     throw new Error("No role configured to be used as moderator");
   }
 
-  const { content: report, embeds: reactions = [] } =
-    makeReportMessage(lastReport);
+  const { content: report } = makeReportMessage(lastReport);
 
   // Add indicator if this is forwarded content
   const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
-  const preface = `${constructDiscordLink(message)} by <@${lastReport.message.author.id}> (${
-    lastReport.message.author.username
+  const preface = `${constructDiscordLink(message)} by <@${author.id}> (${
+    author.username
   })${forwardNote}`;
   const extra = origExtra ? `${origExtra}\n` : "";
 
-  // For forwarded messages, get attachments from the snapshot
-  const attachments = isForwardedMessage(message)
-    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
-    : message.attachments;
-
-  const embeds = [describeAttachments(attachments), ...reactions].filter(
-    (e): e is APIEmbed => Boolean(e),
-  );
   return {
     content: truncateMessage(`${preface}
--# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R> · ${report}`).trim(),
-    embeds: embeds.length === 0 ? undefined : embeds,
+-# ${report}
+-# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
     allowedMentions: { roles: [moderator] },
   };
 };
