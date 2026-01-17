@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 
 import { ssrDiscordSdk } from "#~/discord/api";
+import { registerListener } from "#~/discord/listenerRegistry";
 import {
   isMessageComponentCommand,
   isMessageContextCommand,
@@ -41,7 +42,7 @@ export const deployCommands = async (client: Client) => {
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
 
-  client.on(Events.InteractionCreate, (interaction) => {
+  registerListener(client, Events.InteractionCreate, (interaction) => {
     log("info", "deployCommands", "Handling interaction", {
       type: interaction.type,
       id: interaction.id,

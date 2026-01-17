@@ -7,6 +7,8 @@ import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
 import { ReportReasons } from "#~/models/reportedMessages.server.js";
 
+import { registerListener } from "./listenerRegistry";
+
 interface HoneypotConfig {
   guild_id: string;
   channel_id: string;
@@ -19,7 +21,7 @@ export async function startHoneypotTracking(client: Client) {
     string,
     { config: HoneypotConfig[]; cachedAt: number }
   >;
-  client.on(Events.MessageCreate, async (msg) => {
+  registerListener(client, Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
     if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
       return;

@@ -4,6 +4,39 @@ import { ReacordDiscordJs } from "reacord";
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
+// HMR state helpers - persisted across module reloads
+declare global {
+  var __discordClientReady: boolean | undefined;
+  var __discordScheduledTasks: ReturnType<typeof setTimeout>[] | undefined;
+}
+
+export function isClientReady(): boolean {
+  return globalThis.__discordClientReady ?? false;
+}
+
+export function setClientReady(): void {
+  globalThis.__discordClientReady = true;
+}
+
+export function registerScheduledTask(
+  timer: ReturnType<typeof setTimeout>,
+): void {
+  globalThis.__discordScheduledTasks ??= [];
+  globalThis.__discordScheduledTasks.push(timer);
+}
+
+export function clearScheduledTasks(): void {
+  const tasks = globalThis.__discordScheduledTasks ?? [];
+  if (tasks.length > 0) {
+    log("info", "Client", `Clearing ${tasks.length} scheduled tasks for HMR`);
+  }
+  for (const timer of tasks) {
+    clearTimeout(timer);
+    clearInterval(timer);
+  }
+  globalThis.__discordScheduledTasks = [];
+}
+
 export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
