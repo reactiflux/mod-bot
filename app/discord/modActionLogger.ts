@@ -154,24 +154,17 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
 
   try {
     const auditLogs = await fetchAuditLogs(guild, user);
-
-    if (auditLogs) {
-      const { executor = null, reason = "" } = auditLogs;
-      await reportModAction({
-        guild,
-        user,
-        actionType: "kick",
-        executor,
-        reason,
-      });
+    if (!auditLogs || auditLogs?.actionType === "left") {
       return;
     }
+
+    const { executor = null, reason = "" } = auditLogs;
     await reportModAction({
       guild,
       user,
-      actionType: "left",
-      executor: undefined,
-      reason: undefined,
+      actionType: "kick",
+      executor,
+      reason,
     });
   } catch (error) {
     log("error", "ModActionLogger", "Failed to handle member removal", {
@@ -203,11 +196,7 @@ export default async (bot: Client) => {
         "error",
         "ModActionLogger",
         "Unhandled error in member remove handler",
-        {
-          userId: member.user?.id,
-          guildId: member.guild.id,
-          error,
-        },
+        { userId: member.user?.id, guildId: member.guild.id, error },
       );
     }
   });
