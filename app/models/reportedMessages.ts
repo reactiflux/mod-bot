@@ -289,46 +289,6 @@ export const getUniqueNonDeletedMessages = (userId: string, guildId: string) =>
     }),
   );
 
-// Legacy wrappers for backward compatibility
-
-const runWithDb = <A, E>(effect: Effect.Effect<A, E, DatabaseService>) =>
-  runEffect(Effect.provide(effect, DatabaseServiceLive));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const recordReportLegacy = (data: Parameters<typeof recordReport>[0]) =>
-  runWithDb(recordReport(data));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const getReportsForUserLegacy = (userId: string, guildId: string) =>
-  runWithDb(getReportsForUser(userId, guildId));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const getReportsForMessageLegacy = (
-  messageId: string,
-  guildId: string,
-  includeDeleted = false,
-) => runWithDb(getReportsForMessage(messageId, guildId, includeDeleted));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const getUserReportStatsLegacy = (userId: string, guildId: string) =>
-  runWithDb(getUserReportStats(userId, guildId));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const deleteReportLegacy = (reportId: string) =>
-  runWithDb(deleteReport(reportId));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const markMessageAsDeletedLegacy = (
-  messageId: string,
-  guildId: string,
-) => runWithDb(markMessageAsDeleted(messageId, guildId));
-
-/** @deprecated Use the Effect-based version directly when possible. */
-export const getUniqueNonDeletedMessagesLegacy = (
-  userId: string,
-  guildId: string,
-) => runWithDb(getUniqueNonDeletedMessages(userId, guildId));
-
 /**
  * Deletes a single Discord message and marks it as deleted in database.
  * Uses Effect-native logging.

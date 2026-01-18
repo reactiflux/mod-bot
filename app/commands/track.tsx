@@ -7,12 +7,12 @@ import {
 import { Button } from "reacord";
 
 import { reacord } from "#~/discord/client.server";
+import { featureStats } from "#~/helpers/metrics";
+import { reportUserLegacy } from "#~/helpers/modLog.js";
 import {
   markMessageAsDeletedLegacy as markMessageAsDeleted,
   ReportReasons,
-} from "#~/effects/models/reportedMessages.js";
-import { featureStats } from "#~/helpers/metrics";
-import { reportUser } from "#~/helpers/modLog";
+} from "#~/models/reportedMessages.js";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Track")
@@ -22,7 +22,7 @@ const command = new ContextMenuCommandBuilder()
 const handler = async (interaction: MessageContextMenuCommandInteraction) => {
   const { targetMessage: message, user } = interaction;
 
-  const reportPromise = reportUser({
+  const reportPromise = reportUserLegacy({
     reason: ReportReasons.track,
     message,
     staff: user,

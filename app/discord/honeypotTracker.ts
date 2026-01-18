@@ -2,7 +2,7 @@ import { ChannelType, Events, type Client } from "discord.js";
 
 import db from "#~/db.server.js";
 import { featureStats } from "#~/helpers/metrics";
-import { reportUser } from "#~/helpers/modLog.js";
+import { reportUserLegacy } from "#~/helpers/modLog.js";
 import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
 import { ReportReasons } from "#~/models/reportedMessages.ts";
@@ -98,7 +98,7 @@ export async function startHoneypotTracking(client: Client) {
             deleteMessageSeconds: 604800, // 7 days
           })
           .then(() => guild.members.unban(member)),
-        reportUser({
+        reportUserLegacy({
           reason: ReportReasons.spam,
           message: message,
           staff: client.user ?? false,
@@ -117,7 +117,7 @@ export async function startHoneypotTracking(client: Client) {
           error: e,
         },
       );
-      await reportUser({
+      await reportUserLegacy({
         reason: ReportReasons.spam,
         message: message,
         staff: client.user ?? false,

@@ -13,7 +13,12 @@ import {
   type TextChannel,
   type User,
 } from "discord.js";
+import { Effect } from "effect";
 
+import { DatabaseServiceLive } from "#~/Database";
+import { DiscordApiError } from "#~/effects/errors";
+import { logEffect } from "#~/effects/observability";
+import { runEffect } from "#~/effects/runtime";
 import {
   constructDiscordLink,
   describeAttachments,
@@ -27,21 +32,18 @@ import { escalationControls } from "#~/helpers/escalate";
 import { truncateMessage } from "#~/helpers/string";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
-  deleteReportLegacy as deleteReport,
-  getReportsForMessageLegacy as getReportsForMessage,
-  getUserReportStatsLegacy as getUserReportStats,
-  recordReportLegacy as recordReport,
+  deleteReport,
+  getReportsForMessage,
+  getUserReportStats,
+  recordReport,
   ReportReasons,
   type Report,
 } from "#~/models/reportedMessages";
 import {
-  createUserThreadLegacy as createUserThread,
-  getUserThreadLegacy as getUserThread,
-  updateUserThreadLegacy as updateUserThread,
+  createUserThread,
+  getUserThread,
+  updateUserThread,
 } from "#~/models/userThreads";
-
-import { retry } from "./misc";
-import { log } from "./observability";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -71,57 +73,105 @@ interface Reported {
   latestReport?: Message;
 }
 
-// todo: make an effect
-const makeUserThread = (channel: TextChannel, user: User) => {
-  return channel.threads.create({
-    name: `${user.username} logs`,
+const makeUserThread = (channel: TextChannel, user: User) =>
+  Effect.tryPromise({
+    try: () => channel.threads.create({ name: `${user.username} logs` }),
+    catch: (error) =>
+      new DiscordApiError({ operation: "createThread", discordError: error }),
   });
-};
 
-// todo: make an effect
-const getOrCreateUserThread = async (guild: Guild, user: User) => {
-  if (!guild) throw new Error("Message has no guild");
-
-  // Check if we already have a thread for this user
-  const existingThread = await getUserThread(user.id, guild.id);
-
-  if (existingThread) {
-    try {
-      // Verify the thread still exists and is accessible
-      const thread = await guild.channels.fetch(existingThread.thread_id);
-      if (thread?.isThread()) {
-        return thread;
-      }
-    } catch (error) {
-      log(
-        "warn",
-        "getOrCreateUserThread",
-        "Existing thread not accessible, will create new one",
-        { error },
+const getOrCreateUserThread = (guild: Guild, user: User) =>
+  Effect.gen(function* () {
+    if (!guild) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "getOrCreateUserThread",
+          discordError: new Error("Message has no guild"),
+        }),
       );
     }
-  }
 
-  // Create new thread and store in database
-  const { modLog: modLogId } = await fetchSettings(guild.id, [SETTINGS.modLog]);
-  const modLog = await guild.channels.fetch(modLogId);
-  if (!modLog || modLog.type !== ChannelType.GuildText) {
-    throw new Error("Invalid mod log channel");
-  }
+    // Check if we already have a thread for this user
+    const existingThread = yield* getUserThread(user.id, guild.id);
 
-  // Create freestanding private thread
-  const thread = await makeUserThread(modLog, user);
-  await escalationControls(user.id, thread);
+    if (existingThread) {
+      // Verify the thread still exists and is accessible
+      const thread = yield* Effect.tryPromise({
+        try: () => guild.channels.fetch(existingThread.thread_id),
+        catch: (error) => error,
+      }).pipe(
+        Effect.map((channel) => (channel?.isThread() ? channel : null)),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "warn",
+              "getOrCreateUserThread",
+              "Existing thread not accessible, will create new one",
+              { error: String(error) },
+            );
+            return null;
+          }),
+        ),
+      );
 
-  // Store or update the thread reference
-  if (existingThread) {
-    await updateUserThread(user.id, guild.id, thread.id);
-  } else {
-    await createUserThread(user.id, guild.id, thread.id);
-  }
+      if (thread) {
+        return thread;
+      }
+    }
 
-  return thread;
-};
+    // Create new thread and store in database
+    const { modLog: modLogId } = yield* Effect.tryPromise({
+      try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchSettings",
+          discordError: error,
+        }),
+    });
+
+    const modLog = yield* Effect.tryPromise({
+      try: () => guild.channels.fetch(modLogId),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchModLogChannel",
+          discordError: error,
+        }),
+    });
+
+    if (!modLog || modLog.type !== ChannelType.GuildText) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "getOrCreateUserThread",
+          discordError: new Error("Invalid mod log channel"),
+        }),
+      );
+    }
+
+    // Create freestanding private thread
+    const thread = yield* makeUserThread(modLog, user);
+
+    yield* Effect.tryPromise({
+      try: () => escalationControls(user.id, thread),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "escalationControls",
+          discordError: error,
+        }),
+    });
+
+    // Store or update the thread reference
+    if (existingThread) {
+      yield* updateUserThread(user.id, guild.id, thread.id);
+    } else {
+      yield* createUserThread(user.id, guild.id, thread.id);
+    }
+
+    return thread;
+  }).pipe(
+    Effect.withSpan("getOrCreateUserThread", {
+      attributes: { userId: user.id, guildId: guild.id },
+    }),
+  );
 
 export interface AutomodReport {
   guild: Guild;
@@ -141,54 +191,86 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
   [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
 };
 
-/**
- * Reports an automod action when we don't have a full Message object.
- * Used when Discord's automod blocks/deletes a message before we can fetch it.
- * todo: make this into an effect, and don't use Discord.js classes in the api
- */
-export const reportAutomod = async ({
+const reportAutomod = ({
   guild,
   user,
   channelId,
   ruleName,
   matchedKeyword,
   actionType,
-}: AutomodReport): Promise<void> => {
-  log("info", "reportAutomod", `Automod triggered for ${user.username}`, {
-    userId: user.id,
-    guildId: guild.id,
-    ruleName,
-    actionType,
-  });
+}: AutomodReport) =>
+  Effect.gen(function* () {
+    yield* logEffect(
+      "info",
+      "reportAutomod",
+      `Automod triggered for ${user.username}`,
+      {
+        userId: user.id,
+        guildId: guild.id,
+        ruleName,
+        actionType,
+      },
+    );
 
-  // Get or create persistent user thread
-  const thread = await getOrCreateUserThread(guild, user);
+    // Get or create persistent user thread
+    const thread = yield* getOrCreateUserThread(guild, user);
 
-  // Get mod log for forwarding
-  const { modLog, moderator } = await fetchSettings(guild.id, [
-    SETTINGS.modLog,
-    SETTINGS.moderator,
-  ]);
+    // Get mod log for forwarding
+    const { modLog, moderator } = yield* Effect.tryPromise({
+      try: () => fetchSettings(guild.id, [SETTINGS.modLog, SETTINGS.moderator]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchSettings",
+          discordError: error,
+        }),
+    });
 
-  // Construct the log message
-  const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
-  const actionLabel = ActionTypeLabels[actionType] ?? "took action";
+    // Construct the log message
+    const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
+    const actionLabel = ActionTypeLabels[actionType] ?? "took action";
 
-  const logContent =
-    truncateMessage(`<@${user.id}> (${user.username}) triggered automod ${matchedKeyword ? `with text  \`${matchedKeyword}\` ` : ""}in ${channelMention}
--# ${ruleName} · Automod ${actionLabel}`).trim();
+    const logContent = truncateMessage(
+      `<@${user.id}> (${user.username}) triggered automod ${matchedKeyword ? `with text  \`${matchedKeyword}\` ` : ""}in ${channelMention}
+-# ${ruleName} · Automod ${actionLabel}`,
+    ).trim();
 
-  // Send log to thread
-  const logMessage = await thread.send({
-    content: logContent,
-    allowedMentions: { roles: [moderator] },
-  });
+    // Send log to thread
+    const logMessage = yield* Effect.tryPromise({
+      try: () =>
+        thread.send({
+          content: logContent,
+          allowedMentions: { roles: [moderator] },
+        }),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "sendLogMessage",
+          discordError: error,
+        }),
+    });
 
-  // Forward to mod log
-  await logMessage.forward(modLog).catch((e) => {
-    log("error", "reportAutomod", "failed to forward to modLog", { error: e });
-  });
-};
+    // Forward to mod log (non-critical)
+    yield* Effect.tryPromise({
+      try: () => logMessage.forward(modLog),
+      catch: (error) => error,
+    }).pipe(
+      Effect.catchAll((error) =>
+        logEffect("error", "reportAutomod", "failed to forward to modLog", {
+          error: String(error),
+        }),
+      ),
+    );
+  }).pipe(
+    Effect.withSpan("reportAutomod", {
+      attributes: { userId: user.id, guildId: guild.id, ruleName },
+    }),
+  );
+
+/**
+ * Reports an automod action when we don't have a full Message object.
+ * Used when Discord's automod blocks/deletes a message before we can fetch it.
+ */
+export const reportAutomodLegacy = (report: AutomodReport): Promise<void> =>
+  runEffect(Effect.provide(reportAutomod(report), DatabaseServiceLive));
 
 export type ModActionReport =
   | {
@@ -206,193 +288,264 @@ export type ModActionReport =
       reason: undefined;
     };
 
-/**
- * Reports a mod action (kick/ban) to the user's persistent thread.
- * Used when Discord events indicate a kick or ban occurred.
- */
-export const reportModAction = async ({
+const reportModAction = ({
   guild,
   user,
   actionType,
   executor,
   reason,
-}: ModActionReport): Promise<void> => {
-  log(
-    "info",
-    "reportModAction",
-    `${actionType} detected for ${user.username}`,
-    {
-      userId: user.id,
-      guildId: guild.id,
-      actionType,
-      executorId: executor?.id,
-      reason,
-    },
-  );
+}: ModActionReport) =>
+  Effect.gen(function* () {
+    yield* logEffect(
+      "info",
+      "reportModAction",
+      `${actionType} detected for ${user.username}`,
+      {
+        userId: user.id,
+        guildId: guild.id,
+        actionType,
+        executorId: executor?.id,
+        reason,
+      },
+    );
 
-  if (actionType === "left") {
-    return;
-  }
-
-  // Get or create persistent user thread
-  const thread = await getOrCreateUserThread(guild, user);
-
-  // Get mod log for forwarding
-  const { modLog, moderator } = await fetchSettings(guild.id, [
-    SETTINGS.modLog,
-    SETTINGS.moderator,
-  ]);
-
-  // Construct the log message
-  const actionLabels: Record<ModActionReport["actionType"], string> = {
-    ban: "was banned",
-    kick: "was kicked",
-    left: "left",
-  };
-  const actionLabel = actionLabels[actionType];
-  const executorMention = executor
-    ? ` by <@${executor.id}> (${executor.username})`
-    : " by unknown";
-
-  const reasonText = reason ? ` ${reason}` : " for no reason";
-
-  const logContent = truncateMessage(
-    `<@${user.id}> (${user.username}) ${actionLabel}
--# ${executorMention}${reasonText} <t:${Math.floor(Date.now() / 1000)}:R>`,
-  ).trim();
-
-  // Send log to thread
-  const logMessage = await thread.send({
-    content: logContent,
-    allowedMentions: { roles: [moderator] },
-  });
-
-  // Forward to mod log
-  await logMessage.forward(modLog).catch((e) => {
-    log("error", "reportModAction", "failed to forward to modLog", {
-      error: e,
-    });
-  });
-};
-
-// const warningMessages = new ();
-export const reportUser = async ({
-  reason,
-  message,
-  extra,
-  staff,
-}: Omit<Report, "date">): Promise<
-  Reported & { allReportedMessages: Report[] }
-> => {
-  const { guild, author } = message;
-  if (!guild) throw new Error("Tried to report a message without a guild");
-
-  // Check if this exact message has already been reported
-  const [existingReports, { modLog }] = await Promise.all([
-    getReportsForMessage(message.id, guild.id),
-    fetchSettings(guild.id, [SETTINGS.modLog]),
-  ]);
-  const alreadyReported = existingReports.find(
-    (r) => r.reported_message_id === message.id,
-  );
-
-  log(
-    "info",
-    "reportUser",
-    `${author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
-  );
-
-  // Get or create persistent user thread first
-  const thread = await getOrCreateUserThread(guild, author);
-
-  if (alreadyReported && reason !== ReportReasons.modResolution) {
-    // Message already reported with this reason, just add to thread
-    let priorLogMessage: Message<true>, latestReport: Message<true>;
-    try {
-      priorLogMessage = await thread.messages.fetch(
-        alreadyReported.log_message_id,
-      );
-      latestReport = await priorLogMessage.reply(
-        makeReportMessage({ message, reason, staff }),
-      );
-    } catch (e) {
-      // If the error is because the message doesn't exist, post to the thread
-      log("warn", "reportUser", "message not found, posting to thread", {
-        error: e,
-      });
-      if (e instanceof Error && e.message.includes("Unknown Message")) {
-        latestReport = await thread.send(
-          await constructLog({
-            extra,
-            logs: [{ message, reason, staff }],
-            staff,
-          }),
-        );
-        await deleteReport(alreadyReported.id);
-        await recordReport({
-          reportedMessageId: message.id,
-          reportedChannelId: message.channel.id,
-          reportedUserId: author.id,
-          guildId: guild.id,
-          logMessageId: latestReport.id,
-          logChannelId: thread.id,
-          reason,
-        });
-      } else {
-        throw e;
-      }
+    if (actionType === "left") {
+      return;
     }
-    log("info", "reportUser", "exact message already logged");
 
-    const userStats = await getUserReportStats(message.author.id, guild.id);
-    return {
-      warnings: userStats.reportCount,
-      message: thread.lastMessage!,
-      latestReport,
-      thread,
-      allReportedMessages: [], // Could fetch if needed
+    // Get or create persistent user thread
+    const thread = yield* getOrCreateUserThread(guild, user);
+
+    // Get mod log for forwarding
+    const { modLog, moderator } = yield* Effect.tryPromise({
+      try: () => fetchSettings(guild.id, [SETTINGS.modLog, SETTINGS.moderator]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchSettings",
+          discordError: error,
+        }),
+    });
+
+    // Construct the log message
+    const actionLabels: Record<ModActionReport["actionType"], string> = {
+      ban: "was banned",
+      kick: "was kicked",
+      left: "left",
     };
-  }
+    const actionLabel = actionLabels[actionType];
+    const executorMention = executor
+      ? ` by <@${executor.id}> (${executor.username})`
+      : " by unknown";
 
-  log("info", "reportUser", "new message reported");
+    const reasonText = reason ? ` ${reason}` : " for no reason";
 
-  // Get user stats for constructing the log
-  const previousWarnings = await getUserReportStats(author.id, guild.id);
+    const logContent = truncateMessage(
+      `<@${user.id}> (${user.username}) ${actionLabel}
+-# ${executorMention}${reasonText} <t:${Math.floor(Date.now() / 1000)}:R>`,
+    ).trim();
 
-  // Send detailed report info to the user thread
-  const logBody = await constructLog({
-    extra,
-    logs: [{ message, reason, staff }],
-    staff,
-  });
+    // Send log to thread
+    const logMessage = yield* Effect.tryPromise({
+      try: () =>
+        thread.send({
+          content: logContent,
+          allowedMentions: { roles: [moderator] },
+        }),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "sendLogMessage",
+          discordError: error,
+        }),
+    });
 
-  // For forwarded messages, get attachments from the snapshot
-  const attachments = isForwardedMessage(message)
-    ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
-    : message.attachments;
-
-  const embeds = [
-    describeAttachments(attachments),
-    describeReactions(message.reactions.cache),
-  ].filter((e): e is APIEmbed => Boolean(e));
-
-  // If it has the data for a poll, use a specialized formatting function
-  const reportedMessage = message.poll
-    ? quoteAndEscapePoll(message.poll)
-    : quoteAndEscape(getMessageContent(message)).trim();
-  // Send the detailed log message to thread
-  const [logMessage] = await Promise.all([
-    thread.send(logBody),
-    thread.send({
-      content: reportedMessage,
-      allowedMentions: {},
-      embeds: embeds.length === 0 ? undefined : embeds,
+    // Forward to mod log (non-critical)
+    yield* Effect.tryPromise({
+      try: () => logMessage.forward(modLog),
+      catch: (error) => error,
+    }).pipe(
+      Effect.catchAll((error) =>
+        logEffect("error", "reportModAction", "failed to forward to modLog", {
+          error: String(error),
+        }),
+      ),
+    );
+  }).pipe(
+    Effect.withSpan("reportModAction", {
+      attributes: { userId: user.id, guildId: guild.id, actionType },
     }),
-  ]);
+  );
 
-  // Try to record the report in database with retry logic
-  await retry(3, async () => {
-    const result = await recordReport({
+/**
+ * Reports a mod action (kick/ban) to the user's persistent thread.
+ * Used when Discord events indicate a kick or ban occurred.
+ */
+export const reportModActionLegacy = (report: ModActionReport): Promise<void> =>
+  runEffect(Effect.provide(reportModAction(report), DatabaseServiceLive));
+
+const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
+  Effect.gen(function* () {
+    const { guild, author } = message;
+    if (!guild) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "reportUser",
+          discordError: new Error("Tried to report a message without a guild"),
+        }),
+      );
+    }
+
+    // Check if this exact message has already been reported
+    const [existingReports, { modLog }] = yield* Effect.all([
+      getReportsForMessage(message.id, guild.id),
+      Effect.tryPromise({
+        try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
+        catch: (error) =>
+          new DiscordApiError({
+            operation: "fetchSettings",
+            discordError: error,
+          }),
+      }),
+    ]);
+
+    const alreadyReported = existingReports.find(
+      (r) => r.reported_message_id === message.id,
+    );
+
+    yield* logEffect(
+      "info",
+      "reportUser",
+      `${author.username}, ${reason}. ${alreadyReported ? "already reported" : "new report"}.`,
+      { userId: author.id, guildId: guild.id, reason },
+    );
+
+    // Get or create persistent user thread first
+    const thread = yield* getOrCreateUserThread(guild, author);
+
+    if (alreadyReported && reason !== ReportReasons.modResolution) {
+      // Message already reported with this reason, just add to thread
+      const latestReport = yield* Effect.tryPromise({
+        try: async () => {
+          const priorLogMessage = await thread.messages.fetch(
+            alreadyReported.log_message_id,
+          );
+          return priorLogMessage.reply(
+            makeReportMessage({ message, reason, staff }),
+          );
+        },
+        catch: (error) => error,
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "warn",
+              "reportUser",
+              "message not found, posting to thread",
+              { error: String(error) },
+            );
+            if (
+              error instanceof Error &&
+              error.message.includes("Unknown Message")
+            ) {
+              const logContent = yield* constructLog({
+                extra,
+                logs: [{ message, reason, staff }],
+                staff,
+              });
+              const newReport = yield* Effect.tryPromise({
+                try: () => thread.send(logContent),
+                catch: (e) =>
+                  new DiscordApiError({
+                    operation: "sendLogMessage",
+                    discordError: e,
+                  }),
+              });
+              yield* deleteReport(alreadyReported.id);
+              yield* recordReport({
+                reportedMessageId: message.id,
+                reportedChannelId: message.channel.id,
+                reportedUserId: author.id,
+                guildId: guild.id,
+                logMessageId: newReport.id,
+                logChannelId: thread.id,
+                reason,
+              });
+              return newReport;
+            }
+            return yield* Effect.fail(
+              new DiscordApiError({
+                operation: "fetchPriorLogMessage",
+                discordError: error,
+              }),
+            );
+          }),
+        ),
+      );
+
+      yield* logEffect("info", "reportUser", "exact message already logged", {
+        userId: author.id,
+        guildId: guild.id,
+      });
+
+      const userStats = yield* getUserReportStats(message.author.id, guild.id);
+      return {
+        warnings: userStats.reportCount,
+        message: thread.lastMessage!,
+        latestReport,
+        thread,
+        allReportedMessages: [],
+      } satisfies Reported & { allReportedMessages: Report[] };
+    }
+
+    yield* logEffect("info", "reportUser", "new message reported", {
+      userId: author.id,
+      guildId: guild.id,
+    });
+
+    // Get user stats for constructing the log
+    const previousWarnings = yield* getUserReportStats(author.id, guild.id);
+
+    // Send detailed report info to the user thread
+    const logBody = yield* constructLog({
+      extra,
+      logs: [{ message, reason, staff }],
+      staff,
+    });
+
+    // For forwarded messages, get attachments from the snapshot
+    const attachments = isForwardedMessage(message)
+      ? (message.messageSnapshots.first()?.attachments ?? message.attachments)
+      : message.attachments;
+
+    const embeds = [
+      describeAttachments(attachments),
+      describeReactions(message.reactions.cache),
+    ].filter((e): e is APIEmbed => Boolean(e));
+
+    // If it has the data for a poll, use a specialized formatting function
+    const reportedMessage = message.poll
+      ? quoteAndEscapePoll(message.poll)
+      : quoteAndEscape(getMessageContent(message)).trim();
+
+    // Send the detailed log message to thread
+    const [logMessage] = yield* Effect.tryPromise({
+      try: () =>
+        Promise.all([
+          thread.send(logBody),
+          thread.send({
+            content: reportedMessage,
+            allowedMentions: {},
+            embeds: embeds.length === 0 ? undefined : embeds,
+          }),
+        ]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "sendLogMessages",
+          discordError: error,
+        }),
+    });
+
+    // Record the report in database
+    const recordResult = yield* recordReport({
       reportedMessageId: message.id,
       reportedChannelId: message.channel.id,
       reportedUserId: author.id,
@@ -405,71 +558,108 @@ export const reportUser = async ({
       extra,
     });
 
-    // If the record was not inserted due to unique constraint (duplicate),
-    // this means another process already reported the same message while we were
-    // preparing the log. Retry to check if we should bail early.
-    if (!result.wasInserted) {
-      log(
+    if (!recordResult.wasInserted) {
+      yield* logEffect(
         "warn",
         "reportUser",
-        "duplicate detected at database level, retrying check",
+        "duplicate detected at database level",
+        { userId: author.id, guildId: guild.id },
       );
-      throw new Error("Race condition detected in recordReport, retrying…");
     }
 
-    return result;
-  });
+    // Forward to mod log (non-critical)
+    yield* Effect.tryPromise({
+      try: () => logMessage.forward(modLog),
+      catch: (error) => error,
+    }).pipe(
+      Effect.catchAll((error) =>
+        logEffect("error", "reportUser", "failed to forward to modLog", {
+          error: String(error),
+        }),
+      ),
+    );
 
-  await logMessage.forward(modLog).catch((e) => {
-    log("error", "reportUser", "failed to forward to modLog", { error: e });
-  });
+    // Send summary to parent channel if possible (non-critical)
+    const parentChannel = thread.parent;
+    if (parentChannel?.isSendable()) {
+      const content = isForwardedMessage(message)
+        ? getMessageContent(message)
+        : message.cleanContent;
+      const singleLine = content.slice(0, 80).replaceAll("\n", "\\n ");
+      const truncatedMsg =
+        singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
 
-  // Send summary to parent channel if possible
-  if (thread.parent?.isSendable()) {
-    // For forwarded messages, cleanContent is empty - use snapshot content instead
-    const content = isForwardedMessage(message)
-      ? getMessageContent(message)
-      : message.cleanContent;
-    const singleLine = content.slice(0, 80).replaceAll("\n", "\\n ");
-    const truncatedMessage =
-      singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
-
-    try {
-      const stats = await getMessageStats(message);
-      await thread.parent.send({
-        allowedMentions: {},
-        content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions](${messageLink(logMessage.channelId, logMessage.id)})`,
-      });
-    } catch (e) {
-      // If message was deleted or stats unavailable, send without stats
-      log("warn", "reportUser", "failed to get message stats, skipping", {
-        error: e,
-      });
-      await thread.parent
-        .send({
-          allowedMentions: {},
-          content: `> ${escapeDisruptiveContent(truncatedMessage)}\n-# [Stats failed to load](${messageLink(logMessage.channelId, logMessage.id)})`,
-        })
-        .catch((sendError) => {
-          log("error", "reportUser", "failed to send summary to parent", {
-            error: sendError,
+      yield* Effect.tryPromise({
+        try: async () => {
+          const stats = await getMessageStats(message);
+          await parentChannel.send({
+            allowedMentions: {},
+            content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions](${messageLink(logMessage.channelId, logMessage.id)})`,
           });
-        });
+        },
+        catch: (error) => error,
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "warn",
+              "reportUser",
+              "failed to get message stats, skipping",
+              { error: String(error) },
+            );
+            yield* Effect.tryPromise({
+              try: () =>
+                parentChannel.send({
+                  allowedMentions: {},
+                  content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [Stats failed to load](${messageLink(logMessage.channelId, logMessage.id)})`,
+                }),
+              catch: (e) => e,
+            }).pipe(
+              Effect.catchAll((sendError) =>
+                logEffect(
+                  "error",
+                  "reportUser",
+                  "failed to send summary to parent",
+                  { error: String(sendError) },
+                ),
+              ),
+            );
+          }),
+        ),
+      );
     }
-  }
 
-  // For new reports, the detailed log already includes the reason info,
-  // so we don't need a separate short message
-  const latestReport = undefined;
+    return {
+      warnings: previousWarnings.reportCount + 1,
+      message: logMessage,
+      latestReport: undefined,
+      thread,
+      allReportedMessages: [],
+    } satisfies Reported & { allReportedMessages: Report[] };
+  }).pipe(
+    Effect.withSpan("reportUser", {
+      attributes: {
+        userId: message.author.id,
+        guildId: message.guild?.id,
+        reason,
+      },
+    }),
+  );
 
-  return {
-    warnings: previousWarnings.reportCount + 1,
-    message: logMessage,
-    latestReport,
-    thread,
-    allReportedMessages: [], // Could fetch from database if needed
-  };
-};
+export const reportUserLegacy = ({
+  reason,
+  message,
+  extra,
+  staff,
+}: Omit<Report, "date">): Promise<
+  Reported & { allReportedMessages: Report[] }
+> =>
+  runEffect(
+    Effect.provide(
+      reportUser({ reason, message, extra, staff }),
+      DatabaseServiceLive,
+    ),
+  );
 
 const makeReportMessage = ({ message: _, reason, staff }: Report) => {
   return {
@@ -477,40 +667,59 @@ const makeReportMessage = ({ message: _, reason, staff }: Report) => {
   };
 };
 
-const constructLog = async ({
+const constructLog = ({
   logs,
   extra: origExtra = "",
 }: Pick<Report, "extra" | "staff"> & {
   logs: Report[];
-}): Promise<MessageCreateOptions> => {
-  const lastReport = logs.at(-1);
-  if (!lastReport?.message.guild) {
-    throw new Error("Something went wrong when trying to retrieve last report");
-  }
-  const { message } = lastReport;
-  const { author } = message;
-  const { moderator } = await fetchSettings(lastReport.message.guild.id, [
-    SETTINGS.moderator,
-  ]);
+}) =>
+  Effect.gen(function* () {
+    const lastReport = logs.at(-1);
+    if (!lastReport?.message.guild) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "constructLog",
+          discordError: new Error(
+            "Something went wrong when trying to retrieve last report",
+          ),
+        }),
+      );
+    }
+    const { message } = lastReport;
+    const { author } = message;
+    const { moderator } = yield* Effect.tryPromise({
+      try: () =>
+        fetchSettings(lastReport.message.guild!.id, [SETTINGS.moderator]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchSettings",
+          discordError: error,
+        }),
+    });
 
-  // This should never be possible but we gotta satisfy types
-  if (!moderator) {
-    throw new Error("No role configured to be used as moderator");
-  }
+    // This should never be possible but we gotta satisfy types
+    if (!moderator) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "constructLog",
+          discordError: new Error("No role configured to be used as moderator"),
+        }),
+      );
+    }
 
-  const { content: report } = makeReportMessage(lastReport);
+    const { content: report } = makeReportMessage(lastReport);
 
-  // Add indicator if this is forwarded content
-  const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
-  const preface = `${constructDiscordLink(message)} by <@${author.id}> (${
-    author.username
-  })${forwardNote}`;
-  const extra = origExtra ? `${origExtra}\n` : "";
+    // Add indicator if this is forwarded content
+    const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
+    const preface = `${constructDiscordLink(message)} by <@${author.id}> (${
+      author.username
+    })${forwardNote}`;
+    const extra = origExtra ? `${origExtra}\n` : "";
 
-  return {
-    content: truncateMessage(`${preface}
+    return {
+      content: truncateMessage(`${preface}
 -# ${report}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
-    allowedMentions: { roles: [moderator] },
-  };
-};
+      allowedMentions: { roles: [moderator] },
+    } satisfies MessageCreateOptions;
+  });

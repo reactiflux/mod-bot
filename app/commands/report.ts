@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 
 import { commandStats } from "#~/helpers/metrics";
-import { reportUser } from "#~/helpers/modLog";
+import { reportUserLegacy } from "#~/helpers/modLog";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { ReportReasons } from "#~/models/reportedMessages.ts";
 
@@ -30,7 +30,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
       });
 
       try {
-        await reportUser({
+        await reportUserLegacy({
           reason: ReportReasons.anonReport,
           message,
           staff: false,

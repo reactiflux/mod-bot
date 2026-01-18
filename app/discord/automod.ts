@@ -12,7 +12,7 @@ import {
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
 import { featureStats } from "#~/helpers/metrics";
-import { reportAutomod, reportUser } from "#~/helpers/modLog";
+import { reportAutomodLegacy, reportUserLegacy } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
 
 import { client } from "./client.server";
@@ -55,7 +55,7 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
   // Fallback: message was blocked/deleted or we couldn't fetch it
   // Use reportAutomod which doesn't require a Message object
   const user = await guild.client.users.fetch(userId);
-  await reportAutomod({
+  await reportAutomodLegacy({
     guild,
     user,
     content: content ?? matchedContent ?? "[Content not available]",
@@ -95,7 +95,7 @@ export default async (bot: Client) => {
     }
 
     if (isSpam(message.content)) {
-      const { warnings, message: logMessage } = await reportUser({
+      const { warnings, message: logMessage } = await reportUserLegacy({
         reason: ReportReasons.spam,
         message: message,
         staff: client.user ?? false,
