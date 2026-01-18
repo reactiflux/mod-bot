@@ -71,6 +71,7 @@ interface Reported {
   warnings: number;
   thread: AnyThreadChannel;
   latestReport?: Message;
+  reportId?: string;
 }
 
 const makeUserThread = (channel: TextChannel, user: User) =>
@@ -635,6 +636,7 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
       latestReport: undefined,
       thread,
       allReportedMessages: [],
+      reportId: recordResult.wasInserted ? recordResult.reportId : undefined,
     } satisfies Reported & { allReportedMessages: Report[] };
   }).pipe(
     Effect.withSpan("reportUser", {

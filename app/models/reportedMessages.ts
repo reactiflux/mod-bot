@@ -45,6 +45,7 @@ export const recordReport = (data: {
 }) =>
   Effect.gen(function* () {
     const dbService = yield* DatabaseService;
+    const reportId = crypto.randomUUID();
 
     yield* logEffect("info", "ReportedMessage", "Recording report", {
       reportedUserId: data.reportedUserId,
@@ -57,7 +58,7 @@ export const recordReport = (data: {
         db
           .insertInto("reported_messages")
           .values({
-            id: crypto.randomUUID(),
+            id: reportId,
             reported_message_id: data.reportedMessageId,
             reported_channel_id: data.reportedChannelId,
             reported_user_id: data.reportedUserId,
@@ -79,7 +80,7 @@ export const recordReport = (data: {
       guildId: data.guildId,
     });
 
-    return { wasInserted: true, result };
+    return { wasInserted: true, result, reportId };
   }).pipe(
     Effect.catchTag("DatabaseConstraintError", (_error) =>
       Effect.gen(function* () {
@@ -103,6 +104,24 @@ export const recordReport = (data: {
       },
     }),
   );
+
+/**
+ * Get a specific report by ID.
+ */
+export const getReportById = (reportId: string) =>
+  Effect.gen(function* () {
+    const dbService = yield* DatabaseService;
+    const report = yield* dbService.query(
+      () =>
+        db
+          .selectFrom("reported_messages")
+          .selectAll()
+          .where("id", "=", reportId)
+          .executeTakeFirst(),
+      "getReportById",
+    );
+    return report;
+  }).pipe(Effect.withSpan("getReportById", { attributes: { reportId } }));
 
 /**
  * Get all reports for a specific user in a guild.
