@@ -4,7 +4,7 @@ import db from "#~/db.server";
 import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";
 
-import { registerListener } from "./listenerRegistry";
+import { registerListener } from "./hmrRegistry";
 
 export async function startReactjiChanneler(client: Client) {
   log("info", "ReactjiChanneler", "Starting reactji channeler", {});

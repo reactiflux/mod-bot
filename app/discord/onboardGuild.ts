@@ -6,7 +6,7 @@ import { fetchGuild } from "#~/models/guilds.server";
 
 import { client } from "./client.server";
 import { deployCommands } from "./deployCommands.server";
-import { registerListener } from "./listenerRegistry";
+import { registerListener } from "./hmrRegistry";
 
 export default async (bot: Client) => {
   // This is called any time the bot comes online, when a server becomes

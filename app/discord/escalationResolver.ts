@@ -9,7 +9,7 @@ import {
 } from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
-import { registerScheduledTask } from "#~/discord/client.server";
+import { registerScheduledTask } from "#~/discord/hmrRegistry";
 import {
   humanReadableResolutions,
   resolutions,

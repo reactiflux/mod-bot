@@ -7,7 +7,7 @@ import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
 import { ReportReasons } from "#~/models/reportedMessages.server.js";
 
-import { registerListener } from "./listenerRegistry";
+import { registerListener } from "./hmrRegistry";
 
 interface HoneypotConfig {
   guild_id: string;

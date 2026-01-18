@@ -10,7 +10,7 @@ import {
 } from "discord.js";
 
 import { ssrDiscordSdk } from "#~/discord/api";
-import { registerListener } from "#~/discord/listenerRegistry";
+import { registerListener } from "#~/discord/hmrRegistry";
 import {
   isMessageComponentCommand,
   isMessageContextCommand,

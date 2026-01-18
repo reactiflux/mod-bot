@@ -5,7 +5,7 @@ import { getMessageStats } from "#~/helpers/discord.js";
 import { threadStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 
-import { registerListener } from "./listenerRegistry";
+import { registerListener } from "./hmrRegistry";
 import { getOrFetchChannel } from "./utils";
 
 export async function startActivityTracking(client: Client) {

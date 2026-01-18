@@ -16,7 +16,7 @@ import {
 } from "#~/models/reportedMessages.server";
 
 import { client } from "./client.server";
-import { registerListener } from "./listenerRegistry";
+import { registerListener } from "./hmrRegistry";
 
 const AUTO_SPAM_THRESHOLD = 3;
 

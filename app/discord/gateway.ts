@@ -2,19 +2,18 @@ import { Events } from "discord.js";
 
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
-import {
-  clearScheduledTasks,
-  client,
-  isClientReady,
-  login,
-  setClientReady,
-} from "#~/discord/client.server";
+import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import {
+  clearScheduledTasks,
+  isClientReady,
+  isLoginStarted,
+  markLoginStarted,
   registerListener,
   removeAllListeners,
-} from "#~/discord/listenerRegistry";
+  setClientReady,
+} from "#~/discord/hmrRegistry";
 import modActionLogger from "#~/discord/modActionLogger";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
@@ -23,11 +22,6 @@ import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
 import { startHoneypotTracking } from "./honeypotTracker";
-
-// Track if login has been initiated to prevent duplicate logins during HMR
-declare global {
-  var __discordLoginStarted: boolean | undefined;
-}
 
 /**
  * Initialize all sub-modules that depend on the client being ready.
@@ -71,9 +65,9 @@ async function initializeSubModules() {
 
 export default function init() {
   // Login only happens once - persists across HMR
-  if (!globalThis.__discordLoginStarted) {
+  if (!isLoginStarted()) {
     log("info", "Gateway", "Initializing Discord gateway (first time)");
-    globalThis.__discordLoginStarted = true;
+    markLoginStarted();
     void login();
 
     // Set ready state when ClientReady fires (only needs to happen once)
