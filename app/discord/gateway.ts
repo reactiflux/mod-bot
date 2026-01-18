@@ -5,14 +5,6 @@ import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
-import {
-  clearScheduledTasks,
-  isClientReady,
-  isLoginStarted,
-  markLoginStarted,
-  removeAllListeners,
-  setClientReady,
-} from "#~/discord/hmrRegistry";
 import modActionLogger from "#~/discord/modActionLogger";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
@@ -22,83 +14,27 @@ import Sentry from "#~/helpers/sentry.server";
 
 import { startHoneypotTracking } from "./honeypotTracker";
 
-/**
- * Initialize all sub-modules that depend on the client being ready.
- */
-async function initializeSubModules() {
-  await trackPerformance(
-    "gateway_startup",
-    async () => {
-      log("info", "Gateway", "Initializing sub-modules", {
-        guildCount: client.guilds.cache.size,
-        userCount: client.users.cache.size,
-      });
-
-      await Promise.all([
-        onboardGuild(client),
-        automod(client),
-        modActionLogger(client),
-        deployCommands(client),
-        startActivityTracking(client),
-        startHoneypotTracking(client),
-        startReactjiChanneler(client),
-      ]);
-
-      // Start escalation resolver scheduler (must be after client is ready)
-      startEscalationResolver(client);
-
-      log("info", "Gateway", "Gateway initialization completed", {
-        guildCount: client.guilds.cache.size,
-        userCount: client.users.cache.size,
-      });
-
-      // Track bot startup in business analytics
-      botStats.botStarted(client.guilds.cache.size, client.users.cache.size);
-    },
-    {
-      guildCount: client.guilds.cache.size,
-      userCount: client.users.cache.size,
-    },
-  );
+// Track if gateway is already initialized to prevent duplicate logins during HMR
+// Use globalThis so the flag persists across module reloads
+declare global {
+  var __discordGatewayInitialized: boolean | undefined;
 }
 
 export default function init() {
-  // Login only happens once - persists across HMR
-  if (!isLoginStarted()) {
-    log("info", "Gateway", "Initializing Discord gateway (first time)");
-    markLoginStarted();
-    void login();
-
-    // Set ready state when ClientReady fires (only needs to happen once)
-    client.once(Events.ClientReady, () => {
-      setClientReady();
-    });
-  } else {
-    log("info", "Gateway", "HMR detected, rebinding listeners");
+  if (globalThis.__discordGatewayInitialized) {
+    log(
+      "info",
+      "Gateway",
+      "Gateway already initialized, skipping duplicate init",
+    );
+    return;
   }
 
-  // Clean up old listeners and scheduled tasks before rebinding
-  removeAllListeners(client);
-  clearScheduledTasks();
+  log("info", "Gateway", "Initializing Discord gateway");
+  globalThis.__discordGatewayInitialized = true;
 
-  // Bind all listeners (runs on every HMR reload)
-  bindListeners();
+  void login();
 
-  // Initialize sub-modules if client is already ready, otherwise wait
-  if (isClientReady()) {
-    void initializeSubModules();
-  } else {
-    // Use once() here since this is a one-time initialization per login
-    client.once(Events.ClientReady, () => {
-      void initializeSubModules();
-    });
-  }
-}
-
-/**
- * Bind all gateway-level listeners. Called on initial load and every HMR reload.
- */
-function bindListeners() {
   // Diagnostic: log all raw gateway events
   client.on(
     Events.Raw,
@@ -111,6 +47,45 @@ function bindListeners() {
       });
     },
   );
+
+  client.on(Events.ClientReady, async () => {
+    await trackPerformance(
+      "gateway_startup",
+      async () => {
+        log("info", "Gateway", "Bot ready event triggered", {
+          guildCount: client.guilds.cache.size,
+          userCount: client.users.cache.size,
+        });
+
+        await Promise.all([
+          onboardGuild(client),
+          automod(client),
+          modActionLogger(client),
+          deployCommands(client),
+          startActivityTracking(client),
+          startHoneypotTracking(client),
+          startReactjiChanneler(client),
+        ]);
+
+        // Start escalation resolver scheduler (must be after client is ready)
+        startEscalationResolver(client);
+
+        log("info", "Gateway", "Gateway initialization completed", {
+          guildCount: client.guilds.cache.size,
+          userCount: client.users.cache.size,
+        });
+
+        // Track bot startup in business analytics
+        botStats.botStarted(client.guilds.cache.size, client.users.cache.size);
+      },
+      {
+        guildCount: client.guilds.cache.size,
+        userCount: client.users.cache.size,
+      },
+    );
+  });
+
+  // client.on(Events.messageReactionAdd, () => {});
 
   client.on(Events.ThreadCreate, (thread) => {
     log("info", "Gateway", "Thread created", {
@@ -131,6 +106,12 @@ function bindListeners() {
       });
     });
   });
+
+  // client.on(Events.messageCreate, async (msg) => {
+  //   if (msg.author?.id === client.user?.id) return;
+
+  //   //
+  // });
 
   const errorHandler = (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);

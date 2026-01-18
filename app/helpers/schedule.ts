@@ -27,23 +27,17 @@ export const enum SPECIFIED_TIMES {
   "midnight" = "0 0 * * *",
 }
 
-export interface ScheduledTaskHandle {
-  initialTimer: ReturnType<typeof setTimeout>;
-  intervalTimer?: ReturnType<typeof setInterval>;
-}
-
 /**
  * Schedule messages to run on a consistent interval, assuming a constant
  * first-run time of Sunday at midnight.
  * @param interval An interval in milliseconds
  * @param task A function to run every interval
- * @returns Handle containing timer IDs for cleanup during HMR
  */
 export const scheduleTask = (
   serviceName: string,
   interval: number | SPECIFIED_TIMES,
   task: () => void,
-): ScheduledTaskHandle | undefined => {
+) => {
   if (typeof interval === "number") {
     const firstRun = getFirstRun(interval);
     log(
@@ -52,16 +46,12 @@ export const scheduleTask = (
       `Scheduling ${serviceName} in ${Math.floor(firstRun / 1000) / 60}min, repeating ${Math.floor(interval / 1000) / 60}`,
       { serviceName, interval, firstRun },
     );
-    const handle: ScheduledTaskHandle = {
-      initialTimer: setTimeout(() => {
-        task();
-        handle.intervalTimer = setInterval(task, interval);
-      }, firstRun),
-    };
-    return handle;
+    setTimeout(() => {
+      task();
+      setInterval(task, interval);
+    }, firstRun);
   } else {
     log("info", "ScheduleTask", JSON.stringify({ serviceName, interval }));
     scheduleCron(interval, task);
-    return undefined;
   }
 };
