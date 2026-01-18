@@ -4,13 +4,16 @@ import {
   PermissionFlagsBits,
   type MessageContextMenuCommandInteraction,
 } from "discord.js";
+import { Effect } from "effect";
 import { Button } from "reacord";
 
+import { DatabaseServiceLive } from "#~/Database.ts";
 import { reacord } from "#~/discord/client.server";
+import { runEffect } from "#~/effects/runtime.ts";
 import { featureStats } from "#~/helpers/metrics";
 import { reportUserLegacy } from "#~/helpers/modLog.js";
 import {
-  markMessageAsDeletedLegacy as markMessageAsDeleted,
+  markMessageAsDeleted,
   ReportReasons,
 } from "#~/models/reportedMessages.js";
 
@@ -48,7 +51,14 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
           await Promise.allSettled([
             message
               .delete()
-              .then(() => markMessageAsDeleted(message.id, message.guild!.id)),
+              .then(() =>
+                runEffect(
+                  Effect.provide(
+                    markMessageAsDeleted(message.id, message.guild!.id),
+                    DatabaseServiceLive,
+                  ),
+                ),
+              ),
             latestReport?.reply({
               allowedMentions: { users: [] },
               content: `deleted by ${user.username}`,

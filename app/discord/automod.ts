@@ -4,16 +4,19 @@ import {
   type AutoModerationActionExecution,
   type Client,
 } from "discord.js";
+import { Effect } from "effect";
 
-import {
-  markMessageAsDeletedLegacy as markMessageAsDeleted,
-  ReportReasons,
-} from "#~/effects/models/reportedMessages.js";
+import { DatabaseServiceLive } from "#~/Database.js";
+import { runEffect } from "#~/effects/runtime.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
 import { featureStats } from "#~/helpers/metrics";
 import { reportAutomodLegacy, reportUserLegacy } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
+import {
+  markMessageAsDeleted,
+  ReportReasons,
+} from "#~/models/reportedMessages.js";
 
 import { client } from "./client.server";
 
@@ -102,7 +105,14 @@ export default async (bot: Client) => {
       });
       await message
         .delete()
-        .then(() => markMessageAsDeleted(message.id, message.guild!.id));
+        .then(() =>
+          runEffect(
+            Effect.provide(
+              markMessageAsDeleted(message.id, message.guild!.id),
+              DatabaseServiceLive,
+            ),
+          ),
+        );
 
       featureStats.spamDetected(
         message.guild.id,
