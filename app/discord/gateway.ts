@@ -10,7 +10,6 @@ import {
   isClientReady,
   isLoginStarted,
   markLoginStarted,
-  registerListener,
   removeAllListeners,
   setClientReady,
 } from "#~/discord/hmrRegistry";
@@ -101,29 +100,19 @@ export default function init() {
  */
 function bindListeners() {
   // Diagnostic: log all raw gateway events
-  // Note: Events.Raw is not part of ClientEvents, so we register it manually
-  // and track it separately for cleanup
-  const rawHandler = (packet: {
-    t?: string;
-    op?: number;
-    d?: Record<string, unknown>;
-  }) => {
-    log("debug", "Gateway.Raw", packet.t ?? "unknown", {
-      op: packet.op,
-      guildId: packet.d?.guild_id,
-      channelId: packet.d?.channel_id,
-      userId: packet.d?.user_id,
-    });
-  };
-  client.on(Events.Raw, rawHandler);
-  // Manually track for removal (cast needed since Raw isn't in ClientEvents)
-  globalThis.__discordListenerRegistry ??= [];
-  globalThis.__discordListenerRegistry.push({
-    event: Events.Raw,
-    listener: rawHandler as (...args: unknown[]) => void,
-  });
+  client.on(
+    Events.Raw,
+    (packet: { t?: string; op?: number; d?: Record<string, unknown> }) => {
+      log("debug", "Gateway.Raw", packet.t ?? "unknown", {
+        op: packet.op,
+        guildId: packet.d?.guild_id,
+        channelId: packet.d?.channel_id,
+        userId: packet.d?.user_id,
+      });
+    },
+  );
 
-  registerListener(client, Events.ThreadCreate, (thread) => {
+  client.on(Events.ThreadCreate, (thread) => {
     log("info", "Gateway", "Thread created", {
       threadId: thread.id,
       guildId: thread.guild.id,
@@ -159,17 +148,17 @@ function bindListeners() {
     Sentry.captureException(error);
   };
 
-  registerListener(client, Events.Error, errorHandler);
+  client.on(Events.Error, errorHandler);
 
   // Add connection monitoring
-  registerListener(client, Events.ShardDisconnect, () => {
+  client.on(Events.ShardDisconnect, () => {
     log("warn", "Gateway", "Client disconnected", {
       guildCount: client.guilds.cache.size,
       userCount: client.users.cache.size,
     });
   });
 
-  registerListener(client, Events.ShardReconnecting, () => {
+  client.on(Events.ShardReconnecting, () => {
     log("info", "Gateway", "Client reconnecting", {
       guildCount: client.guilds.cache.size,
       userCount: client.users.cache.size,

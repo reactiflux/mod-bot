@@ -5,7 +5,6 @@ import { getMessageStats } from "#~/helpers/discord.js";
 import { threadStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 
-import { registerListener } from "./hmrRegistry";
 import { getOrFetchChannel } from "./utils";
 
 export async function startActivityTracking(client: Client) {
@@ -13,7 +12,7 @@ export async function startActivityTracking(client: Client) {
     guildCount: client.guilds.cache.size,
   });
 
-  registerListener(client, Events.MessageCreate, async (msg) => {
+  client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
     if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
       return;
@@ -70,7 +69,7 @@ export async function startActivityTracking(client: Client) {
     threadStats.messageTracked(msg);
   });
 
-  registerListener(client, Events.MessageUpdate, async (msg) => {
+  client.on(Events.MessageUpdate, async (msg) => {
     await trackPerformance(
       "processMessageUpdate",
       async () => {
@@ -94,7 +93,7 @@ export async function startActivityTracking(client: Client) {
     );
   });
 
-  registerListener(client, Events.MessageDelete, async (msg) => {
+  client.on(Events.MessageDelete, async (msg) => {
     if (msg.system || msg.author?.bot) {
       return;
     }
@@ -114,7 +113,7 @@ export async function startActivityTracking(client: Client) {
     );
   });
 
-  registerListener(client, Events.MessageReactionAdd, async (msg) => {
+  client.on(Events.MessageReactionAdd, async (msg) => {
     await trackPerformance(
       "processReactionAdd",
       async () => {
@@ -132,7 +131,7 @@ export async function startActivityTracking(client: Client) {
     );
   });
 
-  registerListener(client, Events.MessageReactionRemove, async (msg) => {
+  client.on(Events.MessageReactionRemove, async (msg) => {
     await trackPerformance(
       "processReactionRemove",
       async () => {

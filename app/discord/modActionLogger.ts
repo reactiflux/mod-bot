@@ -13,8 +13,6 @@ import {
 import { reportModAction, type ModActionReport } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
 
-import { registerListener } from "./hmrRegistry";
-
 // Time window to check audit log for matching entries (5 seconds)
 const AUDIT_LOG_WINDOW_MS = 5000;
 
@@ -141,7 +139,7 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
 }
 
 export default async (bot: Client) => {
-  registerListener(bot, Events.GuildBanAdd, async (ban) => {
+  bot.on(Events.GuildBanAdd, async (ban) => {
     try {
       await handleBanAdd(ban);
     } catch (error) {
@@ -166,7 +164,7 @@ export default async (bot: Client) => {
     }
   });
 
-  registerListener(bot, Events.GuildMemberRemove, async (member) => {
+  bot.on(Events.GuildMemberRemove, async (member) => {
     try {
       await handleMemberRemove(member);
     } catch (error) {

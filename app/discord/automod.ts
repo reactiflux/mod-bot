@@ -16,7 +16,6 @@ import {
 } from "#~/models/reportedMessages.server";
 
 import { client } from "./client.server";
-import { registerListener } from "./hmrRegistry";
 
 const AUTO_SPAM_THRESHOLD = 3;
 
@@ -70,25 +69,21 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
 
 export default async (bot: Client) => {
   // Handle Discord's built-in automod actions
-  registerListener(
-    bot,
-    Events.AutoModerationActionExecution,
-    async (execution) => {
-      try {
-        log("info", "automod.logging", "handling automod event", { execution });
-        await handleAutomodAction(execution);
-      } catch (e) {
-        log("error", "Automod", "Failed to handle automod action", {
-          error: e,
-          userId: execution.userId,
-          guildId: execution.guild.id,
-        });
-      }
-    },
-  );
+  bot.on(Events.AutoModerationActionExecution, async (execution) => {
+    try {
+      log("info", "automod.logging", "handling automod event", { execution });
+      await handleAutomodAction(execution);
+    } catch (e) {
+      log("error", "Automod", "Failed to handle automod action", {
+        error: e,
+        userId: execution.userId,
+        guildId: execution.guild.id,
+      });
+    }
+  });
 
   // Handle our custom spam detection
-  registerListener(bot, Events.MessageCreate, async (msg) => {
+  bot.on(Events.MessageCreate, async (msg) => {
     if (msg.author.id === bot.user?.id || !msg.guild) return;
 
     const [member, message] = await Promise.all([

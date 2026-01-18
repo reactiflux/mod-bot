@@ -4,6 +4,16 @@ import { ReacordDiscordJs } from "reacord";
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
+// All HMR-related global state declarations
+declare global {
+  var __discordListenerRegistry:
+    | { event: string; listener: (...args: unknown[]) => void }[]
+    | undefined;
+  var __discordScheduledTasks: ReturnType<typeof setTimeout>[] | undefined;
+  var __discordClientReady: boolean | undefined;
+  var __discordLoginStarted: boolean | undefined;
+}
+
 export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -18,6 +28,14 @@ export const client = new Client({
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
+
+// Monkeypatch client.on to track listeners for HMR cleanup
+const originalOn = client.on.bind(client);
+client.on = ((event: string, listener: (...args: unknown[]) => void) => {
+  globalThis.__discordListenerRegistry ??= [];
+  globalThis.__discordListenerRegistry.push({ event, listener });
+  return originalOn(event, listener);
+}) as typeof client.on;
 
 export const reacord = new ReacordDiscordJs(client);
 
