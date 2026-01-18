@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 
 import { tallyVotes } from "#~/commands/escalate/voting.js";
+import { registerScheduledTask } from "#~/discord/hmrRegistry";
 import {
   humanReadableResolutions,
   resolutions,
@@ -298,7 +299,15 @@ export function startEscalationResolver(client: Client): void {
     {},
   );
 
-  scheduleTask("EscalationResolver", ONE_MINUTE * 15, () => {
+  const handle = scheduleTask("EscalationResolver", ONE_MINUTE * 15, () => {
     void checkPendingEscalations(client);
   });
+
+  // Register timers for HMR cleanup
+  if (handle) {
+    registerScheduledTask(handle.initialTimer);
+    // The interval timer is created inside the setTimeout, so we need to
+    // register it when it's available. Since clearScheduledTasks clears both
+    // timeouts and intervals, the initial timer registration will handle cleanup.
+  }
 }
