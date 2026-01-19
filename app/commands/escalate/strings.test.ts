@@ -1,12 +1,12 @@
-import { tallyVotes, type VoteTally } from "#~/commands/escalate/voting";
-import type { Escalation } from "#~/effects/services/Escalation";
 import { resolutions } from "#~/helpers/modResponse";
 
+import type { Escalation } from "./service";
 import {
   buildConfirmedMessageContent,
   buildVoteMessageContent,
   buildVotesListContent,
 } from "./strings";
+import { tallyVotes, type VoteTally } from "./voting";
 
 const emptyTally: VoteTally = tallyVotes([]);
 

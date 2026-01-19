@@ -1,18 +1,9 @@
 import type { MessageComponentInteraction, ThreadChannel } from "discord.js";
 import { Effect } from "effect";
 
-import {
-  buildVoteButtons,
-  buildVoteMessageContent,
-} from "#~/commands/escalate/strings";
-import { tallyVotes, type VoteTally } from "#~/commands/escalate/voting";
 import { client } from "#~/discord/client.server";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import {
-  EscalationService,
-  type Escalation,
-} from "#~/effects/services/Escalation";
 import { calculateScheduledFor } from "#~/helpers/escalationVotes";
 import type { Features } from "#~/helpers/featuresFlags";
 import { votingStrategies, type Resolution } from "#~/helpers/modResponse";
@@ -21,6 +12,10 @@ import {
   fetchSettings,
   SETTINGS,
 } from "#~/models/guilds.server";
+
+import { EscalationService, type Escalation } from "./service";
+import { buildVoteButtons, buildVoteMessageContent } from "./strings";
+import { tallyVotes, type VoteTally } from "./voting";
 
 export interface CreateEscalationResult {
   escalation: Escalation;

@@ -5,11 +5,11 @@ import {
 import { Effect } from "effect";
 
 import { DiscordApiError, NotAuthorizedError } from "#~/effects/errors";
-import { deleteAllReportedForUserEffect } from "#~/effects/models/reportedMessages";
 import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { deleteAllReportedForUserEffect } from "#~/models/reportedMessages";
 
 export interface DeleteMessagesResult {
   deleted: number;

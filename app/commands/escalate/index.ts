@@ -1,10 +1,11 @@
 import { Cause, Effect } from "effect";
 
-import { runEffectExit } from "../runtime";
+import { runEffectExit } from "#~/effects/runtime";
+
 import {
   EscalationServiceLiveWithDeps,
   type EscalationService,
-} from "../services/Escalation";
+} from "./service";
 
 export {
   deleteMessagesEffect,
@@ -15,14 +16,6 @@ export {
   type DeleteMessagesResult,
   type ModActionResult,
 } from "./directActions";
-export { voteEffect, type VoteResult } from "./vote";
-export {
-  createEscalationEffect,
-  upgradeToMajorityEffect,
-  type CreateEscalationResult,
-  type UpgradeToMajorityResult,
-} from "./escalate";
-export { expediteEffect, type ExpediteResult } from "./expedite";
 
 /**
  * Run an Effect that requires EscalationService.

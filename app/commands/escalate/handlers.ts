@@ -7,31 +7,30 @@ import {
 } from "discord.js";
 
 import {
-  banUserEffect,
-  createEscalationEffect,
-  deleteMessagesEffect,
-  expediteEffect,
-  getFailure,
-  kickUserEffect,
-  restrictUserEffect,
-  runDirectEffect,
-  runEscalationEffect,
-  timeoutUserEffect,
-  upgradeToMajorityEffect,
-  voteEffect,
-} from "#~/effects/escalation";
-import {
   humanReadableResolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 
 import {
+  banUserEffect,
+  deleteMessagesEffect,
+  getFailure,
+  kickUserEffect,
+  restrictUserEffect,
+  runDirectEffect,
+  runEscalationEffect,
+  timeoutUserEffect,
+} from ".";
+import { createEscalationEffect, upgradeToMajorityEffect } from "./escalate";
+import { expediteEffect } from "./expedite";
+import {
   buildConfirmedMessageContent,
   buildVoteButtons,
   buildVoteMessageContent,
   buildVotesListContent,
-} from "./strings.js";
+} from "./strings";
+import { voteEffect } from "./vote";
 
 const deleteMessages = async (interaction: MessageComponentInteraction) => {
   await interaction.deferReply();

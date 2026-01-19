@@ -1,7 +1,7 @@
 import type { Client } from "discord.js";
 
-import { getFailure, runEscalationEffect } from "#~/effects/escalation";
-import { checkPendingEscalationsEffect } from "#~/effects/escalation/escalationResolver";
+import { checkPendingEscalationsEffect } from "#~/commands/escalate/escalationResolver";
+import { getFailure, runEscalationEffect } from "#~/commands/escalate/index";
 import { log } from "#~/helpers/observability";
 import { scheduleTask } from "#~/helpers/schedule";
 

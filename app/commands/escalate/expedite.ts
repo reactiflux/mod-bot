@@ -1,7 +1,6 @@
 import type { MessageComponentInteraction } from "discord.js";
 import { Effect } from "effect";
 
-import { tallyVotes, type VoteTally } from "#~/commands/escalate/voting";
 import {
   AlreadyResolvedError,
   DiscordApiError,
@@ -9,13 +8,12 @@ import {
   NotAuthorizedError,
 } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import {
-  EscalationService,
-  type Escalation,
-} from "#~/effects/services/Escalation";
 import { hasModRole } from "#~/helpers/discord";
 import type { Resolution } from "#~/helpers/modResponse";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+
+import { EscalationService, type Escalation } from "./service";
+import { tallyVotes, type VoteTally } from "./voting";
 
 export interface ExpediteResult {
   escalation: Escalation;

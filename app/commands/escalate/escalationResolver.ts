@@ -8,19 +8,17 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { tallyVotes } from "#~/commands/escalate/voting";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import {
-  EscalationService,
-  type Escalation,
-} from "#~/effects/services/Escalation";
 import {
   humanReadableResolutions,
   resolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+
+import { EscalationService, type Escalation } from "./service";
+import { tallyVotes } from "./voting";
 
 /**
  * Get disabled versions of all button components from a message.
