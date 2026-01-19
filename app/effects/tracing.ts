@@ -7,6 +7,8 @@ import {
 
 import Sentry, { isValidDsn } from "#~/helpers/sentry.server.js";
 
+const sentryClient = Sentry.getClient();
+
 /**
  * Effect OpenTelemetry layer that exports spans to Sentry.
  *
@@ -24,6 +26,7 @@ export const TracingLive = NodeSdk.layer(() => ({
   // Only add Sentry processors if Sentry is configured
   // SentrySpanProcessor is already a SpanProcessor, don't wrap in BatchSpanProcessor
   spanProcessor: isValidDsn ? new SentrySpanProcessor() : undefined,
-  sampler: isValidDsn ? new SentrySampler(Sentry.getClient()!) : undefined,
+  sampler:
+    isValidDsn && sentryClient ? new SentrySampler(sentryClient) : undefined,
   propagator: isValidDsn ? new SentryPropagator() : undefined,
 }));
