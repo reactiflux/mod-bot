@@ -3,19 +3,13 @@ import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
 import db, { type DB } from "#~/db.server.js";
-// =============================================================================
 // Discord-dependent functions (to be migrated when DiscordService is created)
-// =============================================================================
 
 import { client } from "#~/discord/client.server.js";
 
 import { logEffect } from "../observability.js";
 import { runEffect } from "../runtime.js";
 import { DatabaseService, DatabaseServiceLive } from "../services/Database.js";
-
-// =============================================================================
-// Types
-// =============================================================================
 
 export type ReportedMessage = Selectable<DB["reported_messages"]>;
 
@@ -33,10 +27,6 @@ export const enum ReportReasons {
   spam = "spam",
   automod = "automod",
 }
-
-// =============================================================================
-// Effect-based functions
-// =============================================================================
 
 /**
  * Record a new report in the database.
@@ -300,9 +290,7 @@ export const getUniqueNonDeletedMessages = (userId: string, guildId: string) =>
     }),
   );
 
-// =============================================================================
 // Legacy wrappers for backward compatibility
-// =============================================================================
 
 const runWithDb = <A, E>(effect: Effect.Effect<A, E, DatabaseService>) =>
   runEffect(Effect.provide(effect, DatabaseServiceLive));

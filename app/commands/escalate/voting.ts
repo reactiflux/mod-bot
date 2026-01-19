@@ -1,31 +1,5 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  MessageFlags,
-  type MessageComponentInteraction,
-} from "discord.js";
-
-import { hasModRole } from "#~/helpers/discord";
-import { parseFlags } from "#~/helpers/escalationVotes";
-import type { Features } from "#~/helpers/featuresFlags";
 import { type Resolution, type VotingStrategy } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
-import {
-  calculateScheduledFor,
-  getEscalation,
-  getVotesForEscalation,
-  recordVote,
-  updateScheduledFor,
-  type Escalation,
-} from "#~/models/escalationVotes.server";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
-
-import {
-  buildConfirmedMessageContent,
-  buildVoteButtons,
-  buildVoteMessageContent,
-} from "./strings";
 
 export interface VoteTally {
   totalVotes: number;
@@ -41,122 +15,10 @@ interface VoteRecord {
   voter_id: string;
 }
 
-export const vote = (resolution: Resolution) =>
-  async function handleVote(
-    interaction: MessageComponentInteraction,
-  ): Promise<void> {
-    const guildId = interaction.guildId!;
-    const escalationId = interaction.customId.split("|")[1];
-    const features: Features[] = [];
-
-    // Get settings
-    const { moderator: modRoleId, restricted } = await fetchSettings(guildId, [
-      SETTINGS.moderator,
-      SETTINGS.restricted,
-    ]);
-    if (restricted) {
-      features.push("restrict");
-    }
-
-    // Check mod role
-    if (!hasModRole(interaction, modRoleId)) {
-      await interaction.reply({
-        content: "Only moderators can vote on escalations.",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    // Get escalation
-    const escalation = await getEscalation(escalationId);
-    if (!escalation) {
-      await interaction.reply({
-        content: "Escalation not found.",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    if (escalation.resolved_at) {
-      await interaction.reply({
-        content: "This escalation has already been resolved.",
-        flags: [MessageFlags.Ephemeral],
-      });
-      return;
-    }
-
-    // Record the vote
-    await recordVote({
-      escalationId,
-      voterId: interaction.user.id,
-      vote: resolution,
-    });
-
-    // Get updated votes and tally
-    const votes = await getVotesForEscalation(escalationId);
-    const tally = tallyVotes(votes);
-    const flags = parseFlags(escalation.flags);
-    const quorum = flags.quorum;
-    const votingStrategy =
-      (escalation.voting_strategy as VotingStrategy) ?? "simple";
-
-    // Update scheduled_for based on new vote count
-    const newScheduledFor = calculateScheduledFor(
-      escalation.created_at,
-      tally.totalVotes,
-    );
-    await updateScheduledFor(escalationId, newScheduledFor);
-
-    // Create updated escalation object with new scheduled_for
-    const updatedEscalation: Escalation = {
-      ...escalation,
-      scheduled_for: newScheduledFor,
-    };
-
-    const earlyResolution = shouldTriggerEarlyResolution(
-      tally,
-      quorum,
-      votingStrategy,
-    );
-
-    // Check if early resolution triggered with clear winner - show confirmed state
-    if (earlyResolution && !tally.isTied && tally.leader) {
-      await interaction.update({
-        content: buildConfirmedMessageContent(
-          updatedEscalation,
-          tally.leader,
-          tally,
-        ),
-        components: [
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`expedite|${escalationId}`)
-              .setLabel("Expedite")
-              .setStyle(ButtonStyle.Primary),
-          ),
-        ],
-      });
-      return;
-    }
-
-    // Update the message with new vote state
-    await interaction.update({
-      content: buildVoteMessageContent(
-        modRoleId,
-        votingStrategy,
-        updatedEscalation,
-        tally,
-      ),
-      components: buildVoteButtons(
-        features,
-        votingStrategy,
-        updatedEscalation,
-        tally,
-        earlyResolution,
-      ),
-    });
-  };
-
+/**
+ * Tally votes from a list of vote records.
+ * Returns vote counts by resolution and determines the leader.
+ */
 export function tallyVotes(votes: VoteRecord[]): VoteTally {
   const byResolution = new Map<Resolution, string[]>();
 

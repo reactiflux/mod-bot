@@ -5,10 +5,8 @@ import db, { type DB } from "#~/db.server.js";
 
 import { logEffect } from "../observability.js";
 import { runEffect } from "../runtime.js";
-// =============================================================================
 // Legacy wrappers for backward compatibility
 // These allow existing code to use the Effect-based functions without changes.
-// =============================================================================
 import { DatabaseService, DatabaseServiceLive } from "../services/Database.js";
 
 // Use Selectable to get the type that Kysely returns from queries

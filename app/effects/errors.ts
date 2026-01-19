@@ -40,3 +40,38 @@ export class ConfigError extends Data.TaggedError("ConfigError")<{
   key: string;
   message: string;
 }> {}
+
+// Escalation-specific errors
+
+export class EscalationNotFoundError extends Data.TaggedError(
+  "EscalationNotFoundError",
+)<{
+  escalationId: string;
+}> {}
+
+export class AlreadyResolvedError extends Data.TaggedError(
+  "AlreadyResolvedError",
+)<{
+  escalationId: string;
+  resolvedAt: string;
+}> {}
+
+export class NotAuthorizedError extends Data.TaggedError("NotAuthorizedError")<{
+  operation: string;
+  userId: string;
+  requiredRole?: string;
+}> {}
+
+export class NoLeaderError extends Data.TaggedError("NoLeaderError")<{
+  escalationId: string;
+  reason: "no_votes" | "tied";
+  tiedResolutions?: string[];
+}> {}
+
+export class ResolutionExecutionError extends Data.TaggedError(
+  "ResolutionExecutionError",
+)<{
+  escalationId: string;
+  resolution: string;
+  cause: unknown;
+}> {}

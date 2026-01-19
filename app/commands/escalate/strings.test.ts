@@ -1,6 +1,6 @@
 import { tallyVotes, type VoteTally } from "#~/commands/escalate/voting";
+import type { Escalation } from "#~/effects/services/Escalation";
 import { resolutions } from "#~/helpers/modResponse";
-import type { Escalation } from "#~/models/escalationVotes.server";
 
 import {
   buildConfirmedMessageContent,
