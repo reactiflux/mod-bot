@@ -2,14 +2,13 @@ import type { Message, User } from "discord.js";
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
-import db, { type DB } from "#~/db.server.js";
+import { DatabaseService, DatabaseServiceLive } from "#~/Database";
+import db, { type DB } from "#~/db.server";
 // Discord-dependent functions (to be migrated when DiscordService is created)
 
-import { client } from "#~/discord/client.server.js";
-
-import { logEffect } from "../observability.js";
-import { runEffect } from "../runtime.js";
-import { DatabaseService, DatabaseServiceLive } from "../services/Database.js";
+import { client } from "#~/discord/client.server";
+import { logEffect } from "#~/effects/observability";
+import { runEffect } from "#~/effects/runtime";
 
 export type ReportedMessage = Selectable<DB["reported_messages"]>;
 

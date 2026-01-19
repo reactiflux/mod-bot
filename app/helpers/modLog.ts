@@ -15,19 +15,6 @@ import {
 } from "discord.js";
 
 import {
-  deleteReportLegacy as deleteReport,
-  getReportsForMessageLegacy as getReportsForMessage,
-  getUserReportStatsLegacy as getUserReportStats,
-  recordReportLegacy as recordReport,
-  ReportReasons,
-  type Report,
-} from "#~/effects/models/reportedMessages.js";
-import {
-  createUserThreadLegacy as createUserThread,
-  getUserThreadLegacy as getUserThread,
-  updateUserThreadLegacy as updateUserThread,
-} from "#~/effects/models/userThreads.js";
-import {
   constructDiscordLink,
   describeAttachments,
   describeReactions,
@@ -39,6 +26,19 @@ import {
 import { escalationControls } from "#~/helpers/escalate";
 import { truncateMessage } from "#~/helpers/string";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import {
+  deleteReportLegacy as deleteReport,
+  getReportsForMessageLegacy as getReportsForMessage,
+  getUserReportStatsLegacy as getUserReportStats,
+  recordReportLegacy as recordReport,
+  ReportReasons,
+  type Report,
+} from "#~/models/reportedMessages";
+import {
+  createUserThreadLegacy as createUserThread,
+  getUserThreadLegacy as getUserThread,
+  updateUserThreadLegacy as updateUserThread,
+} from "#~/models/userThreads";
 
 import { retry } from "./misc";
 import { log } from "./observability";

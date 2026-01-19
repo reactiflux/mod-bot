@@ -1,13 +1,12 @@
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
-import db, { type DB } from "#~/db.server.js";
-
-import { logEffect } from "../observability.js";
-import { runEffect } from "../runtime.js";
 // Legacy wrappers for backward compatibility
 // These allow existing code to use the Effect-based functions without changes.
-import { DatabaseService, DatabaseServiceLive } from "../services/Database.js";
+import { DatabaseService, DatabaseServiceLive } from "#~/Database";
+import db, { type DB } from "#~/db.server";
+import { logEffect } from "#~/effects/observability";
+import { runEffect } from "#~/effects/runtime";
 
 // Use Selectable to get the type that Kysely returns from queries
 export type UserThread = Selectable<DB["user_threads"]>;

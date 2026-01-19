@@ -1,11 +1,11 @@
 import { ChannelType, Events, type Client } from "discord.js";
 
 import db from "#~/db.server.js";
-import { ReportReasons } from "#~/effects/models/reportedMessages.js";
 import { featureStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog.js";
 import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
+import { ReportReasons } from "#~/models/reportedMessages.ts";
 
 interface HoneypotConfig {
   guild_id: string;
