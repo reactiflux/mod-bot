@@ -5,8 +5,8 @@ import {
   type MessageContextMenuCommandInteraction,
 } from "discord.js";
 
+import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
 import { commandStats } from "#~/helpers/metrics";
-import { reportUserLegacy } from "#~/helpers/modLog";
 import { log, trackPerformance } from "#~/helpers/observability";
 import { ReportReasons } from "#~/models/reportedMessages.ts";
 
@@ -30,7 +30,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
       });
 
       try {
-        await reportUserLegacy({
+        await logUserMessageLegacy({
           reason: ReportReasons.anonReport,
           message,
           staff: false,

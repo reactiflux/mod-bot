@@ -53,7 +53,7 @@ export const recordReport = (data: {
       reason: data.reason,
     });
 
-    const result = yield* dbService.queryWithConstraint(
+    const result = yield* dbService.query(
       () =>
         db
           .insertInto("reported_messages")
@@ -72,7 +72,6 @@ export const recordReport = (data: {
           })
           .execute(),
       "recordReport",
-      "reported_messages",
     );
 
     yield* logEffect("info", "ReportedMessage", "Report recorded", {

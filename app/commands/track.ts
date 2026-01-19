@@ -10,6 +10,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
 import { DatabaseServiceLive } from "#~/Database.ts";
 import { client } from "#~/discord/client.server";
 import { runEffect } from "#~/effects/runtime.ts";
@@ -18,7 +19,6 @@ import type {
   MessageContextCommand,
 } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
-import { reportUserLegacy } from "#~/helpers/modLog";
 import {
   getReportById,
   markMessageAsDeleted,
@@ -42,7 +42,7 @@ export const Command = [
         );
       }
 
-      const { reportId, thread } = await reportUserLegacy({
+      const { reportId, thread } = await logUserMessageLegacy({
         reason: ReportReasons.track,
         message,
         staff: user,
