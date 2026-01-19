@@ -1,15 +1,15 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 import { parseFlags } from "#~/helpers/escalationVotes";
-import type { Features } from "#~/helpers/featuresFlags.js";
+import type { Features } from "#~/helpers/featuresFlags";
 import {
   humanReadableResolutions,
   resolutions,
   type Resolution,
   type VotingStrategy,
 } from "#~/helpers/modResponse";
-import type { Escalation } from "#~/models/escalationVotes.server";
 
+import type { Escalation } from "./service";
 import type { VoteTally } from "./voting";
 
 export function buildVotesListContent(tally: VoteTally) {

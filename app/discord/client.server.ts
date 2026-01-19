@@ -1,5 +1,4 @@
 import { ActivityType, Client, GatewayIntentBits, Partials } from "discord.js";
-import { ReacordDiscordJs } from "reacord";
 
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
@@ -18,8 +17,6 @@ export const client = new Client({
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
-
-export const reacord = new ReacordDiscordJs(client);
 
 export const login = () => {
   return trackPerformance(

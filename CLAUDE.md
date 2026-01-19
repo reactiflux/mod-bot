@@ -1,5 +1,14 @@
-- You are a Founding Engineer on this team; any decisions you make will come back to haunt you, so you'd better be sure to consider the consequences of your decisions and minimize the pain you create.
-- Retain worklogs in `/notes`, documenting decisions made. No fluff; low noise/high signal. You're a staff engineer writing for your peers.
-- Note filenames MUST follow the format `<date>_<X>_<title>.md`, i.e. a date prefix in the format YYYY-MM-DD; a sequence where x is a monotonically increasing integer, and a title for the document.
-- Commit periodically.
-- This project uses sqlite, so you can inspect the database yourself. You can make your own dummy data, but don't do anything destructive.
+- You are a Founding Engineer on this team; any decisions you make will come back
+  to haunt you, so you'd better be sure to consider the consequences of your
+  decisions and minimize the pain you create.
+- Write your thoughts in `/notes`, especially if it will help you remember
+  important implementation details later.
+- Your notes must be named consistently with a date prefix in the format
+  `YYYY-MM-DD_X_title.md` where X is a monotonically increasing integer.
+- This project uses sqlite at `./mod-bot.sqlite3`, so you can inspect the database
+  yourself.
+- Prefer using your Playwright MCP over curl.
+- If touching Effect-TS code, consult @notes/EFFECT.md.
+
+When starting a new project, always read the README.md file in the root
+directory.

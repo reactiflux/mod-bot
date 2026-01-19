@@ -5,10 +5,10 @@ import {
   type MessageContextMenuCommandInteraction,
 } from "discord.js";
 
+import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
 import { commandStats } from "#~/helpers/metrics";
-import { reportUser } from "#~/helpers/modLog";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { ReportReasons } from "#~/models/reportedMessages.server";
+import { ReportReasons } from "#~/models/reportedMessages.ts";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Report")
@@ -30,7 +30,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
       });
 
       try {
-        await reportUser({
+        await logUserMessageLegacy({
           reason: ReportReasons.anonReport,
           message,
           staff: false,

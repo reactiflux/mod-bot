@@ -1,5 +1,5 @@
-import type { Resolution, VotingStrategy } from "#~/helpers/modResponse";
-import { log } from "#~/helpers/observability.js";
+import { type Resolution, type VotingStrategy } from "#~/helpers/modResponse";
+import { log } from "#~/helpers/observability";
 
 export interface VoteTally {
   totalVotes: number;
@@ -15,6 +15,10 @@ interface VoteRecord {
   voter_id: string;
 }
 
+/**
+ * Tally votes from a list of vote records.
+ * Returns vote counts by resolution and determines the leader.
+ */
 export function tallyVotes(votes: VoteRecord[]): VoteTally {
   const byResolution = new Map<Resolution, string[]>();
 

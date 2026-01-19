@@ -1,11 +1,11 @@
 import { Events } from "discord.js";
 
+import modActionLogger from "#~/commands/report/modActionLogger.ts";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
 import { deployCommands } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
-import modActionLogger from "#~/discord/modActionLogger";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
 import { botStats, shutdownMetrics } from "#~/helpers/metrics";

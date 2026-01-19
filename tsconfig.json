@@ -8,6 +8,7 @@
     "index.prod.js"
   ],
   "compilerOptions": {
+    "plugins": [{ "name": "@effect/language-service" }],
     "types": ["vite/client", "vitest/globals"],
     "rootDirs": [".", "./.react-router/types"],
     "lib": ["DOM", "DOM.Iterable", "ES2022"],

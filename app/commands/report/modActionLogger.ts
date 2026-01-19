@@ -1,6 +1,8 @@
 import {
   AuditLogEvent,
+  AutoModerationActionType,
   Events,
+  type AutoModerationActionExecution,
   type Client,
   type Guild,
   type GuildBan,
@@ -10,8 +12,10 @@ import {
   type User,
 } from "discord.js";
 
-import { reportModAction, type ModActionReport } from "#~/helpers/modLog";
+import { logAutomodLegacy } from "#~/commands/report/automodLog.ts";
 import { log } from "#~/helpers/observability";
+
+import { logModActionLegacy, type ModActionReport } from "./modActionLog";
 
 // Time window to check audit log for matching entries (5 seconds)
 const AUDIT_LOG_WINDOW_MS = 5000;
@@ -51,7 +55,7 @@ async function handleBanAdd(ban: GuildBan) {
     return;
   }
 
-  await reportModAction({
+  await logModActionLegacy({
     guild,
     user,
     actionType: "ban",
@@ -129,7 +133,7 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
   }
 
   const { executor = null, reason = "" } = auditLogs;
-  await reportModAction({
+  await logModActionLegacy({
     guild,
     user,
     actionType: "kick",
@@ -138,42 +142,56 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
   });
 }
 
-export default async (bot: Client) => {
-  bot.on(Events.GuildBanAdd, async (ban) => {
-    try {
-      await handleBanAdd(ban);
-    } catch (error) {
-      // If we can't access audit log, still log the ban but without executor info
-      if (
-        error instanceof Error &&
-        error.message.includes("Missing Permissions")
-      ) {
-        log(
-          "warn",
-          "ModActionLogger",
-          "Cannot access audit log for ban details",
-          { userId: ban.user.id, guildId: ban.guild.id },
-        );
-        return;
-      }
-      log("error", "ModActionLogger", "Unhandled error in ban handler", {
-        userId: ban.user.id,
-        guildId: ban.guild.id,
-        error,
-      });
-    }
+async function handleAutomodAction(execution: AutoModerationActionExecution) {
+  const {
+    guild,
+    userId,
+    channelId,
+    messageId,
+    content,
+    action,
+    matchedContent,
+    matchedKeyword,
+    autoModerationRule,
+  } = execution;
+
+  // Only log actions that actually affected a message
+  if (action.type === AutoModerationActionType.Timeout) {
+    log("info", "Automod", "Skipping timeout action (no message to log)", {
+      userId,
+      guildId: guild.id,
+      ruleId: autoModerationRule?.name,
+    });
+    return;
+  }
+
+  log("info", "Automod", "Automod action executed", {
+    userId,
+    guildId: guild.id,
+    channelId,
+    messageId,
+    actionType: action.type,
+    ruleName: autoModerationRule?.name,
+    matchedKeyword,
   });
 
-  bot.on(Events.GuildMemberRemove, async (member) => {
-    try {
-      await handleMemberRemove(member);
-    } catch (error) {
-      log(
-        "error",
-        "ModActionLogger",
-        "Unhandled error in member remove handler",
-        { userId: member.user?.id, guildId: member.guild.id, error },
-      );
-    }
+  // Fallback: message was blocked/deleted or we couldn't fetch it
+  // Use reportAutomod which doesn't require a Message object
+  const user = await guild.client.users.fetch(userId);
+  await logAutomodLegacy({
+    guild,
+    user,
+    content: content ?? matchedContent ?? "[Content not available]",
+    channelId: channelId ?? undefined,
+    messageId: messageId ?? undefined,
+    ruleName: autoModerationRule?.name ?? "Unknown rule",
+    matchedKeyword: matchedKeyword ?? matchedContent ?? undefined,
+    actionType: action.type,
   });
+}
+
+export default async (bot: Client) => {
+  bot.on(Events.GuildBanAdd, handleBanAdd);
+  bot.on(Events.GuildMemberRemove, handleMemberRemove);
+  bot.on(Events.AutoModerationActionExecution, handleAutomodAction);
 };
