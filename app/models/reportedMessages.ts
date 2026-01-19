@@ -45,7 +45,7 @@ export const recordReport = (data: {
 }) =>
   Effect.gen(function* () {
     const dbService = yield* DatabaseService;
-    const reportId = crypto.randomUUID();
+    const reportId = crypto.randomUUID() as string;
 
     yield* logEffect("info", "ReportedMessage", "Recording report", {
       reportedUserId: data.reportedUserId,
@@ -82,27 +82,9 @@ export const recordReport = (data: {
 
     return { wasInserted: true, result, reportId };
   }).pipe(
-    Effect.catchTag("DatabaseConstraintError", (_error) =>
-      Effect.gen(function* () {
-        yield* logEffect(
-          "debug",
-          "ReportedMessage",
-          "Report already exists (unique constraint)",
-          {
-            reportedUserId: data.reportedUserId,
-            guildId: data.guildId,
-            reason: data.reason,
-          },
-        );
-        return { wasInserted: false as const };
-      }),
-    ),
-    Effect.withSpan("recordReport", {
-      attributes: {
-        reportedUserId: data.reportedUserId,
-        guildId: data.guildId,
-      },
-    }),
+    Effect.annotateSpans({ guildId: data.guildId, reason: data.reason }),
+
+    Effect.withSpan("recordReport"),
   );
 
 /**

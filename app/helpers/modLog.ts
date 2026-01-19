@@ -1,7 +1,6 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   AutoModerationActionType,
-  ChannelType,
   messageLink,
   MessageReferenceType,
   type AnyThreadChannel,
@@ -10,13 +9,14 @@ import {
   type Message,
   type MessageCreateOptions,
   type PartialUser,
-  type TextChannel,
+  type PrivateThreadChannel,
+  type PublicThreadChannel,
   type User,
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseServiceLive } from "#~/Database";
-import { DiscordApiError } from "#~/effects/errors";
+import { DatabaseServiceLive, type DatabaseService } from "#~/Database";
+import { DiscordApiError, type DatabaseError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
 import {
@@ -28,22 +28,16 @@ import {
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
-import { escalationControls } from "#~/helpers/escalate";
 import { truncateMessage } from "#~/helpers/string";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 import {
-  deleteReport,
   getReportsForMessage,
   getUserReportStats,
   recordReport,
   ReportReasons,
   type Report,
 } from "#~/models/reportedMessages";
-import {
-  createUserThread,
-  getUserThread,
-  updateUserThread,
-} from "#~/models/userThreads";
+import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
 const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
@@ -71,108 +65,8 @@ interface Reported {
   warnings: number;
   thread: AnyThreadChannel;
   latestReport?: Message;
-  reportId?: string;
+  reportId: string;
 }
-
-const makeUserThread = (channel: TextChannel, user: User) =>
-  Effect.tryPromise({
-    try: () => channel.threads.create({ name: `${user.username} logs` }),
-    catch: (error) =>
-      new DiscordApiError({ operation: "createThread", discordError: error }),
-  });
-
-const getOrCreateUserThread = (guild: Guild, user: User) =>
-  Effect.gen(function* () {
-    if (!guild) {
-      return yield* Effect.fail(
-        new DiscordApiError({
-          operation: "getOrCreateUserThread",
-          discordError: new Error("Message has no guild"),
-        }),
-      );
-    }
-
-    // Check if we already have a thread for this user
-    const existingThread = yield* getUserThread(user.id, guild.id);
-
-    if (existingThread) {
-      // Verify the thread still exists and is accessible
-      const thread = yield* Effect.tryPromise({
-        try: () => guild.channels.fetch(existingThread.thread_id),
-        catch: (error) => error,
-      }).pipe(
-        Effect.map((channel) => (channel?.isThread() ? channel : null)),
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* logEffect(
-              "warn",
-              "getOrCreateUserThread",
-              "Existing thread not accessible, will create new one",
-              { error: String(error) },
-            );
-            return null;
-          }),
-        ),
-      );
-
-      if (thread) {
-        return thread;
-      }
-    }
-
-    // Create new thread and store in database
-    const { modLog: modLogId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
-
-    const modLog = yield* Effect.tryPromise({
-      try: () => guild.channels.fetch(modLogId),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchModLogChannel",
-          discordError: error,
-        }),
-    });
-
-    if (!modLog || modLog.type !== ChannelType.GuildText) {
-      return yield* Effect.fail(
-        new DiscordApiError({
-          operation: "getOrCreateUserThread",
-          discordError: new Error("Invalid mod log channel"),
-        }),
-      );
-    }
-
-    // Create freestanding private thread
-    const thread = yield* makeUserThread(modLog, user);
-
-    yield* Effect.tryPromise({
-      try: () => escalationControls(user.id, thread),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "escalationControls",
-          discordError: error,
-        }),
-    });
-
-    // Store or update the thread reference
-    if (existingThread) {
-      yield* updateUserThread(user.id, guild.id, thread.id);
-    } else {
-      yield* createUserThread(user.id, guild.id, thread.id);
-    }
-
-    return thread;
-  }).pipe(
-    Effect.withSpan("getOrCreateUserThread", {
-      attributes: { userId: user.id, guildId: guild.id },
-    }),
-  );
 
 export interface AutomodReport {
   guild: Guild;
@@ -383,8 +277,25 @@ const reportModAction = ({
 export const reportModActionLegacy = (report: ModActionReport): Promise<void> =>
   runEffect(Effect.provide(reportModAction(report), DatabaseServiceLive));
 
-const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
-  Effect.gen(function* () {
+// : Effect<>
+function reportUser({
+  reason,
+  message,
+  extra,
+  staff,
+}: Omit<Report, "date">): Effect.Effect<
+  {
+    warnings: number;
+    message: Message<boolean>;
+    latestReport?: Message<true>;
+    thread: PublicThreadChannel | PrivateThreadChannel;
+    allReportedMessages: Report[];
+    reportId: string;
+  },
+  DatabaseError,
+  DatabaseService
+> {
+  return Effect.gen(function* () {
     const { guild, author } = message;
     if (!guild) {
       return yield* Effect.fail(
@@ -429,58 +340,13 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
           const priorLogMessage = await thread.messages.fetch(
             alreadyReported.log_message_id,
           );
-          return priorLogMessage.reply(
-            makeReportMessage({ message, reason, staff }),
-          );
+          const reportContents = makeReportMessage({ message, reason, staff });
+          return priorLogMessage
+            .reply(reportContents)
+            .catch(() => priorLogMessage.channel.send(reportContents));
         },
         catch: (error) => error,
-      }).pipe(
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* logEffect(
-              "warn",
-              "reportUser",
-              "message not found, posting to thread",
-              { error: String(error) },
-            );
-            if (
-              error instanceof Error &&
-              error.message.includes("Unknown Message")
-            ) {
-              const logContent = yield* constructLog({
-                extra,
-                logs: [{ message, reason, staff }],
-                staff,
-              });
-              const newReport = yield* Effect.tryPromise({
-                try: () => thread.send(logContent),
-                catch: (e) =>
-                  new DiscordApiError({
-                    operation: "sendLogMessage",
-                    discordError: e,
-                  }),
-              });
-              yield* deleteReport(alreadyReported.id);
-              yield* recordReport({
-                reportedMessageId: message.id,
-                reportedChannelId: message.channel.id,
-                reportedUserId: author.id,
-                guildId: guild.id,
-                logMessageId: newReport.id,
-                logChannelId: thread.id,
-                reason,
-              });
-              return newReport;
-            }
-            return yield* Effect.fail(
-              new DiscordApiError({
-                operation: "fetchPriorLogMessage",
-                discordError: error,
-              }),
-            );
-          }),
-        ),
-      );
+      });
 
       yield* logEffect("info", "reportUser", "exact message already logged", {
         userId: author.id,
@@ -489,12 +355,13 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
 
       const userStats = yield* getUserReportStats(message.author.id, guild.id);
       return {
+        reportId: alreadyReported.id,
         warnings: userStats.reportCount,
         message: thread.lastMessage!,
         latestReport,
         thread,
-        allReportedMessages: [],
-      } satisfies Reported & { allReportedMessages: Report[] };
+        allReportedMessages: [] as Report[],
+      };
     }
 
     yield* logEffect("info", "reportUser", "new message reported", {
@@ -592,42 +459,15 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
 
       yield* Effect.tryPromise({
         try: async () => {
-          const stats = await getMessageStats(message);
+          const stats = await getMessageStats(message).catch(() => undefined);
           await parentChannel.send({
             allowedMentions: {},
-            content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions](${messageLink(logMessage.channelId, logMessage.id)})`,
+            content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
           });
         },
-        catch: (error) => error,
-      }).pipe(
-        Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* logEffect(
-              "warn",
-              "reportUser",
-              "failed to get message stats, skipping",
-              { error: String(error) },
-            );
-            yield* Effect.tryPromise({
-              try: () =>
-                parentChannel.send({
-                  allowedMentions: {},
-                  content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [Stats failed to load](${messageLink(logMessage.channelId, logMessage.id)})`,
-                }),
-              catch: (e) => e,
-            }).pipe(
-              Effect.catchAll((sendError) =>
-                logEffect(
-                  "error",
-                  "reportUser",
-                  "failed to send summary to parent",
-                  { error: String(sendError) },
-                ),
-              ),
-            );
-          }),
-        ),
-      );
+        catch: (error) =>
+          logEffect("error", "reportUser", "failed to send stats", { error }),
+      });
     }
 
     return {
@@ -636,8 +476,8 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
       latestReport: undefined,
       thread,
       allReportedMessages: [],
-      reportId: recordResult.wasInserted ? recordResult.reportId : undefined,
-    } satisfies Reported & { allReportedMessages: Report[] };
+      reportId: recordResult.reportId,
+    };
   }).pipe(
     Effect.withSpan("reportUser", {
       attributes: {
@@ -647,6 +487,7 @@ const reportUser = ({ reason, message, extra, staff }: Omit<Report, "date">) =>
       },
     }),
   );
+}
 
 export const reportUserLegacy = ({
   reason,

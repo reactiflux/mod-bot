@@ -1,3 +1,9 @@
+import {
+  ChannelType,
+  type Guild,
+  type TextChannel,
+  type User,
+} from "discord.js";
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
@@ -5,8 +11,11 @@ import type { Selectable } from "kysely";
 // These allow existing code to use the Effect-based functions without changes.
 import { DatabaseService, DatabaseServiceLive } from "#~/Database";
 import db, { type DB } from "#~/db.server";
+import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
+import { escalationControls } from "#~/helpers/escalate";
+import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
 // Use Selectable to get the type that Kysely returns from queries
 export type UserThread = Selectable<DB["user_threads"]>;
@@ -144,3 +153,94 @@ export const updateUserThreadLegacy = (
   guildId: string,
   threadId: string,
 ): Promise<void> => runWithDb(updateUserThread(userId, guildId, threadId));
+
+const makeUserThread = (channel: TextChannel, user: User) =>
+  Effect.tryPromise({
+    try: () => channel.threads.create({ name: `${user.username} logs` }),
+    catch: (error) =>
+      new DiscordApiError({ operation: "createThread", discordError: error }),
+  });
+
+export const getOrCreateUserThread = (guild: Guild, user: User) =>
+  Effect.gen(function* () {
+    // Check if we already have a thread for this user
+    const existingThread = yield* getUserThread(user.id, guild.id);
+
+    if (existingThread) {
+      // Verify the thread still exists and is accessible
+      const thread = yield* Effect.tryPromise({
+        try: () => guild.channels.fetch(existingThread.thread_id),
+        catch: (error) => error,
+      }).pipe(
+        Effect.map((channel) => (channel?.isThread() ? channel : null)),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "warn",
+              "getOrCreateUserThread",
+              "Existing thread not accessible, will create new one",
+              { error: String(error) },
+            );
+            return null;
+          }),
+        ),
+      );
+
+      if (thread) {
+        return thread;
+      }
+    }
+
+    // Create new thread and store in database
+    const { modLog: modLogId } = yield* Effect.tryPromise({
+      try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchSettings",
+          discordError: error,
+        }),
+    });
+
+    const modLog = yield* Effect.tryPromise({
+      try: () => guild.channels.fetch(modLogId),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "fetchModLogChannel",
+          discordError: error,
+        }),
+    });
+
+    if (!modLog || modLog.type !== ChannelType.GuildText) {
+      return yield* Effect.fail(
+        new DiscordApiError({
+          operation: "getOrCreateUserThread",
+          discordError: new Error("Invalid mod log channel"),
+        }),
+      );
+    }
+
+    // Create freestanding private thread
+    const thread = yield* makeUserThread(modLog, user);
+
+    yield* Effect.tryPromise({
+      try: () => escalationControls(user.id, thread),
+      catch: (error) =>
+        new DiscordApiError({
+          operation: "escalationControls",
+          discordError: error,
+        }),
+    });
+
+    // Store or update the thread reference
+    if (existingThread) {
+      yield* updateUserThread(user.id, guild.id, thread.id);
+    } else {
+      yield* createUserThread(user.id, guild.id, thread.id);
+    }
+
+    return thread;
+  }).pipe(
+    Effect.withSpan("getOrCreateUserThread", {
+      attributes: { userId: user.id, guildId: guild.id },
+    }),
+  );
