@@ -5,10 +5,10 @@ import {
   type MessageContextMenuCommandInteraction,
 } from "discord.js";
 
+import { ReportReasons } from "#~/effects/models/reportedMessages.js";
 import { commandStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog";
 import { log, trackPerformance } from "#~/helpers/observability";
-import { ReportReasons } from "#~/models/reportedMessages.server";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Report")

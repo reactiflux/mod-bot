@@ -11,6 +11,7 @@ import {
 
 import { client } from "#~/discord/client.server.ts";
 import { executeResolution } from "#~/discord/escalationResolver.js";
+import { deleteAllReportedForUser } from "#~/effects/models/reportedMessages.js";
 import { hasModRole } from "#~/helpers/discord.js";
 import { parseFlags } from "#~/helpers/escalationVotes.js";
 import type { Features } from "#~/helpers/featuresFlags.js";
@@ -38,7 +39,6 @@ import {
   fetchSettings,
   SETTINGS,
 } from "#~/models/guilds.server";
-import { deleteAllReportedForUser } from "#~/models/reportedMessages.server";
 
 import {
   buildConfirmedMessageContent,

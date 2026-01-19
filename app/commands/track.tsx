@@ -7,12 +7,12 @@ import {
 import { Button } from "reacord";
 
 import { reacord } from "#~/discord/client.server";
+import {
+  markMessageAsDeletedLegacy as markMessageAsDeleted,
+  ReportReasons,
+} from "#~/effects/models/reportedMessages.js";
 import { featureStats } from "#~/helpers/metrics";
 import { reportUser } from "#~/helpers/modLog";
-import {
-  markMessageAsDeleted,
-  ReportReasons,
-} from "#~/models/reportedMessages.server";
 
 const command = new ContextMenuCommandBuilder()
   .setName("Track")

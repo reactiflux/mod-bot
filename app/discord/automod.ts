@@ -5,15 +5,15 @@ import {
   type Client,
 } from "discord.js";
 
+import {
+  markMessageAsDeletedLegacy as markMessageAsDeleted,
+  ReportReasons,
+} from "#~/effects/models/reportedMessages.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
 import { featureStats } from "#~/helpers/metrics";
 import { reportAutomod, reportUser } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
-import {
-  markMessageAsDeleted,
-  ReportReasons,
-} from "#~/models/reportedMessages.server";
 
 import { client } from "./client.server";
 
