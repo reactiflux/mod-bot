@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Metric } from "effect";
 
-import { DatabaseConstraintError, DatabaseError } from "../errors.js";
-import { dbErrors, dbQueries, dbQueryLatency } from "../metrics";
+import { DatabaseConstraintError, DatabaseError } from "#~/effects/errors";
+import { dbErrors, dbQueries, dbQueryLatency } from "#~/effects/metrics";
 
 /**
  * Database service interface for Effect-based database operations.
