@@ -10,7 +10,7 @@ import {
   type User,
 } from "discord.js";
 
-import { reportModAction, type ModActionReport } from "#~/helpers/modLog";
+import { reportModActionLegacy, type ModActionReport } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
 
 // Time window to check audit log for matching entries (5 seconds)
@@ -51,7 +51,7 @@ async function handleBanAdd(ban: GuildBan) {
     return;
   }
 
-  await reportModAction({
+  await reportModActionLegacy({
     guild,
     user,
     actionType: "ban",
@@ -129,7 +129,7 @@ async function handleMemberRemove(member: GuildMember | PartialGuildMember) {
   }
 
   const { executor = null, reason = "" } = auditLogs;
-  await reportModAction({
+  await reportModActionLegacy({
     guild,
     user,
     actionType: "kick",

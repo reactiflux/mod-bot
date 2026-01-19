@@ -4,16 +4,19 @@ import {
   type AutoModerationActionExecution,
   type Client,
 } from "discord.js";
+import { Effect } from "effect";
 
+import { DatabaseServiceLive } from "#~/Database.js";
+import { runEffect } from "#~/effects/runtime.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
 import { featureStats } from "#~/helpers/metrics";
-import { reportAutomod, reportUser } from "#~/helpers/modLog";
+import { reportAutomodLegacy, reportUserLegacy } from "#~/helpers/modLog";
 import { log } from "#~/helpers/observability";
 import {
   markMessageAsDeleted,
   ReportReasons,
-} from "#~/models/reportedMessages.server";
+} from "#~/models/reportedMessages.js";
 
 import { client } from "./client.server";
 
@@ -55,7 +58,7 @@ async function handleAutomodAction(execution: AutoModerationActionExecution) {
   // Fallback: message was blocked/deleted or we couldn't fetch it
   // Use reportAutomod which doesn't require a Message object
   const user = await guild.client.users.fetch(userId);
-  await reportAutomod({
+  await reportAutomodLegacy({
     guild,
     user,
     content: content ?? matchedContent ?? "[Content not available]",
@@ -95,14 +98,21 @@ export default async (bot: Client) => {
     }
 
     if (isSpam(message.content)) {
-      const { warnings, message: logMessage } = await reportUser({
+      const { warnings, message: logMessage } = await reportUserLegacy({
         reason: ReportReasons.spam,
         message: message,
         staff: client.user ?? false,
       });
       await message
         .delete()
-        .then(() => markMessageAsDeleted(message.id, message.guild!.id));
+        .then(() =>
+          runEffect(
+            Effect.provide(
+              markMessageAsDeleted(message.id, message.guild!.id),
+              DatabaseServiceLive,
+            ),
+          ),
+        );
 
       featureStats.spamDetected(
         message.guild.id,

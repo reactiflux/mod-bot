@@ -32,3 +32,17 @@ export function shouldAutoResolve(
 
   return hoursElapsed >= timeoutHours;
 }
+
+/**
+ * Calculate the scheduled resolution time based on creation time and vote count.
+ */
+export function calculateScheduledFor(
+  createdAt: string,
+  voteCount: number,
+): string {
+  const timeoutHours = calculateTimeoutHours(voteCount);
+  const scheduledFor = new Date(
+    new Date(createdAt).getTime() + timeoutHours * 60 * 60 * 1000,
+  );
+  return scheduledFor.toISOString();
+}
