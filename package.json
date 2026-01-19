@@ -86,6 +86,7 @@
     "stripe": "^19.0.0"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.69.2",
     "@eslint/js": "^9.17.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@playwright/test": "^1.55.1",
