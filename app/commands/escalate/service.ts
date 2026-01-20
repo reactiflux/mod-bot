@@ -3,7 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import type { Selectable } from "kysely";
 
 import { DatabaseService, DatabaseServiceLive } from "#~/Database";
-import db, { type DB } from "#~/db.server";
+import { type DB } from "#~/db.server";
 import {
   AlreadyResolvedError,
   EscalationNotFoundError,
@@ -137,7 +137,7 @@ export const EscalationServiceLive = Layer.effect(
           };
 
           yield* dbService.query(
-            () => db.insertInto("escalations").values(escalation).execute(),
+            (db) => db.insertInto("escalations").values(escalation).execute(),
             "createEscalation",
           );
 
@@ -149,7 +149,7 @@ export const EscalationServiceLive = Layer.effect(
 
           // Fetch the created record to get all DB-generated fields
           const created = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalations")
                 .selectAll()
@@ -171,7 +171,7 @@ export const EscalationServiceLive = Layer.effect(
       getEscalation: (id) =>
         Effect.gen(function* () {
           const escalation = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalations")
                 .selectAll()
@@ -197,7 +197,7 @@ export const EscalationServiceLive = Layer.effect(
         Effect.gen(function* () {
           // Check for existing vote to implement toggle behavior
           const existingVotes = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalation_records")
                 .selectAll()
@@ -210,7 +210,7 @@ export const EscalationServiceLive = Layer.effect(
           // If same vote exists, delete it (toggle off)
           if (existingVotes.some((v) => v.vote === data.vote)) {
             yield* dbService.query(
-              () =>
+              (db) =>
                 db
                   .deleteFrom("escalation_records")
                   .where("escalation_id", "=", data.escalationId)
@@ -236,7 +236,7 @@ export const EscalationServiceLive = Layer.effect(
 
           // Otherwise, insert new vote
           yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .insertInto("escalation_records")
                 .values({
@@ -268,7 +268,7 @@ export const EscalationServiceLive = Layer.effect(
       getVotesForEscalation: (escalationId) =>
         Effect.gen(function* () {
           const votes = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalation_records")
                 .selectAll()
@@ -288,7 +288,7 @@ export const EscalationServiceLive = Layer.effect(
         Effect.gen(function* () {
           // First check if escalation exists and is not already resolved
           const escalation = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalations")
                 .selectAll()
@@ -313,7 +313,7 @@ export const EscalationServiceLive = Layer.effect(
           }
 
           yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .updateTable("escalations")
                 .set({
@@ -338,7 +338,7 @@ export const EscalationServiceLive = Layer.effect(
       updateEscalationStrategy: (id, strategy) =>
         Effect.gen(function* () {
           yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .updateTable("escalations")
                 .set({ voting_strategy: strategy })
@@ -365,7 +365,7 @@ export const EscalationServiceLive = Layer.effect(
       updateScheduledFor: (id, timestamp) =>
         Effect.gen(function* () {
           yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .updateTable("escalations")
                 .set({ scheduled_for: timestamp })
@@ -392,7 +392,7 @@ export const EscalationServiceLive = Layer.effect(
       getDueEscalations: () =>
         Effect.gen(function* () {
           const escalations = yield* dbService.query(
-            () =>
+            (db) =>
               db
                 .selectFrom("escalations")
                 .selectAll()

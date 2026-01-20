@@ -1,31 +1,42 @@
-import { Context, Effect, Layer, Metric } from "effect";
+import Database from "better-sqlite3";
+import { Context, Data, Effect, Layer, Metric } from "effect";
+import { Kysely, SqliteDialect } from "kysely";
 
-import { DatabaseConstraintError, DatabaseError } from "#~/effects/errors";
-import { dbErrors, dbQueries, dbQueryLatency } from "#~/effects/metrics";
+import type { DB } from "./db";
+import { databaseUrl } from "./helpers/env.server";
+import { log } from "./helpers/observability";
 
-/**
- * Database service interface for Effect-based database operations.
- * Wraps Kysely queries in Effects with typed errors.
- */
+export class DatabaseError extends Data.TaggedError("DatabaseError")<{
+  readonly operation: string;
+  readonly cause: Error;
+}> {}
+
+export class DatabaseConstraintError extends Data.TaggedError(
+  "DatabaseConstraintError",
+)<{
+  readonly operation: string;
+  readonly constraint: string;
+  readonly cause: Error;
+}> {}
+
+export class TransactionError extends Data.TaggedError("TransactionError")<{
+  readonly operation: string;
+  readonly cause: Error;
+}> {}
+
+const dbQueries = Metric.counter("db_queries_total");
+const dbErrors = Metric.counter("db_errors_total");
+
 export interface IDatabaseService {
-  /**
-   * Execute a database query and wrap the result in an Effect.
-   * Converts promise rejections to DatabaseError.
-   */
   readonly query: <T>(
-    fn: () => Promise<T>,
+    fn: (db: Kysely<DB>) => Promise<T>,
     operation: string,
-  ) => Effect.Effect<T, DatabaseError, never>;
+  ) => Effect.Effect<T, DatabaseError>;
 
-  /**
-   * Execute a database query that may fail with a constraint violation.
-   * Returns a discriminated union of success/constraint error.
-   */
-  readonly queryWithConstraint: <T>(
-    fn: () => Promise<T>,
+  readonly transaction: <T, E>(
+    fn: (db: Kysely<DB>) => Effect.Effect<T, E>,
     operation: string,
-    constraintName: string,
-  ) => Effect.Effect<T, DatabaseError | DatabaseConstraintError, never>;
+  ) => Effect.Effect<T, E | TransactionError>;
 }
 
 export class DatabaseService extends Context.Tag("DatabaseService")<
@@ -33,76 +44,73 @@ export class DatabaseService extends Context.Tag("DatabaseService")<
   IDatabaseService
 >() {}
 
-/**
- * Check if an error is a SQLite constraint violation
- */
-const isConstraintError = (error: unknown, constraintName: string): boolean => {
-  if (error instanceof Error) {
-    return error.message.includes(
-      `UNIQUE constraint failed: ${constraintName}`,
-    );
+const catchQueryErrors = (operation: string) => (e: unknown) => {
+  if (e instanceof Error) {
+    return new DatabaseError({ operation, cause: e });
   }
-  return false;
+  throw e;
 };
 
-/**
- * Live implementation of the DatabaseService.
- * Uses the global Kysely db instance.
- * Tracks query latency, counts, and errors via Effect.Metric.
- */
-export const DatabaseServiceLive = Layer.succeed(DatabaseService, {
-  query: <T>(fn: () => Promise<T>, operation: string) =>
-    Effect.gen(function* () {
-      const start = Date.now();
-      const taggedQueries = Metric.tagged(dbQueries, "operation", operation);
-      const taggedErrors = Metric.tagged(dbErrors, "operation", operation);
+const handleDatabaseErrors = (operation: string) => (e: DatabaseError) => {
+  // TODO: Handle errors appropriately
+  log("error", `Database.${operation}`, "Unhandled error", { error: e });
+  return Effect.die(e);
+};
 
-      // Increment query counter
-      yield* Metric.increment(taggedQueries);
+export const DatabaseServiceLive = Layer.scoped(
+  DatabaseService,
+  Effect.gen(function* () {
+    const sqliteDb = new Database(databaseUrl);
+    sqliteDb.pragma("journal_mode = WAL");
+    sqliteDb.pragma("foreign_keys = ON");
 
-      const result = yield* Effect.tryPromise({
-        try: fn,
-        catch: (error) => new DatabaseError({ operation, cause: error }),
-      }).pipe(Effect.tapError(() => Metric.increment(taggedErrors)));
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        sqliteDb.close();
+        log("info", "Database", "Database connection closed");
+      }),
+    );
 
-      // Record latency
-      const duration = Date.now() - start;
-      yield* Metric.update(dbQueryLatency, duration);
+    const kysely = new Kysely<DB>({
+      dialect: new SqliteDialect({ database: sqliteDb }),
+    });
 
-      return result;
-    }).pipe(Effect.withSpan(`db.query ${operation}`)),
+    log("info", "Database", `Connected to database at ${databaseUrl}`);
 
-  queryWithConstraint: <T>(
-    fn: () => Promise<T>,
-    operation: string,
-    constraintName: string,
-  ) =>
-    Effect.gen(function* () {
-      const start = Date.now();
-      const taggedQueries = Metric.tagged(dbQueries, "operation", operation);
-      const taggedErrors = Metric.tagged(dbErrors, "operation", operation);
+    return {
+      query: <T>(fn: (db: Kysely<DB>) => Promise<T>, operation: string) =>
+        Effect.tryPromise({
+          try: () => fn(kysely),
+          catch: catchQueryErrors(operation),
+        }).pipe(
+          Effect.tap(() =>
+            Metric.increment(Metric.tagged(dbQueries, "operation", operation)),
+          ),
+          Effect.tapError(() =>
+            Metric.increment(Metric.tagged(dbErrors, "operation", operation)),
+          ),
+          Effect.withSpan(`db.query.${operation}`),
+          Effect.catchAll(handleDatabaseErrors(operation)),
+        ),
 
-      // Increment query counter
-      yield* Metric.increment(taggedQueries);
-
-      const result = yield* Effect.tryPromise({
-        try: fn,
-        catch: (error) => {
-          if (isConstraintError(error, constraintName)) {
-            return new DatabaseConstraintError({
-              operation,
-              constraint: constraintName,
-              cause: error,
-            });
-          }
-          return new DatabaseError({ operation, cause: error });
-        },
-      }).pipe(Effect.tapError(() => Metric.increment(taggedErrors)));
-
-      // Record latency
-      const duration = Date.now() - start;
-      yield* Metric.update(dbQueryLatency, duration);
-
-      return result;
-    }).pipe(Effect.withSpan(`db.queryWithConstraint ${operation}`)),
-});
+      transaction: <T, E>(
+        fn: (db: Kysely<DB>) => Effect.Effect<T, E>,
+        operation: string,
+      ) =>
+        Effect.tryPromise({
+          try: () =>
+            kysely.transaction().execute((trx) => Effect.runPromise(fn(trx))),
+          catch: catchQueryErrors(operation),
+        }).pipe(
+          Effect.tap(() =>
+            Metric.increment(Metric.tagged(dbQueries, "operation", operation)),
+          ),
+          Effect.tapError(() =>
+            Metric.increment(Metric.tagged(dbErrors, "operation", operation)),
+          ),
+          Effect.withSpan(`db.transaction.${operation}`),
+          Effect.catchAll(handleDatabaseErrors(operation)),
+        ),
+    };
+  }),
+);

@@ -3,9 +3,7 @@ import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
 import { DatabaseService, DatabaseServiceLive } from "#~/Database";
-import db, { type DB } from "#~/db.server";
-// Discord-dependent functions (to be migrated when DiscordService is created)
-
+import { type DB } from "#~/db.server";
 import { client } from "#~/discord/client.server";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
@@ -54,7 +52,7 @@ export const recordReport = (data: {
     });
 
     const result = yield* dbService.query(
-      () =>
+      (db) =>
         db
           .insertInto("reported_messages")
           .values({
@@ -93,7 +91,7 @@ export const getReportById = (reportId: string) =>
   Effect.gen(function* () {
     const dbService = yield* DatabaseService;
     const report = yield* dbService.query(
-      () =>
+      (db) =>
         db
           .selectFrom("reported_messages")
           .selectAll()
@@ -112,7 +110,7 @@ export const getReportsForUser = (userId: string, guildId: string) =>
     const dbService = yield* DatabaseService;
 
     const reports = yield* dbService.query(
-      () =>
+      (db) =>
         db
           .selectFrom("reported_messages")
           .selectAll()
@@ -138,20 +136,18 @@ export const getReportsForMessage = (
   Effect.gen(function* () {
     const dbService = yield* DatabaseService;
 
-    let query = db
-      .selectFrom("reported_messages")
-      .selectAll()
-      .where("reported_message_id", "=", messageId)
-      .where("guild_id", "=", guildId);
+    const reports = yield* dbService.query((db) => {
+      let query = db
+        .selectFrom("reported_messages")
+        .selectAll()
+        .where("reported_message_id", "=", messageId)
+        .where("guild_id", "=", guildId);
 
-    if (!includeDeleted) {
-      query = query.where("deleted_at", "is", null);
-    }
-
-    const reports = yield* dbService.query(
-      () => query.orderBy("created_at", "desc").execute(),
-      "getReportsForMessage",
-    );
+      if (!includeDeleted) {
+        query = query.where("deleted_at", "is", null);
+      }
+      return query.orderBy("created_at", "desc").execute();
+    }, "getReportsForMessage");
 
     yield* logEffect(
       "debug",
@@ -176,7 +172,7 @@ export const getUserReportStats = (userId: string, guildId: string) =>
 
     const [totalReports, uniqueMessages, uniqueChannels] = yield* Effect.all([
       dbService.query(
-        () =>
+        (db) =>
           db
             .selectFrom("reported_messages")
             .select(db.fn.count("id").as("count"))
@@ -187,7 +183,7 @@ export const getUserReportStats = (userId: string, guildId: string) =>
         "getUserReportStats.totalReports",
       ),
       dbService.query(
-        () =>
+        (db) =>
           db
             .selectFrom("reported_messages")
             .select(({ fn }) =>
@@ -200,7 +196,7 @@ export const getUserReportStats = (userId: string, guildId: string) =>
         "getUserReportStats.uniqueMessages",
       ),
       dbService.query(
-        () =>
+        (db) =>
           db
             .selectFrom("reported_messages")
             .select(({ fn }) =>
@@ -232,7 +228,7 @@ export const deleteReport = (reportId: string) =>
     const dbService = yield* DatabaseService;
 
     yield* dbService.query(
-      () =>
+      (db) =>
         db.deleteFrom("reported_messages").where("id", "=", reportId).execute(),
       "deleteReport",
     );
@@ -246,7 +242,7 @@ export const markMessageAsDeleted = (messageId: string, guildId: string) =>
     const dbService = yield* DatabaseService;
 
     const result = yield* dbService.query(
-      () =>
+      (db) =>
         db
           .updateTable("reported_messages")
           .set("deleted_at", new Date().toISOString())
@@ -272,7 +268,7 @@ export const getUniqueNonDeletedMessages = (userId: string, guildId: string) =>
     const dbService = yield* DatabaseService;
 
     return yield* dbService.query(
-      () =>
+      (db) =>
         db
           .selectFrom("reported_messages")
           .select(["reported_message_id", "reported_channel_id"])
