@@ -1,13 +1,20 @@
-import { Events } from "discord.js";
+import { Events, InteractionType } from "discord.js";
 
 import modActionLogger from "#~/commands/report/modActionLogger.ts";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
-import { deployCommands } from "#~/discord/deployCommands.server";
+import { deployCommands, matchCommand } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
+import {
+  isMessageComponentCommand,
+  isMessageContextCommand,
+  isModalCommand,
+  isSlashCommand,
+  isUserContextCommand,
+} from "#~/helpers/discord.ts";
 import { botStats, shutdownMetrics } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
@@ -105,6 +112,87 @@ export default function init() {
         error,
       });
     });
+  });
+
+  client.on(Events.InteractionCreate, (interaction) => {
+    log("info", "deployCommands", "Handling interaction", {
+      type: interaction.type,
+      id: interaction.id,
+    });
+    switch (interaction.type) {
+      case InteractionType.ApplicationCommand: {
+        const config = matchCommand(interaction.commandName);
+        if (!config) return;
+
+        if (
+          isMessageContextCommand(config) &&
+          interaction.isMessageContextMenuCommand()
+        ) {
+          log(
+            "info",
+            "Message Context command received",
+            `${interaction.commandName} ${interaction.id} messageId: ${interaction.targetMessage.id}`,
+          );
+          void config.handler(interaction);
+          return;
+        }
+        if (
+          isUserContextCommand(config) &&
+          interaction.isUserContextMenuCommand()
+        ) {
+          log(
+            "info",
+            "User Context command received",
+            `${interaction.commandName} ${interaction.id} userId: ${interaction.targetUser.id}`,
+          );
+          void config.handler(interaction);
+          return;
+        }
+        if (isSlashCommand(config) && interaction.isChatInputCommand()) {
+          log(
+            "info",
+            "Slash command received",
+            `${interaction.commandName} ${interaction.id}`,
+          );
+          void config.handler(interaction);
+          return;
+        }
+        throw new Error("Didn't find a handler for an interaction");
+      }
+
+      case InteractionType.MessageComponent: {
+        const config = matchCommand(interaction.customId);
+        if (!config) return;
+
+        if (
+          isMessageComponentCommand(config) &&
+          interaction.isMessageComponent()
+        ) {
+          log(
+            "info",
+            "Message component interaction received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message.id}`,
+          );
+          void config.handler(interaction);
+          return;
+        }
+        return;
+      }
+      case InteractionType.ModalSubmit: {
+        const config = matchCommand(interaction.customId);
+        if (!config) return;
+
+        if (isModalCommand(config) && interaction.isModalSubmit()) {
+          log(
+            "info",
+            "Modal submit received",
+            `${interaction.customId} ${interaction.id} messageId: ${interaction.message?.id ?? "null"}`,
+          );
+          void config.handler(interaction);
+        }
+        return;
+      }
+    }
   });
 
   // client.on(Events.messageCreate, async (msg) => {
