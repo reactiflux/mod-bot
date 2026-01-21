@@ -86,7 +86,7 @@ export function logUserMessage({
     }
 
     // Check if this exact message has already been reported
-    const [existingReports, { modLog }] = yield* Effect.all([
+    const [existingReports, { modLog }, logBody, thread] = yield* Effect.all([
       getReportsForMessage(message.id, guild.id),
       Effect.tryPromise({
         try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
@@ -96,6 +96,12 @@ export function logUserMessage({
             discordError: error,
           }),
       }),
+      constructLog({
+        extra,
+        logs: [{ message, reason, staff }],
+        staff,
+      }),
+      getOrCreateUserThread(guild, author),
     ]);
 
     const alreadyReported = existingReports.find(
@@ -109,20 +115,25 @@ export function logUserMessage({
       { userId: author.id, guildId: guild.id, reason },
     );
 
-    // Get or create persistent user thread first
-    const thread = yield* getOrCreateUserThread(guild, author);
-
     if (alreadyReported && reason !== ReportReasons.modResolution) {
       // Message already reported with this reason, just add to thread
       const latestReport = yield* Effect.tryPromise({
         try: async () => {
-          const priorLogMessage = await thread.messages.fetch(
-            alreadyReported.log_message_id,
-          );
-          const reportContents = makeReportMessage({ message, reason, staff });
-          return priorLogMessage
-            .reply(reportContents)
-            .catch(() => priorLogMessage.channel.send(reportContents));
+          try {
+            const reportContents = makeReportMessage({
+              message,
+              reason,
+              staff,
+            });
+            const priorLogMessage = await thread.messages.fetch(
+              alreadyReported.log_message_id,
+            );
+            return priorLogMessage
+              .reply(reportContents)
+              .catch(() => priorLogMessage.channel.send(reportContents));
+          } catch (_) {
+            return thread.send(logBody);
+          }
         },
         catch: (error) =>
           new DiscordApiError({
@@ -159,13 +170,6 @@ export function logUserMessage({
 
     // Get user stats for constructing the log
     const previousWarnings = yield* getUserReportStats(author.id, guild.id);
-
-    // Send detailed report info to the user thread
-    const logBody = yield* constructLog({
-      extra,
-      logs: [{ message, reason, staff }],
-      staff,
-    });
 
     // For forwarded messages, get attachments from the snapshot
     const attachments = isForwardedMessage(message)
