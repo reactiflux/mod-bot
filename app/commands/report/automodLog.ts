@@ -1,7 +1,7 @@
 import { AutoModerationActionType, type Guild, type User } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseServiceLive } from "#~/Database";
+import { DatabaseLayer } from "#~/Database";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
@@ -106,4 +106,4 @@ const logAutomod = ({
  * Used when Discord's automod blocks/deletes a message before we can fetch it.
  */
 export const logAutomodLegacy = (report: AutomodReport): Promise<void> =>
-  runEffect(Effect.provide(logAutomod(report), DatabaseServiceLive));
+  runEffect(Effect.provide(logAutomod(report), DatabaseLayer));

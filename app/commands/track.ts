@@ -11,7 +11,7 @@ import {
 import { Effect } from "effect";
 
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { DatabaseServiceLive } from "#~/Database.ts";
+import { DatabaseLayer } from "#~/Database.ts";
 import { client } from "#~/discord/client.server";
 import { runEffect } from "#~/effects/runtime.ts";
 import type {
@@ -76,7 +76,7 @@ export const Command = [
       const [, reportId] = interaction.customId.split("|");
 
       const report = await runEffect(
-        Effect.provide(getReportById(reportId), DatabaseServiceLive),
+        Effect.provide(getReportById(reportId), DatabaseLayer),
       );
 
       if (!report) {
@@ -102,7 +102,7 @@ export const Command = [
       await runEffect(
         Effect.provide(
           markMessageAsDeleted(report.reported_message_id, report.guild_id),
-          DatabaseServiceLive,
+          DatabaseLayer,
         ),
       );
 

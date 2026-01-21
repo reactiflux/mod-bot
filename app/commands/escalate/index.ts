@@ -2,20 +2,7 @@ import { Cause, Effect } from "effect";
 
 import { runEffectExit } from "#~/effects/runtime";
 
-import {
-  EscalationServiceLiveWithDeps,
-  type EscalationService,
-} from "./service";
-
-export {
-  deleteMessagesEffect,
-  kickUserEffect,
-  banUserEffect,
-  restrictUserEffect,
-  timeoutUserEffect,
-  type DeleteMessagesResult,
-  type ModActionResult,
-} from "./directActions";
+import { EscalationServiceLive, type EscalationService } from "./service";
 
 /**
  * Run an Effect that requires EscalationService.
@@ -24,15 +11,7 @@ export {
  */
 export const runEscalationEffect = <A, E>(
   effect: Effect.Effect<A, E, EscalationService>,
-) => runEffectExit(Effect.provide(effect, EscalationServiceLiveWithDeps));
-
-/**
- * Run an Effect that has no service requirements.
- * Used for direct action handlers that only need Discord API.
- * Returns an Exit for error handling in handlers.
- */
-export const runDirectEffect = <A, E>(effect: Effect.Effect<A, E, never>) =>
-  runEffectExit(effect);
+) => runEffectExit(Effect.provide(effect, EscalationServiceLive));
 
 /**
  * Extract the first failure from a Cause for type-safe error matching.

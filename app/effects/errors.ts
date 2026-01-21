@@ -1,24 +1,14 @@
 import { Data } from "effect";
 
+// Re-export SQL errors from @effect/sql for convenience
+export { SqlError, ResultLengthMismatch } from "@effect/sql/SqlError";
+
 // Tagged error types for discriminated unions
 // Each error has a _tag property for pattern matching with Effect.catchTag
 
 export class DiscordApiError extends Data.TaggedError("DiscordApiError")<{
   operation: string;
   discordError: unknown;
-}> {}
-
-export class DatabaseError extends Data.TaggedError("DatabaseError")<{
-  operation: string;
-  cause: unknown;
-}> {}
-
-export class DatabaseConstraintError extends Data.TaggedError(
-  "DatabaseConstraintError",
-)<{
-  operation: string;
-  constraint: string;
-  cause: unknown;
 }> {}
 
 export class StripeApiError extends Data.TaggedError("StripeApiError")<{

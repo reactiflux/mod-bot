@@ -2,8 +2,8 @@ import type { Message, User } from "discord.js";
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
-import { DatabaseService, DatabaseServiceLive } from "#~/Database";
-import { type DB } from "#~/db.server";
+import { DatabaseLayer, DatabaseService } from "#~/Database";
+import type { DB } from "#~/db";
 import { client } from "#~/discord/client.server";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
@@ -42,7 +42,7 @@ export const recordReport = (data: {
   extra?: string;
 }) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const db = yield* DatabaseService;
     const reportId = crypto.randomUUID() as string;
 
     yield* logEffect("info", "ReportedMessage", "Recording report", {
@@ -51,26 +51,19 @@ export const recordReport = (data: {
       reason: data.reason,
     });
 
-    const result = yield* dbService.query(
-      (db) =>
-        db
-          .insertInto("reported_messages")
-          .values({
-            id: reportId,
-            reported_message_id: data.reportedMessageId,
-            reported_channel_id: data.reportedChannelId,
-            reported_user_id: data.reportedUserId,
-            guild_id: data.guildId,
-            log_message_id: data.logMessageId,
-            log_channel_id: data.logChannelId,
-            reason: data.reason,
-            staff_id: data.staffId,
-            staff_username: data.staffUsername,
-            extra: data.extra,
-          })
-          .execute(),
-      "recordReport",
-    );
+    const result = yield* db.insertInto("reported_messages").values({
+      id: reportId,
+      reported_message_id: data.reportedMessageId,
+      reported_channel_id: data.reportedChannelId,
+      reported_user_id: data.reportedUserId,
+      guild_id: data.guildId,
+      log_message_id: data.logMessageId,
+      log_channel_id: data.logChannelId,
+      reason: data.reason,
+      staff_id: data.staffId,
+      staff_username: data.staffUsername,
+      extra: data.extra,
+    });
 
     yield* logEffect("info", "ReportedMessage", "Report recorded", {
       reportedUserId: data.reportedUserId,
@@ -89,16 +82,11 @@ export const recordReport = (data: {
  */
 export const getReportById = (reportId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
-    const report = yield* dbService.query(
-      (db) =>
-        db
-          .selectFrom("reported_messages")
-          .selectAll()
-          .where("id", "=", reportId)
-          .executeTakeFirst(),
-      "getReportById",
-    );
+    const kysely = yield* DatabaseService;
+    const [report] = yield* kysely
+      .selectFrom("reported_messages")
+      .selectAll()
+      .where("id", "=", reportId);
     return report;
   }).pipe(Effect.withSpan("getReportById", { attributes: { reportId } }));
 
@@ -107,18 +95,13 @@ export const getReportById = (reportId: string) =>
  */
 export const getReportsForUser = (userId: string, guildId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    const reports = yield* dbService.query(
-      (db) =>
-        db
-          .selectFrom("reported_messages")
-          .selectAll()
-          .where("reported_user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .execute(),
-      "getReportsForUser",
-    );
+    const reports = yield* kysely
+      .selectFrom("reported_messages")
+      .selectAll()
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId);
 
     return reports;
   }).pipe(
@@ -134,20 +117,19 @@ export const getReportsForMessage = (
   includeDeleted = false,
 ) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    const reports = yield* dbService.query((db) => {
-      let query = db
-        .selectFrom("reported_messages")
-        .selectAll()
-        .where("reported_message_id", "=", messageId)
-        .where("guild_id", "=", guildId);
+    let query = kysely
+      .selectFrom("reported_messages")
+      .selectAll()
+      .where("reported_message_id", "=", messageId)
+      .where("guild_id", "=", guildId);
 
-      if (!includeDeleted) {
-        query = query.where("deleted_at", "is", null);
-      }
-      return query.orderBy("created_at", "desc").execute();
-    }, "getReportsForMessage");
+    if (!includeDeleted) {
+      query = query.where("deleted_at", "is", null);
+    }
+
+    const reports = yield* query.orderBy("created_at", "desc");
 
     yield* logEffect(
       "debug",
@@ -168,52 +150,38 @@ export const getReportsForMessage = (
  */
 export const getUserReportStats = (userId: string, guildId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    const [totalReports, uniqueMessages, uniqueChannels] = yield* Effect.all([
-      dbService.query(
-        (db) =>
-          db
-            .selectFrom("reported_messages")
-            .select(db.fn.count("id").as("count"))
-            .where("reported_user_id", "=", userId)
-            .where("guild_id", "=", guildId)
-            .where("deleted_at", "is", null)
-            .executeTakeFirstOrThrow(),
-        "getUserReportStats.totalReports",
-      ),
-      dbService.query(
-        (db) =>
-          db
-            .selectFrom("reported_messages")
-            .select(({ fn }) =>
-              fn.count("reported_message_id").distinct().as("count"),
-            )
-            .where("reported_user_id", "=", userId)
-            .where("guild_id", "=", guildId)
-            .where("deleted_at", "is", null)
-            .executeTakeFirstOrThrow(),
-        "getUserReportStats.uniqueMessages",
-      ),
-      dbService.query(
-        (db) =>
-          db
-            .selectFrom("reported_messages")
-            .select(({ fn }) =>
-              fn.count("reported_channel_id").distinct().as("count"),
-            )
-            .where("reported_user_id", "=", userId)
-            .where("guild_id", "=", guildId)
-            .where("deleted_at", "is", null)
-            .executeTakeFirstOrThrow(),
-        "getUserReportStats.uniqueChannels",
-      ),
-    ]);
+    const [[totalReports], [uniqueMessages], [uniqueChannels]] =
+      yield* Effect.all([
+        kysely
+          .selectFrom("reported_messages")
+          .select((eb) => eb.fn.count("id").as("count"))
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null),
+        kysely
+          .selectFrom("reported_messages")
+          .select(({ fn }) =>
+            fn.count("reported_message_id").distinct().as("count"),
+          )
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null),
+        kysely
+          .selectFrom("reported_messages")
+          .select(({ fn }) =>
+            fn.count("reported_channel_id").distinct().as("count"),
+          )
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null),
+      ]);
 
     return {
-      reportCount: Number(totalReports.count),
-      uniqueMessages: Number(uniqueMessages.count),
-      uniqueChannels: Number(uniqueChannels.count),
+      reportCount: Number(totalReports?.count ?? 0),
+      uniqueMessages: Number(uniqueMessages?.count ?? 0),
+      uniqueChannels: Number(uniqueChannels?.count ?? 0),
       allReports: [] as ReportedMessage[], // Legacy compatibility
     };
   }).pipe(
@@ -225,13 +193,9 @@ export const getUserReportStats = (userId: string, guildId: string) =>
  */
 export const deleteReport = (reportId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    yield* dbService.query(
-      (db) =>
-        db.deleteFrom("reported_messages").where("id", "=", reportId).execute(),
-      "deleteReport",
-    );
+    yield* kysely.deleteFrom("reported_messages").where("id", "=", reportId);
   }).pipe(Effect.withSpan("deleteReport", { attributes: { reportId } }));
 
 /**
@@ -239,19 +203,14 @@ export const deleteReport = (reportId: string) =>
  */
 export const markMessageAsDeleted = (messageId: string, guildId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    const result = yield* dbService.query(
-      (db) =>
-        db
-          .updateTable("reported_messages")
-          .set("deleted_at", new Date().toISOString())
-          .where("reported_message_id", "=", messageId)
-          .where("guild_id", "=", guildId)
-          .where("deleted_at", "is", null)
-          .execute(),
-      "markMessageAsDeleted",
-    );
+    const result = yield* kysely
+      .updateTable("reported_messages")
+      .set("deleted_at", new Date().toISOString())
+      .where("reported_message_id", "=", messageId)
+      .where("guild_id", "=", guildId)
+      .where("deleted_at", "is", null);
 
     return { updatedCount: result.length };
   }).pipe(
@@ -265,20 +224,15 @@ export const markMessageAsDeleted = (messageId: string, guildId: string) =>
  */
 export const getUniqueNonDeletedMessages = (userId: string, guildId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const kysely = yield* DatabaseService;
 
-    return yield* dbService.query(
-      (db) =>
-        db
-          .selectFrom("reported_messages")
-          .select(["reported_message_id", "reported_channel_id"])
-          .distinct()
-          .where("reported_user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .where("deleted_at", "is", null)
-          .execute(),
-      "getUniqueNonDeletedMessages",
-    );
+    return yield* kysely
+      .selectFrom("reported_messages")
+      .select(["reported_message_id", "reported_channel_id"])
+      .distinct()
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId)
+      .where("deleted_at", "is", null);
   }).pipe(
     Effect.withSpan("getUniqueNonDeletedMessages", {
       attributes: { userId, guildId },
@@ -335,10 +289,7 @@ const deleteSingleMessage = (
     );
 
     // Mark as deleted in database
-    yield* Effect.provide(
-      markMessageAsDeleted(messageId, guildId),
-      DatabaseServiceLive,
-    );
+    yield* markMessageAsDeleted(messageId, guildId);
 
     if (result.deleted) {
       yield* logEffect("debug", "ReportedMessage", "Deleted message", {
@@ -379,7 +330,7 @@ export const deleteAllReportedForUserEffect = (
   Effect.gen(function* () {
     const uniqueMessages = yield* Effect.provide(
       getUniqueNonDeletedMessages(userId, guildId),
-      DatabaseServiceLive,
+      DatabaseLayer,
     );
 
     if (uniqueMessages.length === 0) {
@@ -433,4 +384,8 @@ export const deleteAllReportedForUserEffect = (
  * Legacy wrapper that runs the Effect.
  */
 export const deleteAllReportedForUser = (userId: string, guildId: string) =>
-  runEffect(deleteAllReportedForUserEffect(userId, guildId));
+  runEffect(
+    deleteAllReportedForUserEffect(userId, guildId).pipe(
+      Effect.provide(DatabaseLayer),
+    ),
+  );

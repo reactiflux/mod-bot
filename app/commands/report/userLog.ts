@@ -8,8 +8,12 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseServiceLive, type DatabaseService } from "#~/Database";
-import { DiscordApiError, type DatabaseError } from "#~/effects/errors";
+import {
+  DatabaseLayer,
+  type DatabaseService,
+  type SqlError,
+} from "#~/Database";
+import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
 import {
@@ -53,8 +57,7 @@ interface Reported {
   reportId: string;
 }
 
-// : Effect<>
-function logUserMessage({
+export function logUserMessage({
   reason,
   message,
   extra,
@@ -68,7 +71,7 @@ function logUserMessage({
     allReportedMessages: Report[];
     reportId: string;
   },
-  DiscordApiError | DatabaseError,
+  DiscordApiError | SqlError,
   DatabaseService
 > {
   return Effect.gen(function* () {
@@ -295,6 +298,6 @@ export const logUserMessageLegacy = ({
   runEffect(
     Effect.provide(
       logUserMessage({ reason, message, extra, staff }),
-      DatabaseServiceLive,
+      DatabaseLayer,
     ),
   );

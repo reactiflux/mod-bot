@@ -5,23 +5,24 @@ import {
   MessageFlags,
   type MessageComponentInteraction,
 } from "discord.js";
+import { Effect } from "effect";
 
+import { DatabaseServiceLive } from "#~/Database.ts";
+import { runEffectExit } from "#~/effects/runtime.ts";
 import {
   humanReadableResolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 
+import { getFailure, runEscalationEffect } from ".";
 import {
   banUserEffect,
   deleteMessagesEffect,
-  getFailure,
   kickUserEffect,
   restrictUserEffect,
-  runDirectEffect,
-  runEscalationEffect,
   timeoutUserEffect,
-} from ".";
+} from "./directActions";
 import { createEscalationEffect, upgradeToMajorityEffect } from "./escalate";
 import { expediteEffect } from "./expedite";
 import {
@@ -35,7 +36,9 @@ import { voteEffect } from "./vote";
 const deleteMessages = async (interaction: MessageComponentInteraction) => {
   await interaction.deferReply();
 
-  const exit = await runDirectEffect(deleteMessagesEffect(interaction));
+  const exit = await runEffectExit(
+    deleteMessagesEffect(interaction).pipe(Effect.provide(DatabaseServiceLive)),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error deleting messages", { error });
@@ -58,7 +61,7 @@ const deleteMessages = async (interaction: MessageComponentInteraction) => {
 const kickUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runDirectEffect(kickUserEffect(interaction));
+  const exit = await runEffectExit(kickUserEffect(interaction));
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error kicking user", { error });
@@ -85,7 +88,7 @@ const kickUser = async (interaction: MessageComponentInteraction) => {
 const banUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runDirectEffect(banUserEffect(interaction));
+  const exit = await runEffectExit(banUserEffect(interaction));
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error banning user", { error });
@@ -112,7 +115,7 @@ const banUser = async (interaction: MessageComponentInteraction) => {
 const restrictUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runDirectEffect(restrictUserEffect(interaction));
+  const exit = await runEffectExit(restrictUserEffect(interaction));
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error restricting user", { error });
@@ -141,7 +144,7 @@ const restrictUser = async (interaction: MessageComponentInteraction) => {
 const timeoutUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runDirectEffect(timeoutUserEffect(interaction));
+  const exit = await runEffectExit(timeoutUserEffect(interaction));
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error timing out user", { error });
