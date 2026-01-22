@@ -35,6 +35,3 @@ const KyselyLive = Layer.effect(DatabaseService, Sqlite.make<DB>()).pipe(
 export const DatabaseLayer = Layer.mergeAll(SqliteLive, KyselyLive);
 
 log("info", "Database", `Database configured at ${databaseUrl}`);
-
-// Legacy alias for backwards compatibility during migration
-export const DatabaseServiceLive = DatabaseLayer;

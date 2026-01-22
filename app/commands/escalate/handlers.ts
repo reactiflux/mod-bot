@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseServiceLive } from "#~/Database.ts";
+import { DatabaseLayer } from "#~/Database.ts";
 import { runEffectExit } from "#~/effects/runtime.ts";
 import {
   humanReadableResolutions,
@@ -37,7 +37,7 @@ const deleteMessages = async (interaction: MessageComponentInteraction) => {
   await interaction.deferReply();
 
   const exit = await runEffectExit(
-    deleteMessagesEffect(interaction).pipe(Effect.provide(DatabaseServiceLive)),
+    deleteMessagesEffect(interaction).pipe(Effect.provide(DatabaseLayer)),
   );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
