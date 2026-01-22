@@ -9,6 +9,7 @@ import {
 
 import { ssrDiscordSdk } from "#~/discord/api";
 import {
+  isEffectCommand,
   isMessageContextCommand,
   isSlashCommand,
   isUserContextCommand,
@@ -178,10 +179,16 @@ export const deployTestCommands = async (
   );
 };
 
-const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
+const withPerf = <T extends AnyCommand>(config: T): T => {
+  // Effect commands handle their own spans via Effect.withSpan
+  if (isEffectCommand(config)) {
+    return config;
+  }
+
+  const { command, handler } = config;
   return {
     command,
-    handler: (interaction: Parameters<T["handler"]>[0]) => {
+    handler: (interaction: Parameters<typeof handler>[0]) => {
       void trackPerformance(`withPerf HoF ${command.name}`, async () => {
         try {
           // @ts-expect-error Unclear why this isn't working but it seems fine
@@ -192,19 +199,17 @@ const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
         }
       });
     },
-  };
+  } as T;
 };
 
 const commands = new Map<string, AnyCommand>();
 export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
   if (Array.isArray(config)) {
     config.forEach((c) => {
-      // @ts-expect-error Higher order functions are weird
       commands.set(c.command.name, withPerf(c));
     });
     return;
   }
-  // @ts-expect-error Higher order functions are weird
   commands.set(config.command.name, withPerf(config));
 };
 export const matchCommand = (customId: string) => {

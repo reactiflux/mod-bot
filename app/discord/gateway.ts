@@ -8,7 +8,9 @@ import { deployCommands, matchCommand } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
+import { runEffect } from "#~/effects/runtime";
 import {
+  isEffectCommand,
   isMessageComponentCommand,
   isMessageContextCommand,
   isModalCommand,
@@ -124,6 +126,12 @@ export default function init() {
         const config = matchCommand(interaction.commandName);
         if (!config) return;
 
+        // Effect commands handle themselves - just run and return
+        if (isEffectCommand(config)) {
+          void runEffect(config.handler(interaction as never));
+          return;
+        }
+
         if (
           isMessageContextCommand(config) &&
           interaction.isMessageContextMenuCommand()
@@ -164,6 +172,12 @@ export default function init() {
         const config = matchCommand(interaction.customId);
         if (!config) return;
 
+        // Effect commands handle themselves - just run and return
+        if (isEffectCommand(config)) {
+          void runEffect(config.handler(interaction as never));
+          return;
+        }
+
         if (
           isMessageComponentCommand(config) &&
           interaction.isMessageComponent()
@@ -181,6 +195,12 @@ export default function init() {
       case InteractionType.ModalSubmit: {
         const config = matchCommand(interaction.customId);
         if (!config) return;
+
+        // Effect commands handle themselves - just run and return
+        if (isEffectCommand(config)) {
+          void runEffect(config.handler(interaction as never));
+          return;
+        }
 
         if (isModalCommand(config) && interaction.isModalSubmit()) {
           log(

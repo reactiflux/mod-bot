@@ -16,7 +16,7 @@ async function checkPendingEscalations(client: Client): Promise<void> {
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationResolver", "Failed to check pending escalations", {
-      error: String(error),
+      error,
     });
   }
 }
