@@ -13,6 +13,7 @@ import {
 } from "discord.js";
 
 import { logAutomodLegacy } from "#~/commands/report/automodLog.ts";
+import { sleep } from "#~/helpers/misc.ts";
 import { log } from "#~/helpers/observability";
 
 import { logModActionLegacy, type ModActionReport } from "./modActionLog";
@@ -31,20 +32,33 @@ async function handleBanAdd(ban: GuildBan) {
     reason,
   });
 
-  // Check audit log for who performed the ban
-  const auditLogs = await guild.fetchAuditLogs({
-    type: AuditLogEvent.MemberBanAdd,
-    limit: 5,
-  });
+  // Retry loop with delay - audit log has propagation delay
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await sleep(0.5); // Wait for audit log to be written
 
-  const banEntry = auditLogs.entries.find(
-    (entry) =>
-      entry.target?.id === user.id &&
-      Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
-  );
+    const auditLogs = await guild.fetchAuditLogs({
+      type: AuditLogEvent.MemberBanAdd,
+      limit: 5,
+    });
 
-  executor = banEntry?.executor ?? null;
-  reason = banEntry?.reason ?? reason;
+    const banEntry = auditLogs.entries.find(
+      (entry) =>
+        entry.target?.id === user.id &&
+        Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
+    );
+
+    if (banEntry?.executor) {
+      executor = banEntry.executor;
+      reason = banEntry.reason ?? reason;
+      break;
+    }
+
+    log("debug", "ModActionLogger", "Audit log entry not found, retrying", {
+      userId: user.id,
+      guildId: guild.id,
+      attempt: attempt + 1,
+    });
+  }
 
   // Skip if the bot performed this action (it's already logged elsewhere)
   if (executor?.id === guild.client.user?.id) {
@@ -68,24 +82,48 @@ async function fetchAuditLogs(
   guild: Guild,
   user: User,
 ): Promise<ModActionReport | undefined> {
-  // Check audit log to distinguish kick from voluntary leave
-  const auditLogs = await guild.fetchAuditLogs({
-    type: AuditLogEvent.MemberKick,
-    limit: 5,
-  });
+  // Retry loop with delay - audit log has propagation delay
+  let kickEntry;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await sleep(0.5); // Wait for audit log to be written
 
-  const kickEntry = auditLogs.entries.find(
-    (entry) =>
-      entry.target?.id === user.id &&
-      Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
-  );
+    // Check audit log to distinguish kick from voluntary leave
+    const auditLogs = await guild.fetchAuditLogs({
+      type: AuditLogEvent.MemberKick,
+      limit: 5,
+    });
 
-  // If no kick entry found, user left voluntarily
+    kickEntry = auditLogs.entries.find(
+      (entry) =>
+        entry.target?.id === user.id &&
+        Date.now() - entry.createdTimestamp < AUDIT_LOG_WINDOW_MS,
+    );
+
+    if (kickEntry?.executor) {
+      break;
+    }
+
+    // Only log retry if we're not on the last attempt
+    if (attempt < 2) {
+      log(
+        "debug",
+        "ModActionLogger",
+        "Kick audit log entry not found, retrying",
+        {
+          userId: user.id,
+          guildId: guild.id,
+          attempt: attempt + 1,
+        },
+      );
+    }
+  }
+
+  // If no kick entry found after retries, user left voluntarily
   if (!kickEntry) {
     log(
       "debug",
       "ModActionLogger",
-      "No kick entry found, user left voluntarily",
+      "No kick entry found after retries, user left voluntarily",
       { userId: user.id, guildId: guild.id },
     );
     return {
