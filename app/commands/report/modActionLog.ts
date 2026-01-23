@@ -1,7 +1,7 @@
 import { type Guild, type PartialUser, type User } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseServiceLive } from "#~/Database";
+import { DatabaseLayer } from "#~/Database";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
@@ -117,4 +117,4 @@ export const logModAction = ({
  * Used when Discord events indicate a kick or ban occurred.
  */
 export const logModActionLegacy = (report: ModActionReport): Promise<void> =>
-  runEffect(Effect.provide(logModAction(report), DatabaseServiceLive));
+  runEffect(Effect.provide(logModAction(report), DatabaseLayer));

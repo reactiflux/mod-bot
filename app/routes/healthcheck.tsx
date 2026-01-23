@@ -15,8 +15,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       db
         // @ts-expect-error because kysely doesn't generate types for sqlite_master
         .selectFrom("sqlite_master")
-        .select("name")
         // @ts-expect-error because kysely doesn't generate types for sqlite_master
+        .select("name")
         .where("type", "=", "table")
         .execute(),
       fetch(url.toString(), { method: "HEAD" }).then((r) => {

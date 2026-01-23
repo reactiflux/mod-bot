@@ -2,7 +2,7 @@ import { Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { DatabaseServiceLive } from "#~/Database.js";
+import { DatabaseLayer } from "#~/Database.js";
 import { runEffect } from "#~/effects/runtime.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
@@ -43,7 +43,7 @@ export default async (bot: Client) => {
           runEffect(
             Effect.provide(
               markMessageAsDeleted(message.id, message.guild!.id),
-              DatabaseServiceLive,
+              DatabaseLayer,
             ),
           ),
         );

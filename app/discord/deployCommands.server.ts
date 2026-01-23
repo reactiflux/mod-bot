@@ -1,6 +1,4 @@
 import {
-  Events,
-  InteractionType,
   Routes,
   type APIApplicationCommand,
   type Client,
@@ -11,9 +9,8 @@ import {
 
 import { ssrDiscordSdk } from "#~/discord/api";
 import {
-  isMessageComponentCommand,
+  isEffectCommand,
   isMessageContextCommand,
-  isModalCommand,
   isSlashCommand,
   isUserContextCommand,
   type AnyCommand,
@@ -40,87 +37,6 @@ export const deployCommands = async (client: Client) => {
   await (isProd()
     ? deployProdCommands(client, localCommands)
     : deployTestCommands(client, localCommands));
-
-  client.on(Events.InteractionCreate, (interaction) => {
-    log("info", "deployCommands", "Handling interaction", {
-      type: interaction.type,
-      id: interaction.id,
-    });
-    switch (interaction.type) {
-      case InteractionType.ApplicationCommand: {
-        const config = matchCommand(interaction.commandName);
-        if (!config) return;
-
-        if (
-          isMessageContextCommand(config) &&
-          interaction.isMessageContextMenuCommand()
-        ) {
-          log(
-            "info",
-            "Message Context command received",
-            `${interaction.commandName} ${interaction.id} messageId: ${interaction.targetMessage.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        if (
-          isUserContextCommand(config) &&
-          interaction.isUserContextMenuCommand()
-        ) {
-          log(
-            "info",
-            "User Context command received",
-            `${interaction.commandName} ${interaction.id} userId: ${interaction.targetUser.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        if (isSlashCommand(config) && interaction.isChatInputCommand()) {
-          log(
-            "info",
-            "Slash command received",
-            `${interaction.commandName} ${interaction.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        throw new Error("Didn't find a handler for an interaction");
-      }
-
-      case InteractionType.MessageComponent: {
-        const config = matchCommand(interaction.customId);
-        if (!config) return;
-
-        if (
-          isMessageComponentCommand(config) &&
-          interaction.isMessageComponent()
-        ) {
-          log(
-            "info",
-            "Message component interaction received",
-            `${interaction.customId} ${interaction.id} messageId: ${interaction.message.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        return;
-      }
-      case InteractionType.ModalSubmit: {
-        const config = matchCommand(interaction.customId);
-        if (!config) return;
-
-        if (isModalCommand(config) && interaction.isModalSubmit()) {
-          log(
-            "info",
-            "Modal submit received",
-            `${interaction.customId} ${interaction.id} messageId: ${interaction.message?.id ?? "null"}`,
-          );
-          void config.handler(interaction);
-        }
-        return;
-      }
-    }
-  });
 };
 
 type ChangedCommands = ReturnType<typeof calculateChangedCommands>;
@@ -263,10 +179,16 @@ export const deployTestCommands = async (
   );
 };
 
-const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
+const withPerf = <T extends AnyCommand>(config: T): T => {
+  // Effect commands handle their own spans via Effect.withSpan
+  if (isEffectCommand(config)) {
+    return config;
+  }
+
+  const { command, handler } = config;
   return {
     command,
-    handler: (interaction: Parameters<T["handler"]>[0]) => {
+    handler: (interaction: Parameters<typeof handler>[0]) => {
       void trackPerformance(`withPerf HoF ${command.name}`, async () => {
         try {
           // @ts-expect-error Unclear why this isn't working but it seems fine
@@ -277,22 +199,20 @@ const withPerf = <T extends AnyCommand>({ command, handler }: T) => {
         }
       });
     },
-  };
+  } as T;
 };
 
 const commands = new Map<string, AnyCommand>();
 export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
   if (Array.isArray(config)) {
     config.forEach((c) => {
-      // @ts-expect-error Higher order functions are weird
       commands.set(c.command.name, withPerf(c));
     });
     return;
   }
-  // @ts-expect-error Higher order functions are weird
   commands.set(config.command.name, withPerf(config));
 };
-const matchCommand = (customId: string) => {
+export const matchCommand = (customId: string) => {
   const config = commands.get(customId);
   if (config) {
     return config;

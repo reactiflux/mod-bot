@@ -18,6 +18,7 @@ import {
   type Poll,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
+import { type Effect } from "effect";
 import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
@@ -152,7 +153,8 @@ export type AnyCommand =
   | UserContextCommand
   | SlashCommand
   | MessageComponentCommand
-  | ModalCommand;
+  | ModalCommand
+  | AnyEffectCommand;
 
 export interface MessageContextCommand {
   command: ContextMenuCommandBuilder;
@@ -198,6 +200,56 @@ export interface ModalCommand {
 export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
   "type" in config.command &&
   config.command.type === InteractionType.ModalSubmit;
+
+//
+// Effect-based command types
+// Handlers must be fully self-contained: E = never, R = never, A = void
+//
+
+export type EffectHandler<I> = (
+  interaction: I,
+) => Effect.Effect<void, never, never>;
+
+export interface EffectSlashCommand {
+  type: "effect";
+  command: SlashCommandBuilder;
+  handler: EffectHandler<ChatInputCommandInteraction>;
+}
+
+export interface EffectMessageComponentCommand {
+  type: "effect";
+  command: { type: InteractionType.MessageComponent; name: string };
+  handler: EffectHandler<MessageComponentInteraction>;
+}
+
+export interface EffectUserContextCommand {
+  type: "effect";
+  command: ContextMenuCommandBuilder;
+  handler: EffectHandler<UserContextMenuCommandInteraction>;
+}
+
+export interface EffectMessageContextCommand {
+  type: "effect";
+  command: ContextMenuCommandBuilder;
+  handler: EffectHandler<MessageContextMenuCommandInteraction>;
+}
+
+export interface EffectModalCommand {
+  type: "effect";
+  command: { type: InteractionType.ModalSubmit; name: string };
+  handler: EffectHandler<ModalSubmitInteraction>;
+}
+
+export type AnyEffectCommand =
+  | EffectSlashCommand
+  | EffectMessageComponentCommand
+  | EffectUserContextCommand
+  | EffectMessageContextCommand
+  | EffectModalCommand;
+
+export const isEffectCommand = (
+  config: AnyCommand,
+): config is AnyEffectCommand => "type" in config && config.type === "effect";
 
 export interface CodeStats {
   chars: number;

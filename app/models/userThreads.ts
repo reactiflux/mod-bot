@@ -7,13 +7,10 @@ import {
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
-// Legacy wrappers for backward compatibility
-// These allow existing code to use the Effect-based functions without changes.
-import { DatabaseService, DatabaseServiceLive } from "#~/Database";
-import db, { type DB } from "#~/db.server";
+import { DatabaseService } from "#~/Database";
+import type { DB } from "#~/db";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import { runEffect } from "#~/effects/runtime";
 import { escalationControls } from "#~/helpers/escalate";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
 
@@ -26,18 +23,13 @@ export type UserThread = Selectable<DB["user_threads"]>;
  */
 export const getUserThread = (userId: string, guildId: string) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const db = yield* DatabaseService;
 
-    const thread = yield* dbService.query(
-      () =>
-        db
-          .selectFrom("user_threads")
-          .selectAll()
-          .where("user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .executeTakeFirst(),
-      "getUserThread",
-    );
+    const [thread] = yield* db
+      .selectFrom("user_threads")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .where("guild_id", "=", guildId);
 
     yield* logEffect(
       "debug",
@@ -60,20 +52,13 @@ export const createUserThread = (
   threadId: string,
 ) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const db = yield* DatabaseService;
 
-    yield* dbService.query(
-      () =>
-        db
-          .insertInto("user_threads")
-          .values({
-            user_id: userId,
-            guild_id: guildId,
-            thread_id: threadId,
-          })
-          .execute(),
-      "createUserThread",
-    );
+    yield* db.insertInto("user_threads").values({
+      user_id: userId,
+      guild_id: guildId,
+      thread_id: threadId,
+    });
 
     yield* logEffect("debug", "UserThread", "Created user thread", {
       userId,
@@ -95,18 +80,13 @@ export const updateUserThread = (
   threadId: string,
 ) =>
   Effect.gen(function* () {
-    const dbService = yield* DatabaseService;
+    const db = yield* DatabaseService;
 
-    yield* dbService.query(
-      () =>
-        db
-          .updateTable("user_threads")
-          .set({ thread_id: threadId })
-          .where("user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .execute(),
-      "updateUserThread",
-    );
+    yield* db
+      .updateTable("user_threads")
+      .set({ thread_id: threadId })
+      .where("user_id", "=", userId)
+      .where("guild_id", "=", guildId);
 
     yield* logEffect("debug", "UserThread", "Updated user thread", {
       userId,
@@ -118,41 +98,6 @@ export const updateUserThread = (
       attributes: { userId, guildId, threadId },
     }),
   );
-
-/**
- * Provide the database service layer to an effect and run it.
- */
-const runWithDb = <A, E>(effect: Effect.Effect<A, E, DatabaseService>) =>
-  runEffect(Effect.provide(effect, DatabaseServiceLive));
-
-/**
- * Legacy wrapper for getUserThread.
- * @deprecated Use the Effect-based version directly when possible.
- */
-export const getUserThreadLegacy = (
-  userId: string,
-  guildId: string,
-): Promise<UserThread | undefined> => runWithDb(getUserThread(userId, guildId));
-
-/**
- * Legacy wrapper for createUserThread.
- * @deprecated Use the Effect-based version directly when possible.
- */
-export const createUserThreadLegacy = (
-  userId: string,
-  guildId: string,
-  threadId: string,
-): Promise<void> => runWithDb(createUserThread(userId, guildId, threadId));
-
-/**
- * Legacy wrapper for updateUserThread.
- * @deprecated Use the Effect-based version directly when possible.
- */
-export const updateUserThreadLegacy = (
-  userId: string,
-  guildId: string,
-  threadId: string,
-): Promise<void> => runWithDb(updateUserThread(userId, guildId, threadId));
 
 const makeUserThread = (channel: TextChannel, user: User) =>
   Effect.tryPromise({

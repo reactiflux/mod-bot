@@ -6,17 +6,16 @@ import {
   ContextMenuCommandBuilder,
   InteractionType,
   PermissionFlagsBits,
-  type MessageContextMenuCommandInteraction,
 } from "discord.js";
 import { Effect } from "effect";
 
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { DatabaseServiceLive } from "#~/Database.ts";
+import { DatabaseLayer } from "#~/Database.ts";
 import { client } from "#~/discord/client.server";
-import { runEffect } from "#~/effects/runtime.ts";
+import { logEffect } from "#~/effects/observability.ts";
 import type {
-  MessageComponentCommand,
-  MessageContextCommand,
+  EffectMessageComponentCommand,
+  EffectMessageContextCommand,
 } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
 import {
@@ -27,105 +26,141 @@ import {
 
 export const Command = [
   {
+    type: "effect",
     command: new ContextMenuCommandBuilder()
       .setName("Track")
       .setType(ApplicationCommandType.Message)
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-    handler: async (interaction: MessageContextMenuCommandInteraction) => {
-      const { targetMessage: message, user } = interaction;
+    handler: (interaction) =>
+      Effect.gen(function* () {
+        const { targetMessage: message, user } = interaction;
 
-      if (interaction.guildId) {
-        featureStats.userTracked(
-          interaction.guildId,
-          user.id,
-          message.author.id,
+        if (interaction.guildId) {
+          featureStats.userTracked(
+            interaction.guildId,
+            user.id,
+            message.author.id,
+          );
+        }
+
+        const { reportId, thread } = yield* Effect.tryPromise(() =>
+          logUserMessageLegacy({
+            reason: ReportReasons.track,
+            message,
+            staff: user,
+          }),
         );
-      }
 
-      const { reportId, thread } = await logUserMessageLegacy({
-        reason: ReportReasons.track,
-        message,
-        staff: user,
-      });
-
-      await interaction.reply({
-        content: `Tracked <#${thread.id}>`,
-        ephemeral: true,
-        components: reportId
-          ? [
-              new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`delete-tracked|${reportId}`)
-                  .setLabel("Delete message")
-                  .setStyle(ButtonStyle.Danger),
-              ),
-            ]
-          : [],
-      });
-    },
-  } as MessageContextCommand,
-  {
-    command: { type: InteractionType.MessageComponent, name: "delete-tracked" },
-    handler: async (
-      interaction: MessageComponentCommand["handler"] extends (
-        i: infer I,
-      ) => unknown
-        ? I
-        : never,
-    ) => {
-      const [, reportId] = interaction.customId.split("|");
-
-      const report = await runEffect(
-        Effect.provide(getReportById(reportId), DatabaseServiceLive),
-      );
-
-      if (!report) {
-        await interaction.update({
-          content: "Report not found",
-          components: [],
-        });
-        return;
-      }
-
-      try {
-        const channel = await client.channels.fetch(report.reported_channel_id);
-        if (channel && "messages" in channel) {
-          const originalMessage = await channel.messages.fetch(
-            report.reported_message_id,
-          );
-          await originalMessage.delete();
-        }
-      } catch {
-        // Message may already be deleted, that's fine
-      }
-
-      await runEffect(
-        Effect.provide(
-          markMessageAsDeleted(report.reported_message_id, report.guild_id),
-          DatabaseServiceLive,
+        yield* Effect.tryPromise(() =>
+          interaction.reply({
+            content: `Tracked <#${thread.id}>`,
+            ephemeral: true,
+            components: reportId
+              ? [
+                  new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder()
+                      .setCustomId(`delete-tracked|${reportId}`)
+                      .setLabel("Delete message")
+                      .setStyle(ButtonStyle.Danger),
+                  ),
+                ]
+              : [],
+          }),
+        );
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect("error", "Track", "Error tracking message", {
+              error,
+            });
+            yield* Effect.tryPromise(() =>
+              interaction.reply({
+                content: "Failed to track message",
+                ephemeral: true,
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+          }),
         ),
-      );
+      ),
+  } satisfies EffectMessageContextCommand,
+  {
+    type: "effect",
+    command: { type: InteractionType.MessageComponent, name: "delete-tracked" },
+    handler: (interaction) =>
+      Effect.gen(function* () {
+        const [, reportId] = interaction.customId.split("|");
 
-      // Update the log message to show deletion
-      try {
-        const logChannel = await client.channels.fetch(report.log_channel_id);
-        if (logChannel && "messages" in logChannel) {
-          const logMessage = await logChannel.messages.fetch(
-            report.log_message_id,
+        const report = yield* getReportById(reportId).pipe(
+          Effect.provide(DatabaseLayer),
+        );
+
+        if (!report) {
+          yield* Effect.tryPromise(() =>
+            interaction.update({
+              content: "Report not found",
+              components: [],
+            }),
           );
-          await logMessage.reply({
-            allowedMentions: { users: [] },
-            content: `deleted by ${interaction.user.username}`,
-          });
+          return;
         }
-      } catch {
-        // Log message may not be accessible
-      }
 
-      await interaction.update({
-        content: `Tracked <#${report.log_channel_id}>`,
-        components: [],
-      });
-    },
-  } as MessageComponentCommand,
+        // Try to delete the original message (may already be deleted)
+        yield* Effect.tryPromise(async () => {
+          const channel = await client.channels.fetch(
+            report.reported_channel_id,
+          );
+          if (channel && "messages" in channel) {
+            const originalMessage = await channel.messages.fetch(
+              report.reported_message_id,
+            );
+            await originalMessage.delete();
+          }
+        }).pipe(Effect.catchAll(() => Effect.void));
+
+        yield* markMessageAsDeleted(
+          report.reported_message_id,
+          report.guild_id,
+        ).pipe(Effect.provide(DatabaseLayer));
+
+        // Update the log message to show deletion (may not be accessible)
+        yield* Effect.tryPromise(async () => {
+          const logChannel = await client.channels.fetch(report.log_channel_id);
+          if (logChannel && "messages" in logChannel) {
+            const logMessage = await logChannel.messages.fetch(
+              report.log_message_id,
+            );
+            await logMessage.reply({
+              allowedMentions: { users: [] },
+              content: `deleted by ${interaction.user.username}`,
+            });
+          }
+        }).pipe(Effect.catchAll(() => Effect.void));
+
+        yield* Effect.tryPromise(() =>
+          interaction.update({
+            content: `Tracked <#${report.log_channel_id}>`,
+            components: [],
+          }),
+        );
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "error",
+              "Track",
+              "Error deleting tracked message",
+              {
+                error,
+              },
+            );
+            yield* Effect.tryPromise(() =>
+              interaction.update({
+                content: "Failed to delete message",
+                components: [],
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+          }),
+        ),
+      ),
+  } satisfies EffectMessageComponentCommand,
 ];

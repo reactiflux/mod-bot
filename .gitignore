@@ -9,7 +9,7 @@ dist
 yarn.lock
 *.log
 k8s-context
-*.sqlite3
+*.sqlite3*
 tsconfig.tsbuildinfo
 .react-router
 tailwind.css
