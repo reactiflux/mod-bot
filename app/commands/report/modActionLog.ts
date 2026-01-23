@@ -13,7 +13,22 @@ export type ModActionReport =
   | {
       guild: Guild;
       user: User;
-      actionType: "kick" | "ban";
+      actionType: "kick" | "ban" | "unban";
+      executor: User | PartialUser | null;
+      reason: string;
+    }
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "timeout";
+      executor: User | PartialUser | null;
+      reason: string;
+      duration: string;
+    }
+  | {
+      guild: Guild;
+      user: User;
+      actionType: "timeout_removed";
       executor: User | PartialUser | null;
       reason: string;
     }
@@ -25,14 +40,9 @@ export type ModActionReport =
       reason: undefined;
     };
 
-export const logModAction = ({
-  guild,
-  user,
-  actionType,
-  executor,
-  reason,
-}: ModActionReport) =>
+export const logModAction = (report: ModActionReport) =>
   Effect.gen(function* () {
+    const { guild, user, actionType, executor, reason } = report;
     yield* logEffect(
       "info",
       "logModAction",
@@ -67,6 +77,9 @@ export const logModAction = ({
     const actionLabels: Record<ModActionReport["actionType"], string> = {
       ban: "was banned",
       kick: "was kicked",
+      unban: "was unbanned",
+      timeout: "was timed out",
+      timeout_removed: "had timeout removed",
       left: "left",
     };
     const actionLabel = actionLabels[actionType];
@@ -75,9 +88,11 @@ export const logModAction = ({
       : " by unknown";
 
     const reasonText = reason ? ` ${reason}` : " for no reason";
+    const durationText =
+      actionType === "timeout" ? ` for ${report.duration}` : "";
 
     const logContent = truncateMessage(
-      `<@${user.id}> (${user.username}) ${actionLabel}
+      `<@${user.id}> (${user.username}) ${actionLabel}${durationText}
 -# ${executorMention}${reasonText} <t:${Math.floor(Date.now() / 1000)}:R>`,
     ).trim();
 
@@ -108,13 +123,17 @@ export const logModAction = ({
     );
   }).pipe(
     Effect.withSpan("logModAction", {
-      attributes: { userId: user.id, guildId: guild.id, actionType },
+      attributes: {
+        userId: report.user.id,
+        guildId: report.guild.id,
+        actionType: report.actionType,
+      },
     }),
   );
 
 /**
- * Logs a mod action (kick/ban) to the user's persistent thread.
- * Used when Discord events indicate a kick or ban occurred.
+ * Logs a mod action (kick/ban/unban/timeout) to the user's persistent thread.
+ * Used when Discord events indicate a moderation action occurred.
  */
 export const logModActionLegacy = (report: ModActionReport): Promise<void> =>
   runEffect(Effect.provide(logModAction(report), DatabaseLayer));
