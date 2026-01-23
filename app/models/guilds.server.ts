@@ -106,14 +106,11 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
       // old/bad use of jsonb for storing settings. The type is guaranteed here
       // not by the codegen
       .select<DB, "guilds", SettingsRecord>((eb) =>
-        keys.map((k) => eb.ref("settings", "->").key(k).as(k)),
+        keys.map((k) => eb.ref("settings", "->>").key(k).as(k)),
       )
       .where("id", "=", guildId)
       // This cast is also evidence of the pattern being broken
       .executeTakeFirstOrThrow(),
   ) as [T, string][];
-  return Object.fromEntries(result.map(([k, v]) => [k, JSON.parse(v)])) as Pick<
-    SettingsRecord,
-    T
-  >;
+  return Object.fromEntries(result) as Pick<SettingsRecord, T>;
 };
