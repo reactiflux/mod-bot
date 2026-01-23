@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Only run when switching branches (not checking out files)
+# $3 is 1 for branch checkout, 0 for file checkout
+if [ "$3" != "1" ]; then
+  exit 0
+fi
+
+# Check if package-lock.json changed between old and new HEAD
+if git diff --name-only "$1" "$2" | grep -q "^package-lock.json$"; then
+  echo "📦 Dependencies changed. Running npm install..."
+  npm install
+fi
