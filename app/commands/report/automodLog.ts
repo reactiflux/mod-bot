@@ -27,7 +27,7 @@ const ActionTypeLabels: Record<AutoModerationActionType, string> = {
   [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
 };
 
-const logAutomod = ({
+export const logAutomod = ({
   guild,
   user,
   channelId,
