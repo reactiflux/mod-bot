@@ -92,7 +92,7 @@ export function DiscordLayout({
             <Link
               target="_blank"
               to={
-                "https://discord.com/oauth2/authorize?client_id=976541718109368361"
+                "https://discord.com/oauth2/authorize?client_id=984212151608705054"
               }
               className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-700 transition-all duration-200 hover:rounded-xl hover:bg-gray-600`}
               title={"Add to server"}
