@@ -15,7 +15,7 @@ import { getUser } from "./models/session.server";
 export const meta: MetaFunction = () => [
   {
     charset: "utf-8",
-    title: "Remix Notes",
+    title: "Euno – A Discord moderation bot",
     viewport: "width=device-width,initial-scale=1",
   },
 ];
