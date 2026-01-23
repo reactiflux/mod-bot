@@ -128,17 +128,21 @@ export function DiscordLayout({
         <nav className="flex-1 space-y-1 px-3 py-4">
           {guildId ? (
             <>
-              <Link
-                to={`/app/${guildId}/sh`}
-                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive(`/app/${guildId}/sh`)
-                    ? "bg-gray-600 text-white"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                }`}
-              >
-                🌟 Star Hunter
-              </Link>
-              <hr className="" />
+              {guildId === "102860784329052160" && (
+                <>
+                  <Link
+                    to={`/app/${guildId}/sh`}
+                    className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      isActive(`/app/${guildId}/sh`)
+                        ? "bg-gray-600 text-white"
+                        : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    }`}
+                  >
+                    🌟 Star Hunter
+                  </Link>
+                  <hr className="" />
+                </>
+              )}
               <Link
                 to={`/app/${guildId}/settings`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${

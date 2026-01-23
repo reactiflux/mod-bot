@@ -26,6 +26,12 @@ import type { Route } from "./+types/sh-user";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { guildId, userId } = params;
+
+  // Star Hunter is only enabled for Reactiflux
+  if (guildId !== "102860784329052160") {
+    throw new Response("Not Found", { status: 404 });
+  }
+
   if (!guildId || !userId) {
     throw new Error("cannot load data without user_id and guild_id");
   }
