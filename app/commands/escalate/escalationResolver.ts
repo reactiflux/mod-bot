@@ -8,14 +8,22 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DiscordApiError } from "#~/effects/errors";
+import {
+  editMessage,
+  fetchChannelFromClient,
+  fetchGuild,
+  fetchMemberOrNull,
+  fetchMessage,
+  fetchUserOrNull,
+  replyAndForwardSafe,
+} from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import {
   humanReadableResolutions,
   resolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
 import { tallyVotes } from "./voting";
@@ -111,46 +119,27 @@ export const processEscalationEffect = (
     );
 
     // Fetch Discord resources
-    const { modLog } = yield* Effect.tryPromise({
-      try: () => fetchSettings(escalation.guild_id, [SETTINGS.modLog]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { modLog } = yield* fetchSettingsEffect(escalation.guild_id, [
+      SETTINGS.modLog,
+    ]);
 
-    const guild = yield* Effect.tryPromise({
-      try: () => client.guilds.fetch(escalation.guild_id),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", discordError: error }),
-    });
-
-    const channel = yield* Effect.tryPromise({
-      try: () =>
-        client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchChannel", discordError: error }),
-    });
-
-    const reportedUser = yield* Effect.tryPromise({
-      try: () => client.users.fetch(escalation.reported_user_id),
-      catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
-
-    const voteMessage = yield* Effect.tryPromise({
-      try: () => channel.messages.fetch(escalation.vote_message_id),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchVoteMessage",
-          discordError: error,
-        }),
-    });
-
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => guild.members.fetch(escalation.reported_user_id),
-      catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    const guild = yield* fetchGuild(client, escalation.guild_id);
+    const channel = yield* fetchChannelFromClient<ThreadChannel>(
+      client,
+      escalation.thread_id,
+    );
+    const reportedUser = yield* fetchUserOrNull(
+      client,
+      escalation.reported_user_id,
+    );
+    const voteMessage = yield* fetchMessage(
+      channel,
+      escalation.vote_message_id,
+    );
+    const reportedMember = yield* fetchMemberOrNull(
+      guild,
+      escalation.reported_user_id,
+    );
 
     // Calculate timing info
     const now = Math.floor(Date.now() / 1000);
@@ -167,6 +156,7 @@ export const processEscalationEffect = (
     if (!reportedMember) {
       const userLeft = reportedUser !== null;
       const reason = userLeft ? "left the server" : "account no longer exists";
+      const content = `${noticeText}\n${timing} (${reason})`;
 
       yield* logEffect(
         "info",
@@ -185,38 +175,12 @@ export const processEscalationEffect = (
         resolutions.track,
       );
 
-      yield* Effect.tryPromise({
-        try: () =>
-          voteMessage.edit({ components: getDisabledButtons(voteMessage) }),
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "editVoteMessage",
-            discordError: error,
-          }),
+      yield* editMessage(voteMessage, {
+        components: getDisabledButtons(voteMessage),
       });
 
       // Try to reply and forward - but don't fail if it doesn't work
-      yield* Effect.tryPromise({
-        try: async () => {
-          const notice = await voteMessage.reply({
-            content: `${noticeText}\n${timing} (${reason})`,
-          });
-          await notice.forward(modLog);
-        },
-        catch: () => null,
-      }).pipe(
-        Effect.catchAll((error) =>
-          logEffect(
-            "warn",
-            "EscalationResolver",
-            "Could not update vote message",
-            {
-              ...logBag,
-              error,
-            },
-          ),
-        ),
-      );
+      yield* replyAndForwardSafe(voteMessage, content, modLog);
 
       return { resolution: resolutions.track, userGone: true };
     }
@@ -228,38 +192,12 @@ export const processEscalationEffect = (
     yield* escalationService.resolveEscalation(escalation.id, resolution);
 
     // Update Discord message
-    yield* Effect.tryPromise({
-      try: () =>
-        voteMessage.edit({ components: getDisabledButtons(voteMessage) }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "editVoteMessage",
-          discordError: error,
-        }),
+    yield* editMessage(voteMessage, {
+      components: getDisabledButtons(voteMessage),
     });
 
     // Try to reply and forward - but don't fail if it doesn't work
-    yield* Effect.tryPromise({
-      try: async () => {
-        const notice = await voteMessage.reply({
-          content: `${noticeText}\n${timing}`,
-        });
-        await notice.forward(modLog);
-      },
-      catch: () => null,
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect(
-          "warn",
-          "EscalationResolver",
-          "Could not update vote message",
-          {
-            ...logBag,
-            error,
-          },
-        ),
-      ),
-    );
+    yield* replyAndForwardSafe(voteMessage, `${noticeText}\n${timing}`, modLog);
 
     yield* logEffect(
       "info",

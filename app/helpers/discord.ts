@@ -18,18 +18,17 @@ import {
   type Poll,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
-import { type Effect } from "effect";
+import { Effect } from "effect";
 import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
+import { resolveMessagePartial } from "#~/effects/discordSdk";
+import { type DiscordApiError, NotFoundError } from "#~/effects/errors.ts";
 import {
   getChars,
   getWords,
   parseMarkdownBlocks,
 } from "#~/helpers/messageParsing";
-import { trackPerformance } from "#~/helpers/observability";
-
-import { NotFoundError } from "./errors";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -257,84 +256,97 @@ export interface CodeStats {
   lines: number;
   lang: string | undefined;
 }
+
+export interface MessageStats {
+  char_count: number;
+  word_count: number;
+  code_stats: CodeStats[];
+  link_stats: string[];
+  react_count: number;
+  sent_at: number;
+}
+
 /**
  * getMessageStats is a helper to retrieve common metrics from a message
  * @param msg A Discord Message or PartialMessage object
- * @returns { chars: number; words: number; lines: number; lang?: string }
+ * @returns MessageStats with char/word counts, code blocks, links, reactions, and timestamp
  */
-export async function getMessageStats(msg: Message | PartialMessage) {
-  return trackPerformance(
-    "startActivityTracking: getMessageStats",
-    async () => {
-      const { content } = await msg
-        .fetch()
-        .catch((_) => ({ content: undefined }));
-      if (!content) {
-        throw new NotFoundError("message", "getMessageStats");
-      }
+export const getMessageStats = (
+  msg: Message | PartialMessage,
+): Effect.Effect<MessageStats, NotFoundError | DiscordApiError, never> =>
+  Effect.gen(function* () {
+    const message = yield* resolveMessagePartial(msg);
 
-      const blocks = parseMarkdownBlocks(content);
-
-      // TODO: groupBy would be better here, but this was easier to keep typesafe
-      const [textblocks, nontextblocks] = partition(
-        blocks,
-        (b) => b.type === "text",
+    const { content } = message;
+    if (!content) {
+      return yield* Effect.fail(
+        new NotFoundError({ resource: "message", id: msg.id }),
       );
-      const [links, codeblocks] = partition(
-        nontextblocks,
-        (b) => b.type === "link",
-      );
+    }
 
-      const linkStats = links.map((link) => link.url);
+    const blocks = parseMarkdownBlocks(content);
 
-      const { wordCount, charCount } = [...links, ...textblocks].reduce(
-        (acc, block) => {
-          const content =
-            block.type === "link" ? (block.label ?? "") : block.content;
-          const words = getWords(content).length;
-          const chars = getChars(content).length;
+    // TODO: groupBy would be better here, but this was easier to keep typesafe
+    const [textblocks, nontextblocks] = partition(
+      blocks,
+      (b) => b.type === "text",
+    );
+    const [links, codeblocks] = partition(
+      nontextblocks,
+      (b) => b.type === "link",
+    );
+
+    const linkStats = links.map((link) => link.url);
+
+    const { wordCount, charCount } = [...links, ...textblocks].reduce(
+      (acc, block) => {
+        const content =
+          block.type === "link" ? (block.label ?? "") : block.content;
+        const words = getWords(content).length;
+        const chars = getChars(content).length;
+        return {
+          wordCount: acc.wordCount + words,
+          charCount: acc.charCount + chars,
+        };
+      },
+      { wordCount: 0, charCount: 0 },
+    );
+
+    const codeStats = codeblocks.map((block): CodeStats => {
+      switch (block.type) {
+        case "fencedcode": {
+          const content = block.code.join("\n");
           return {
-            wordCount: acc.wordCount + words,
-            charCount: acc.charCount + chars,
+            chars: getChars(content).length,
+            words: getWords(content).length,
+            lines: block.code.length,
+            lang: block.lang,
           };
-        },
-        { wordCount: 0, charCount: 0 },
-      );
-
-      const codeStats = codeblocks.map((block): CodeStats => {
-        switch (block.type) {
-          case "fencedcode": {
-            const content = block.code.join("\n");
-            return {
-              chars: getChars(content).length,
-              words: getWords(content).length,
-              lines: block.code.length,
-              lang: block.lang,
-            };
-          }
-          case "inlinecode": {
-            return {
-              chars: getChars(block.code).length,
-              words: getWords(block.code).length,
-              lines: 1,
-              lang: undefined,
-            };
-          }
         }
-      });
+        case "inlinecode": {
+          return {
+            chars: getChars(block.code).length,
+            words: getWords(block.code).length,
+            lines: 1,
+            lang: undefined,
+          };
+        }
+      }
+    });
 
-      const values = {
-        char_count: charCount,
-        word_count: wordCount,
-        code_stats: codeStats,
-        link_stats: linkStats,
-        react_count: msg.reactions.cache.size,
-        sent_at: msg.createdTimestamp,
-      };
-      return values;
-    },
+    return {
+      char_count: charCount,
+      word_count: wordCount,
+      code_stats: codeStats,
+      link_stats: linkStats,
+      react_count: msg.reactions.cache.size,
+      sent_at: msg.createdTimestamp,
+    };
+  }).pipe(
+    Effect.withSpan("getMessageStats", {
+      attributes: { messageId: msg.id },
+    }),
   );
-}
 
 export function hasModRole(
   interaction: MessageComponentInteraction,

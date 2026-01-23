@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 
+import { NotFoundError } from "#~/effects/errors.ts";
 import { stripeSecretKey, stripeWebhookSecret } from "#~/helpers/env.server.js";
-import { NotFoundError } from "#~/helpers/errors.js";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
@@ -32,20 +32,13 @@ export const StripeService = {
         const successUrl = `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}&guild_id=${guildId}`;
         const settingsUrl = `${baseUrl}/app/${guildId}/settings`;
         let priceId = "";
-        try {
-          const prices = await stripe.prices.list({ lookup_keys: [variant] });
-          const price = prices.data.at(0);
-          if (!price) {
-            throw new NotFoundError(
-              "price",
-              "failed to find a price while upgrading",
-            );
-          }
-          priceId = price.id;
-        } catch (e) {
+        const prices = await stripe.prices.list({ lookup_keys: [variant] });
+        const price = prices.data.at(0);
+        if (!price) {
           log("error", "Stripe", "Failed to load pricing data");
-          throw e;
+          throw new NotFoundError({ resource: "Price", id: variant });
         }
+        priceId = price.id;
 
         try {
           const session = await stripe.checkout.sessions.create({

@@ -1,17 +1,13 @@
 import type { MessageComponentInteraction } from "discord.js";
 import { Effect } from "effect";
 
-import {
-  AlreadyResolvedError,
-  DiscordApiError,
-  NotAuthorizedError,
-} from "#~/effects/errors";
+import { AlreadyResolvedError, NotAuthorizedError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
 import { calculateScheduledFor, parseFlags } from "#~/helpers/escalationVotes";
 import type { Features } from "#~/helpers/featuresFlags";
 import type { Resolution, VotingStrategy } from "#~/helpers/modResponse";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
 import {
@@ -43,15 +39,10 @@ export const voteEffect =
       const features: Features[] = [];
 
       // Get settings
-      const { moderator: modRoleId, restricted } = yield* Effect.tryPromise({
-        try: () =>
-          fetchSettings(guildId, [SETTINGS.moderator, SETTINGS.restricted]),
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "fetchSettings",
-            discordError: error,
-          }),
-      });
+      const { moderator: modRoleId, restricted } = yield* fetchSettingsEffect(
+        guildId,
+        [SETTINGS.moderator, SETTINGS.restricted],
+      );
 
       if (restricted) {
         features.push("restrict");

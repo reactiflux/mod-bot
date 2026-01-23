@@ -5,7 +5,7 @@ import {
   MessageFlags,
   type MessageComponentInteraction,
 } from "discord.js";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import { DatabaseLayer } from "#~/Database.ts";
 import { runEffectExit } from "#~/effects/runtime.ts";
@@ -15,7 +15,7 @@ import {
 } from "#~/helpers/modResponse";
 import { log } from "#~/helpers/observability";
 
-import { getFailure, runEscalationEffect } from ".";
+import { getFailure } from ".";
 import {
   banUserEffect,
   deleteMessagesEffect,
@@ -25,6 +25,7 @@ import {
 } from "./directActions";
 import { createEscalationEffect, upgradeToMajorityEffect } from "./escalate";
 import { expediteEffect } from "./expedite";
+import { EscalationServiceLive } from "./service";
 import {
   buildConfirmedMessageContent,
   buildVoteButtons,
@@ -61,7 +62,9 @@ const deleteMessages = async (interaction: MessageComponentInteraction) => {
 const kickUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runEffectExit(kickUserEffect(interaction));
+  const exit = await runEffectExit(
+    kickUserEffect(interaction).pipe(Effect.provide(DatabaseLayer)),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error kicking user", { error });
@@ -88,7 +91,9 @@ const kickUser = async (interaction: MessageComponentInteraction) => {
 const banUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runEffectExit(banUserEffect(interaction));
+  const exit = await runEffectExit(
+    banUserEffect(interaction).pipe(Effect.provide(DatabaseLayer)),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error banning user", { error });
@@ -115,7 +120,9 @@ const banUser = async (interaction: MessageComponentInteraction) => {
 const restrictUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runEffectExit(restrictUserEffect(interaction));
+  const exit = await runEffectExit(
+    restrictUserEffect(interaction).pipe(Effect.provide(DatabaseLayer)),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error restricting user", { error });
@@ -144,7 +151,9 @@ const restrictUser = async (interaction: MessageComponentInteraction) => {
 const timeoutUser = async (interaction: MessageComponentInteraction) => {
   const reportedUserId = interaction.customId.split("|")[1];
 
-  const exit = await runEffectExit(timeoutUserEffect(interaction));
+  const exit = await runEffectExit(
+    timeoutUserEffect(interaction).pipe(Effect.provide(DatabaseLayer)),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Error timing out user", { error });
@@ -174,7 +183,11 @@ const vote = (resolution: Resolution) =>
   async function handleVote(
     interaction: MessageComponentInteraction,
   ): Promise<void> {
-    const exit = await runEscalationEffect(voteEffect(resolution)(interaction));
+    const exit = await runEffectExit(
+      voteEffect(resolution)(interaction).pipe(
+        Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+      ),
+    );
     if (exit._tag === "Failure") {
       const error = getFailure(exit.cause);
       log("error", "EscalationHandlers", "Error voting", { error, resolution });
@@ -186,7 +199,7 @@ const vote = (resolution: Resolution) =>
         });
         return;
       }
-      if (error?._tag === "EscalationNotFoundError") {
+      if (error?._tag === "NotFoundError") {
         await interaction.reply({
           content: "Escalation not found.",
           flags: [MessageFlags.Ephemeral],
@@ -257,7 +270,11 @@ const expedite = async (
 ): Promise<void> => {
   await interaction.deferUpdate();
 
-  const exit = await runEscalationEffect(expediteEffect(interaction));
+  const exit = await runEffectExit(
+    expediteEffect(interaction).pipe(
+      Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+    ),
+  );
   if (exit._tag === "Failure") {
     const error = getFailure(exit.cause);
     log("error", "EscalationHandlers", "Expedite failed", { error });
@@ -269,7 +286,7 @@ const expedite = async (
       });
       return;
     }
-    if (error?._tag === "EscalationNotFoundError") {
+    if (error?._tag === "NotFoundError") {
       await interaction.followUp({
         content: "Escalation not found.",
         flags: [MessageFlags.Ephemeral],
@@ -325,8 +342,10 @@ const escalate = async (interaction: MessageComponentInteraction) => {
 
   if (Number(level) === 0) {
     // Create new escalation
-    const exit = await runEscalationEffect(
-      createEscalationEffect(interaction, reportedUserId, escalationId),
+    const exit = await runEffectExit(
+      createEscalationEffect(interaction, reportedUserId, escalationId).pipe(
+        Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+      ),
     );
 
     if (exit._tag === "Failure") {
@@ -343,8 +362,10 @@ const escalate = async (interaction: MessageComponentInteraction) => {
     await interaction.editReply("Escalation started");
   } else {
     // Upgrade to majority voting
-    const exit = await runEscalationEffect(
-      upgradeToMajorityEffect(interaction, escalationId),
+    const exit = await runEffectExit(
+      upgradeToMajorityEffect(interaction, escalationId).pipe(
+        Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+      ),
     );
 
     if (exit._tag === "Failure") {
@@ -353,7 +374,7 @@ const escalate = async (interaction: MessageComponentInteraction) => {
         error,
       });
 
-      if (error?._tag === "EscalationNotFoundError") {
+      if (error?._tag === "NotFoundError") {
         await interaction.editReply({
           content: "Failed to re-escalate, couldn't find escalation",
         });

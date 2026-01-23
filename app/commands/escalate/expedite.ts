@@ -10,7 +10,7 @@ import {
 import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
 import type { Resolution } from "#~/helpers/modResponse";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
 import { tallyVotes, type VoteTally } from "./voting";
@@ -34,14 +34,9 @@ export const expediteEffect = (interaction: MessageComponentInteraction) =>
     const expeditedBy = interaction.user.id;
 
     // Get settings and check mod role
-    const { moderator: modRoleId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guildId, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId } = yield* fetchSettingsEffect(guildId, [
+      SETTINGS.moderator,
+    ]);
 
     if (!hasModRole(interaction, modRoleId)) {
       return yield* Effect.fail(
@@ -86,7 +81,7 @@ export const expediteEffect = (interaction: MessageComponentInteraction) =>
     const guild = yield* Effect.tryPromise({
       try: () => interaction.guild!.fetch(),
       catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", discordError: error }),
+        new DiscordApiError({ operation: "fetchGuild", cause: error }),
     });
 
     // Execute the resolution

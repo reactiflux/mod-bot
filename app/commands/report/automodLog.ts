@@ -2,11 +2,11 @@ import { AutoModerationActionType, type Guild, type User } from "discord.js";
 import { Effect } from "effect";
 
 import { DatabaseLayer } from "#~/Database";
-import { DiscordApiError } from "#~/effects/errors";
+import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
 import { truncateMessage } from "#~/helpers/string";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
 export interface AutomodReport {
@@ -52,14 +52,10 @@ export const logAutomod = ({
     const thread = yield* getOrCreateUserThread(guild, user);
 
     // Get mod log for forwarding
-    const { modLog, moderator } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guild.id, [SETTINGS.modLog, SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { modLog, moderator } = yield* fetchSettingsEffect(guild.id, [
+      SETTINGS.modLog,
+      SETTINGS.moderator,
+    ]);
 
     // Construct the log message
     const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
@@ -71,30 +67,13 @@ export const logAutomod = ({
     ).trim();
 
     // Send log to thread
-    const logMessage = yield* Effect.tryPromise({
-      try: () =>
-        thread.send({
-          content: logContent,
-          allowedMentions: { roles: [moderator] },
-        }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "sendLogMessage",
-          discordError: error,
-        }),
+    const logMessage = yield* sendMessage(thread, {
+      content: logContent,
+      allowedMentions: { roles: [moderator] },
     });
 
     // Forward to mod log (non-critical)
-    yield* Effect.tryPromise({
-      try: () => logMessage.forward(modLog),
-      catch: (error) => error,
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect("error", "logAutomod", "failed to forward to modLog", {
-          error: String(error),
-        }),
-      ),
-    );
+    yield* forwardMessageSafe(logMessage, modLog);
   }).pipe(
     Effect.withSpan("logAutomod", {
       attributes: { userId: user.id, guildId: guild.id, ruleName },
