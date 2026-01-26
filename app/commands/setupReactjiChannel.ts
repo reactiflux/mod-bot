@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import {
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
@@ -40,7 +41,7 @@ export const Command = {
     if (!interaction.guild) {
       await interaction.reply({
         content: "This command can only be used in a server.",
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
       });
       return;
     }
@@ -61,7 +62,7 @@ export const Command = {
     if (!emoji) {
       await interaction.reply({
         content: "Please provide a valid emoji.",
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
       });
       return;
     }
@@ -104,7 +105,7 @@ export const Command = {
       await interaction.reply({
         content:
           "Something went wrong while configuring the reactji channeler.",
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
       });
     }
   },
