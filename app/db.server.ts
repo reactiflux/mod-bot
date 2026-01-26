@@ -8,8 +8,13 @@ export { SqliteError } from "better-sqlite3";
 
 console.log(`Connecting to database at ${databaseUrl}`);
 
+const sqliteDb = new SQLite(databaseUrl);
+// Enable WAL mode to match @effect/sql-sqlite-node's default.
+// Both connections MUST use the same journal mode to prevent corruption.
+sqliteDb.pragma("journal_mode = WAL");
+
 export const dialect = new SqliteDialect({
-  database: new SQLite(databaseUrl),
+  database: sqliteDb,
 });
 
 const db = new Kysely<DB>({
