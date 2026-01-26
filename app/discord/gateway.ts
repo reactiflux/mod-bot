@@ -1,6 +1,8 @@
 import { Events, InteractionType } from "discord.js";
 
-import modActionLogger from "#~/commands/report/modActionLogger.ts";
+import modActionLogger from "#~/commands/report/modActionLogger";
+import { startIntegrityCheck } from "#~/Database";
+import { shutdownDatabase } from "#~/db.server";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
@@ -78,6 +80,9 @@ export default function init() {
 
         // Start escalation resolver scheduler (must be after client is ready)
         startEscalationResolver(client);
+
+        // Start twice-daily database integrity check
+        startIntegrityCheck();
 
         log("info", "Gateway", "Gateway initialization completed", {
           guildCount: client.guilds.cache.size,
@@ -257,10 +262,16 @@ export default function init() {
     botStats.reconnection(client.guilds.cache.size, client.users.cache.size);
   });
 
-  // Graceful shutdown handler to flush metrics
+  // Graceful shutdown handler to flush metrics and close database
   const handleShutdown = async (signal: string) => {
     log("info", "Gateway", `Received ${signal}, shutting down gracefully`, {});
     await shutdownMetrics();
+    try {
+      shutdownDatabase();
+      log("info", "Gateway", "Database closed cleanly", {});
+    } catch (e) {
+      log("error", "Gateway", "Error closing database", { error: String(e) });
+    }
     process.exit(0);
   };
 

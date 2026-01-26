@@ -120,6 +120,7 @@ jobs:
           type: Opaque
           stringData:
             SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
+            EMERGENCY_WEBHOOK: "${{ secrets.EMERGENCY_WEBHOOK }}"
             DISCORD_PUBLIC_KEY: "${{ secrets.DISCORD_PUBLIC_KEY }}"
             DISCORD_APP_ID: "${{ secrets.DISCORD_APP_ID }}"
             DISCORD_SECRET: "${{ secrets.DISCORD_SECRET }}"
@@ -169,6 +170,7 @@ jobs:
           # Ensure staging secret exists
           kubectl create secret generic modbot-staging-env \
             --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+            --from-literal=EMERGENCY_WEBHOOK=${{ secrets.EMERGENCY_WEBHOOK }} \
             --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
             --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
             --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
