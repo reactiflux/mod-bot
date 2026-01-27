@@ -1,6 +1,5 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Logger } from "effect";
 
-import { LoggerLive } from "./logger.js";
 import { TracingLive } from "./tracing.js";
 
 /**
@@ -19,7 +18,7 @@ import { TracingLive } from "./tracing.js";
  * TracingLive is a NodeSdk layer that needs to be provided first,
  * LoggerLive is a simple logger replacement layer.
  */
-const RuntimeLive = Layer.merge(TracingLive, LoggerLive);
+const RuntimeLive = Layer.merge(TracingLive, Logger.json);
 
 /**
  * Run an Effect and return a Promise that resolves with the success value.

@@ -7,32 +7,34 @@ import { log, trackPerformance } from "#~/helpers/observability";
 
 import { getOrFetchChannel } from "./utils";
 
+const TRACKABLE_CHANNEL_TYPES = new Set([
+  ChannelType.GuildText,
+  ChannelType.GuildAnnouncement,
+  ChannelType.GuildVoice,
+  ChannelType.GuildForum,
+  ChannelType.PublicThread,
+  ChannelType.PrivateThread,
+  ChannelType.AnnouncementThread,
+]);
+
 export async function startActivityTracking(client: Client) {
   log("info", "ActivityTracker", "Starting activity tracking", {
     guildCount: client.guilds.cache.size,
   });
 
   client.on(Events.MessageCreate, async (msg) => {
-    if (msg.author.system) return;
-    if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
+    // Filter non-human messages
+    if (
+      msg.author.system ||
+      msg.author.bot ||
+      msg.webhookId ||
+      !msg.guildId ||
+      !TRACKABLE_CHANNEL_TYPES.has(msg.channel.type)
+    ) {
       return;
     }
 
     const info = await getMessageStats(msg);
-
-    if (!msg.guildId) {
-      log(
-        "error",
-        "ActivityTracker",
-        "Missing author or guild info when tracking message stats",
-        {
-          messageId: msg.id,
-          hasAuthor: !!msg.author,
-          hasGuild: !!msg.guildId,
-        },
-      );
-      throw Error("Missing author or guild info when tracking message stats");
-    }
 
     const channelInfo = await trackPerformance(
       "startActivityTracking: getOrFetchChannel",
