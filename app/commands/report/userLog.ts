@@ -3,8 +3,6 @@ import {
   type AnyThreadChannel,
   type APIEmbed,
   type Message,
-  type PrivateThreadChannel,
-  type PublicThreadChannel,
 } from "discord.js";
 import { Effect } from "effect";
 
@@ -67,7 +65,7 @@ export function logUserMessage({
     warnings: number;
     message: Message<boolean>;
     latestReport?: Message<true>;
-    thread: PublicThreadChannel | PrivateThreadChannel;
+    thread: AnyThreadChannel;
     allReportedMessages: Report[];
     reportId: string;
   },
