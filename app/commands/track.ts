@@ -5,6 +5,7 @@ import {
   ButtonStyle,
   ContextMenuCommandBuilder,
   InteractionType,
+  MessageFlags,
   PermissionFlagsBits,
 } from "discord.js";
 import { Effect } from "effect";
@@ -33,6 +34,11 @@ export const Command = [
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
     handler: (interaction) =>
       Effect.gen(function* () {
+        // Defer immediately to avoid 3-second timeout - creating threads can take time
+        yield* Effect.tryPromise(() =>
+          interaction.deferReply({ flags: [MessageFlags.Ephemeral] }),
+        );
+
         const { targetMessage: message, user } = interaction;
 
         if (interaction.guildId) {
@@ -52,9 +58,8 @@ export const Command = [
         );
 
         yield* Effect.tryPromise(() =>
-          interaction.reply({
+          interaction.editReply({
             content: `Tracked <#${thread.id}>`,
-            ephemeral: true,
             components: reportId
               ? [
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -74,9 +79,8 @@ export const Command = [
               error,
             });
             yield* Effect.tryPromise(() =>
-              interaction.reply({
+              interaction.editReply({
                 content: "Failed to track message",
-                ephemeral: true,
               }),
             ).pipe(Effect.catchAll(() => Effect.void));
           }),
