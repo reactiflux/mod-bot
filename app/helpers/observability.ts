@@ -22,11 +22,16 @@ export const log = (
   console.log(
     JSON.stringify(logEntry, (key, value) => {
       if (value instanceof Error) {
-        return {
+        const errorObj: Record<string, unknown> = {
           name: value.name,
           message: value.message,
           stack: value.stack,
         };
+        const cause = (value as { cause?: unknown }).cause;
+        if (cause !== undefined) {
+          errorObj.cause = cause;
+        }
+        return errorObj;
       }
       return value;
     }),
