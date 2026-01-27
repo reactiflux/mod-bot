@@ -1,6 +1,7 @@
 import { ApplicationCommandType } from "discord-api-types/v10";
 import {
   ContextMenuCommandBuilder,
+  MessageFlags,
   PermissionFlagsBits,
   type MessageContextMenuCommandInteraction,
 } from "discord.js";
@@ -16,6 +17,9 @@ const command = new ContextMenuCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
 
 const handler = async (interaction: MessageContextMenuCommandInteraction) => {
+  // Defer immediately to avoid 3-second timeout - creating threads can take time
+  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
   await trackPerformance(
     "reportCommand",
     async () => {
@@ -50,8 +54,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
         // Track command success
         commandStats.commandExecuted(interaction, "report", true);
 
-        await interaction.reply({
-          ephemeral: true,
+        await interaction.editReply({
           content: "This message has been reported anonymously",
         });
       } catch (error) {
@@ -69,8 +72,7 @@ const handler = async (interaction: MessageContextMenuCommandInteraction) => {
         // Track command failure in business analytics
         commandStats.commandFailed(interaction, "report", err.message);
 
-        await interaction.reply({
-          ephemeral: true,
+        await interaction.editReply({
           content: "Failed to submit report. Please try again later.",
         });
       }
