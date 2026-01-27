@@ -1,112 +1,121 @@
-import {
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-  type ChatInputCommandInteraction,
-} from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { Effect } from "effect";
 
+import { logEffect } from "#~/effects/observability.ts";
+import type { EffectSlashCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
-import { log, trackPerformance } from "#~/helpers/observability";
 import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 
-const command = new SlashCommandBuilder()
-  .setName("setup")
-  .setDescription("Set up necessities for using the bot")
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  .addRoleOption((x) =>
-    x
-      .setName("moderator")
-      .setDescription("The role that grants moderator permissions for a user")
-      .setRequired(true),
-  )
-  .addChannelOption((x) =>
-    x
-      .setName("mod-log-channel")
-      .setDescription("The channel where moderation reports will be sent")
-      .setRequired(true),
-  )
-  .addRoleOption((x) =>
-    x
-      .setName("restricted")
-      .setDescription(
-        "The role that prevents a member from accessing some channels",
-      ),
-  ) as SlashCommandBuilder;
+export const Command = {
+  type: "effect",
+  command: new SlashCommandBuilder()
+    .setName("setup")
+    .setDescription("Set up necessities for using the bot")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addRoleOption((x) =>
+      x
+        .setName("moderator")
+        .setDescription("The role that grants moderator permissions for a user")
+        .setRequired(true),
+    )
+    .addChannelOption((x) =>
+      x
+        .setName("mod-log-channel")
+        .setDescription("The channel where moderation reports will be sent")
+        .setRequired(true),
+    )
+    .addRoleOption((x) =>
+      x
+        .setName("restricted")
+        .setDescription(
+          "The role that prevents a member from accessing some channels",
+        ),
+    ) as SlashCommandBuilder,
 
-const handler = async (interaction: ChatInputCommandInteraction) => {
-  await trackPerformance(
-    "setupCommand",
-    async () => {
-      log("info", "Commands", "Setup command executed", {
+  handler: (interaction) =>
+    Effect.gen(function* () {
+      yield* logEffect("info", "Commands", "Setup command executed", {
         guildId: interaction.guildId,
         userId: interaction.user.id,
         username: interaction.user.username,
       });
 
-      try {
-        if (!interaction.guild) throw new Error("Interaction has no guild");
-
-        await registerGuild(interaction.guildId!);
-
-        const role = interaction.options.getRole("moderator");
-        const channel = interaction.options.getChannel("mod-log-channel");
-        const restricted = interaction.options.getRole("restricted");
-        if (!role) throw new Error("Interaction has no role");
-        if (!channel) throw new Error("Interaction has no channel");
-
-        const settings = {
-          [SETTINGS.modLog]: channel.id,
-          [SETTINGS.moderator]: role.id,
-          [SETTINGS.restricted]: restricted?.id,
-        };
-
-        await setSettings(interaction.guildId!, settings);
-
-        log("info", "Commands", "Setup completed successfully", {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-          moderatorRoleId: role.id,
-          modLogChannelId: channel.id,
-          restrictedRoleId: restricted?.id,
-          hasRestrictedRole: !!restricted,
-        });
-
-        // Track successful setup in business analytics
-        commandStats.setupCompleted(interaction, {
-          moderator: role.id,
-          modLog: channel.id,
-          restricted: restricted?.id,
-        });
-
-        // Track command success
-        commandStats.commandExecuted(interaction, "setup", true);
-
-        await interaction.reply("Setup completed!");
-      } catch (e) {
-        const error = e instanceof Error ? e : new Error(String(e));
-
-        log("error", "Commands", "Setup command failed", {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-          error: error.message,
-          stack: error.stack,
-        });
-
-        // Track command failure in business analytics
-        commandStats.commandFailed(interaction, "setup", error.message);
-
-        await interaction.reply(`Something broke:
-\`\`\`
-${error.toString()}
-\`\`\`
-`);
+      if (!interaction.guild) {
+        yield* Effect.fail(new Error("Interaction has no guild"));
+        return;
       }
-    },
-    {
-      commandName: "setup",
-      guildId: interaction.guildId,
-      userId: interaction.user.id,
-    },
-  );
-};
 
-export const Command = { handler, command };
+      yield* Effect.tryPromise(() => registerGuild(interaction.guildId!));
+
+      const role = interaction.options.getRole("moderator");
+      const channel = interaction.options.getChannel("mod-log-channel");
+      const restricted = interaction.options.getRole("restricted");
+
+      if (!role) {
+        yield* Effect.fail(new Error("Interaction has no role"));
+        return;
+      }
+      if (!channel) {
+        yield* Effect.fail(new Error("Interaction has no channel"));
+        return;
+      }
+
+      const settings = {
+        [SETTINGS.modLog]: channel.id,
+        [SETTINGS.moderator]: role.id,
+        [SETTINGS.restricted]: restricted?.id,
+      };
+
+      yield* Effect.tryPromise(() =>
+        setSettings(interaction.guildId!, settings),
+      );
+
+      yield* logEffect("info", "Commands", "Setup completed successfully", {
+        guildId: interaction.guildId,
+        userId: interaction.user.id,
+        moderatorRoleId: role.id,
+        modLogChannelId: channel.id,
+        restrictedRoleId: restricted?.id,
+        hasRestrictedRole: !!restricted,
+      });
+
+      commandStats.setupCompleted(interaction, {
+        moderator: role.id,
+        modLog: channel.id,
+        restricted: restricted?.id,
+      });
+
+      commandStats.commandExecuted(interaction, "setup", true);
+
+      yield* Effect.tryPromise(() => interaction.reply("Setup completed!"));
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const err = error instanceof Error ? error : new Error(String(error));
+
+          yield* logEffect("error", "Commands", "Setup command failed", {
+            guildId: interaction.guildId,
+            userId: interaction.user.id,
+            error: err.message,
+            stack: err.stack,
+          });
+
+          commandStats.commandFailed(interaction, "setup", err.message);
+
+          yield* Effect.tryPromise(() =>
+            interaction.reply(`Something broke:
+\`\`\`
+${err.toString()}
+\`\`\`
+`),
+          ).pipe(Effect.catchAll(() => Effect.void));
+        }),
+      ),
+      Effect.withSpan("setupCommand", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
+} satisfies EffectSlashCommand;
