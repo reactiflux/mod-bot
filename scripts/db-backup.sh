@@ -1,14 +1,18 @@
 #!/bin/bash
-# Backup the production database from Kubernetes pod to local destination.
-# Usage: ./scripts/db-backup.sh [destination]
+# Backup the production database using better-sqlite3's backup API.
+# Produces a single consistent file without needing to copy WAL/SHM.
 #
-# Arguments:
-#   destination - Optional path for backup file. Defaults to timestamped file in current directory.
+# Usage: ./scripts/db-backup.sh [destination]
 
 set -euo pipefail
 
-POD_NAME="mod-bot-set-0"
-REMOTE_DB_PATH="/data/mod-bot.sqlite3"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/db-common.sh"
+
+check_kubectl
+check_sqlite3_local
+
+REMOTE_BACKUP_PATH="/data/mod-bot-backup-tmp.sqlite3"
 
 # Determine destination path
 if [[ $# -ge 1 ]]; then
@@ -18,43 +22,50 @@ else
     DESTINATION="./mod-bot-backup-${TIMESTAMP}.sqlite3"
 fi
 
-echo "Backing up database from ${POD_NAME}..."
+# Cleanup: remove temp file from pod on exit
+cleanup() {
+    echo "Cleaning up temporary backup on pod..."
+    kubectl exec "${POD_NAME}" -- rm -f "${REMOTE_BACKUP_PATH}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+echo "Backing up database from ${POD_NAME}"
 echo "  Source: ${POD_NAME}:${REMOTE_DB_PATH}"
 echo "  Destination: ${DESTINATION}"
-echo
+echo ""
 
-# Copy the database file from the pod
-if ! kubectl cp "${POD_NAME}:${REMOTE_DB_PATH}" "${DESTINATION}"; then
-    echo "Error: Failed to copy database from pod" >&2
-    exit 1
-fi
+log_step "Creating consistent backup on pod via better-sqlite3"
+kubectl exec "${POD_NAME}" -- node -e "
+const Database = require('better-sqlite3');
+const db = new Database('${REMOTE_DB_PATH}', { readonly: true });
+db.backup('${REMOTE_BACKUP_PATH}')
+  .then(() => {
+    db.close();
+    console.log('Backup created successfully on pod');
+  })
+  .catch(err => {
+    db.close();
+    console.error('Backup failed: ' + err.message);
+    process.exit(1);
+  });
+"
 
-# Also copy WAL and SHM files if they exist (for complete backup)
-echo "Checking for WAL files..."
-if kubectl exec "${POD_NAME}" -- test -f "${REMOTE_DB_PATH}-wal" 2>/dev/null; then
-    echo "  Copying WAL file..."
-    kubectl cp "${POD_NAME}:${REMOTE_DB_PATH}-wal" "${DESTINATION}-wal" 2>/dev/null || true
-fi
+log_step "Downloading backup to local machine"
+kubectl cp "${POD_NAME}:${REMOTE_BACKUP_PATH}" "${DESTINATION}"
 
-if kubectl exec "${POD_NAME}" -- test -f "${REMOTE_DB_PATH}-shm" 2>/dev/null; then
-    echo "  Copying SHM file..."
-    kubectl cp "${POD_NAME}:${REMOTE_DB_PATH}-shm" "${DESTINATION}-shm" 2>/dev/null || true
-fi
-
-# Show file size
 FILE_SIZE=$(ls -lh "${DESTINATION}" | awk '{print $5}')
-echo
-echo "Backup complete!"
 echo "  File: ${DESTINATION}"
 echo "  Size: ${FILE_SIZE}"
 
-# Quick integrity check
-echo
-echo "Running quick integrity check..."
+log_step "Running local integrity check"
 INTEGRITY=$(sqlite3 "${DESTINATION}" "PRAGMA quick_check;" 2>&1)
 if [[ "${INTEGRITY}" == "ok" ]]; then
-    echo "  Integrity: OK"
+    echo "  Integrity: PASSED"
 else
     echo "  Integrity: ISSUES DETECTED"
-    echo "  Run ./scripts/db-integrity.sh ${DESTINATION} for details"
+    echo "  Run ./scripts/db-integrity.sh for details on the production database"
+    echo "  The backup may reflect pre-existing corruption in the source."
 fi
+
+echo ""
+echo "Backup complete: ${DESTINATION}"

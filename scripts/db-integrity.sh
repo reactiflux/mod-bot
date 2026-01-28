@@ -1,137 +1,129 @@
 #!/bin/bash
-# Run integrity checks on a local SQLite database and display a summary.
+# Run integrity checks on the production database via kubectl exec.
+# Read-only, non-invasive. Runs against the live pod using better-sqlite3.
 #
-# Usage: ./scripts/db-integrity.sh <database-file>
-#
-# Performs:
-#   - PRAGMA integrity_check
-#   - PRAGMA foreign_key_check
-#   - REINDEX with constraint violation detection
-#   - Table row counts
-#   - Overall health status report
+# Usage: ./scripts/db-integrity.sh
 
 set -euo pipefail
 
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <database-file>" >&2
-    exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/db-common.sh"
 
-DB_FILE="$1"
+check_kubectl
 
-if [[ ! -f "${DB_FILE}" ]]; then
-    echo "Error: Database file not found: ${DB_FILE}" >&2
-    exit 1
-fi
-
-echo "Database Integrity Report"
-echo "File: ${DB_FILE}"
-echo "Size: $(ls -lh "${DB_FILE}" | awk '{print $5}')"
+echo "Database Integrity Report (Remote)"
+echo "Pod: ${POD_NAME}"
+echo "Database: ${REMOTE_DB_PATH}"
 echo "Date: $(date)"
-echo
+echo ""
 
-ISSUES_FOUND=0
+# Run all checks in a single node -e invocation to minimize kubectl exec overhead.
+# The node script outputs formatted text and exits with code 1 if issues are found.
+kubectl exec "${POD_NAME}" -- node -e "
+const Database = require('better-sqlite3');
+let db;
+try {
+  db = new Database('${REMOTE_DB_PATH}', { readonly: true });
+} catch (e) {
+  console.log('Error: Could not open database: ' + e.message);
+  process.exit(1);
+}
 
-# Integrity check (use quick_check first, it's faster and less likely to crash on corrupt DBs)
-echo "1. PRAGMA quick_check"
-INTEGRITY_RESULT=$(sqlite3 "${DB_FILE}" "PRAGMA quick_check;" 2>&1)
-if [[ "${INTEGRITY_RESULT}" == "ok" ]]; then
-    echo "Status: PASSED"
-else
-    echo "Status: FAILED"
-    echo "Details:"
-    echo "${INTEGRITY_RESULT}" | head -10
-    if [[ $(echo "${INTEGRITY_RESULT}" | wc -l) -gt 10 ]]; then
-        echo "... (truncated, $(echo "${INTEGRITY_RESULT}" | wc -l) total issues)"
-    fi
-    ISSUES_FOUND=1
-fi
-echo
+let issues = 0;
 
-# Foreign key check
-echo "2. PRAGMA foreign_key_check"
-FK_RESULT=$(sqlite3 "${DB_FILE}" "PRAGMA foreign_key_check;" 2>&1)
-if [[ -z "${FK_RESULT}" ]]; then
-    echo "Status: PASSED (no violations)"
-else
-    echo "Status: FAILED"
-    echo "Violations found:"
-    echo "${FK_RESULT}" | head -10
-    if [[ $(echo "${FK_RESULT}" | wc -l) -gt 10 ]]; then
-        echo "... (truncated)"
-    fi
-    ISSUES_FOUND=1
-fi
-echo
+// 1. quick_check
+console.log('1. PRAGMA quick_check');
+try {
+  const rows = db.pragma('quick_check');
+  const results = rows.map(r => r.quick_check);
+  if (results.length === 1 && results[0] === 'ok') {
+    console.log('   Status: PASSED');
+  } else {
+    console.log('   Status: FAILED');
+    console.log('   Details:');
+    results.slice(0, 10).forEach(r => console.log('   ' + r));
+    if (results.length > 10) console.log('   ... (' + results.length + ' total issues)');
+    issues++;
+  }
+} catch (e) {
+  console.log('   Status: ERROR');
+  console.log('   ' + e.message);
+  issues++;
+}
 
-# REINDEX attempt (may fail on corrupt databases)
-echo "3. REINDEX check"
-if REINDEX_RESULT=$(sqlite3 "${DB_FILE}" "REINDEX;" 2>&1); then
-    if [[ -z "${REINDEX_RESULT}" ]]; then
-        echo "Status: PASSED"
-    else
-        echo "Status: ISSUES DETECTED"
-        echo "Details:"
-        echo "${REINDEX_RESULT}" | head -10
-        if [[ $(echo "${REINDEX_RESULT}" | wc -l) -gt 10 ]]; then
-            echo "... (truncated)"
-        fi
-        ISSUES_FOUND=1
-    fi
-else
-    echo "Status: FAILED (sqlite3 crashed or errored)"
-    echo "This usually indicates severe corruption."
-    if [[ -n "${REINDEX_RESULT}" ]]; then
-        echo "Details:"
-        echo "${REINDEX_RESULT}" | head -10
-        if [[ $(echo "${REINDEX_RESULT}" | wc -l) -gt 10 ]]; then
-            echo "... (truncated)"
-        fi
-    fi
-    ISSUES_FOUND=1
-fi
-echo
+// 2. foreign_key_check
+console.log('');
+console.log('2. PRAGMA foreign_key_check');
+try {
+  const fkRows = db.pragma('foreign_key_check');
+  if (fkRows.length === 0) {
+    console.log('   Status: PASSED (no violations)');
+  } else {
+    console.log('   Status: FAILED');
+    console.log('   Violations: ' + fkRows.length);
+    fkRows.slice(0, 10).forEach(v => console.log('   ' + JSON.stringify(v)));
+    if (fkRows.length > 10) console.log('   ... (truncated)');
+    issues++;
+  }
+} catch (e) {
+  console.log('   Status: ERROR');
+  console.log('   ' + e.message);
+  issues++;
+}
 
-# Table row counts
-echo "4. Table Statistics"
+// 3. Table row counts
+console.log('');
+console.log('3. Table Row Counts');
+try {
+  const tables = db.prepare(\"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name\").all();
+  let total = 0;
+  const entries = [];
+  for (const t of tables) {
+    try {
+      const row = db.prepare('SELECT COUNT(*) as c FROM \"' + t.name + '\"').get();
+      entries.push([t.name, String(row.c)]);
+      total += row.c;
+    } catch (e) {
+      entries.push([t.name, 'ERROR']);
+    }
+  }
+  const maxName = Math.max(...entries.map(e => e[0].length), 5);
+  const maxCount = Math.max(...entries.map(e => e[1].length), 5);
+  entries.forEach(([name, count]) => {
+    console.log('   ' + name.padEnd(maxName + 2) + count.padStart(maxCount));
+  });
+  console.log('   ' + '---'.padEnd(maxName + 2) + '---'.padStart(maxCount));
+  console.log('   ' + 'TOTAL'.padEnd(maxName + 2) + String(total).padStart(maxCount));
+} catch (e) {
+  console.log('   Error: ' + e.message);
+}
 
-TABLES=$(sqlite3 "${DB_FILE}" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;")
-TOTAL_ROWS=0
-TABLE_DATA="Table,Rows"
+// 4. DB config
+console.log('');
+console.log('4. Database Configuration');
+try {
+  console.log('   Journal mode:   ' + db.pragma('journal_mode')[0].journal_mode);
+  console.log('   Page size:      ' + db.pragma('page_size')[0].page_size);
+  console.log('   Page count:     ' + db.pragma('page_count')[0].page_count);
+  console.log('   Freelist count: ' + db.pragma('freelist_count')[0].freelist_count);
+} catch (e) {
+  console.log('   Error: ' + e.message);
+}
 
-for TABLE in ${TABLES}; do
-    ROW_COUNT=$(sqlite3 "${DB_FILE}" "SELECT COUNT(*) FROM \"${TABLE}\";" 2>/dev/null || echo "ERROR")
-    TABLE_DATA="${TABLE_DATA}"$'\n'"${TABLE},${ROW_COUNT}"
-    if [[ "${ROW_COUNT}" != "ERROR" ]]; then
-        TOTAL_ROWS=$((TOTAL_ROWS + ROW_COUNT))
-    fi
-done
+db.close();
 
-TABLE_DATA="${TABLE_DATA}"$'\n'"---,---"
-TABLE_DATA="${TABLE_DATA}"$'\n'"TOTAL,${TOTAL_ROWS}"
-echo "${TABLE_DATA}" | column -t -s ','
-echo
+// 5. Overall health
+console.log('');
+console.log('5. Overall Health Status');
+if (issues === 0) {
+  console.log('   Status: HEALTHY');
+  console.log('   The database appears to be in good condition.');
+} else {
+  console.log('   Status: ISSUES DETECTED');
+  console.log('   Review the findings above. Consider running:');
+  console.log('     ./scripts/db-recover.sh');
+}
+console.log('');
 
-# SQLite version and settings
-echo "5. Database Configuration"
-echo "SQLite version: $(sqlite3 "${DB_FILE}" "SELECT sqlite_version();")"
-echo "Journal mode: $(sqlite3 "${DB_FILE}" "PRAGMA journal_mode;")"
-echo "Page size: $(sqlite3 "${DB_FILE}" "PRAGMA page_size;")"
-echo "Page count: $(sqlite3 "${DB_FILE}" "PRAGMA page_count;")"
-echo "Freelist count: $(sqlite3 "${DB_FILE}" "PRAGMA freelist_count;")"
-echo "Auto vacuum: $(sqlite3 "${DB_FILE}" "PRAGMA auto_vacuum;")"
-echo
-
-# Overall health status
-echo "Overall Health Status"
-if [[ ${ISSUES_FOUND} -eq 0 ]]; then
-    echo "Status: HEALTHY"
-    echo "The database appears to be in good condition."
-else
-    echo "Status: ISSUES DETECTED"
-    echo "Review the findings above. Consider running:"
-    echo "  ./scripts/db-rebuild.sh ${DB_FILE}"
-fi
-echo
-
-exit ${ISSUES_FOUND}
+process.exit(issues > 0 ? 1 : 0);
+"
