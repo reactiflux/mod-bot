@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
@@ -75,7 +76,7 @@ export const Command = [
 
         await interaction.reply({
           content: "Honeypot setup completed successfully!",
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
         });
       } catch (e) {
         log("error", "HoneypotSetup", "Error during honeypot action", {
@@ -83,7 +84,7 @@ export const Command = [
         });
         await interaction.reply({
           content: "Failed to setup honeypot. Please try again.",
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
         });
       }
     },

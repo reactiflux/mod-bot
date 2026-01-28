@@ -1,5 +1,9 @@
 import { NodeSdk } from "@effect/opentelemetry";
 import {
+  BatchSpanProcessor,
+  ConsoleSpanExporter,
+} from "@opentelemetry/sdk-trace-base";
+import {
   SentryPropagator,
   SentrySampler,
   SentrySpanProcessor,
@@ -25,7 +29,9 @@ export const TracingLive = NodeSdk.layer(() => ({
   resource: { serviceName: "mod-bot" },
   // Only add Sentry processors if Sentry is configured
   // SentrySpanProcessor is already a SpanProcessor, don't wrap in BatchSpanProcessor
-  spanProcessor: isValidDsn ? new SentrySpanProcessor() : undefined,
+  spanProcessor: isValidDsn
+    ? new SentrySpanProcessor()
+    : new BatchSpanProcessor(new ConsoleSpanExporter()),
   sampler:
     isValidDsn && sentryClient ? new SentrySampler(sentryClient) : undefined,
   propagator: isValidDsn ? new SentryPropagator() : undefined,

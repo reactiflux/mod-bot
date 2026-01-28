@@ -18,7 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write",
-    "validate": "run-p \"test -- run\" lint typecheck format",
+    "validate": "run-p \"test -- run\" lint typecheck",
     "kysely": "kysely",
     "": "",
     "start:migrate": "kysely --no-outdated-check migrate:list; kysely --no-outdated-check migrate:latest",

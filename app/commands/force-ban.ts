@@ -1,6 +1,7 @@
 import { ApplicationCommandType } from "discord-api-types/v10";
 import {
   ContextMenuCommandBuilder,
+  MessageFlags,
   PermissionFlagsBits,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
@@ -38,7 +39,7 @@ const handler = async (interaction: UserContextMenuCommandInteraction) => {
         commandStats.commandFailed(interaction, "force-ban", "No guild found");
 
         await interaction.reply({
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
           content: "Failed to ban user, couldn't find guild",
         });
         return;
@@ -60,7 +61,7 @@ const handler = async (interaction: UserContextMenuCommandInteraction) => {
         commandStats.commandExecuted(interaction, "force-ban", true);
 
         await interaction.reply({
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
           content: "This member has been banned",
         });
       } catch (error) {
@@ -78,7 +79,7 @@ const handler = async (interaction: UserContextMenuCommandInteraction) => {
         commandStats.commandFailed(interaction, "force-ban", err.message);
 
         await interaction.reply({
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
           content:
             "Failed to ban user, try checking the bot's permissions. If they look okay, make sure that the bot's role is near the top of the roles list — bots can't ban users with roles above their own.",
         });

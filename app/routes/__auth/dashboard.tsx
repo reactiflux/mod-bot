@@ -12,6 +12,11 @@ import { getTopParticipants } from "#~/models/activity.server";
 import type { Route } from "./+types/dashboard";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
+  // Star Hunter is only enabled for Reactiflux
+  if (params.guildId !== "102860784329052160") {
+    throw new Response("Not Found", { status: 404 });
+  }
+
   return trackPerformance(
     "dashboardLoader",
     async () => {

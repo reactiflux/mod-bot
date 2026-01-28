@@ -31,6 +31,12 @@ export class ConfigError extends Data.TaggedError("ConfigError")<{
   message: string;
 }> {}
 
+export class DatabaseCorruptionError extends Data.TaggedError(
+  "DatabaseCorruptionError",
+)<{
+  readonly errors: string;
+}> {}
+
 // Escalation-specific errors
 
 export class EscalationNotFoundError extends Data.TaggedError(

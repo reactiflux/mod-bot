@@ -235,7 +235,7 @@ ${quoteMessageContent(concern)}`);
 
       void interaction.reply({
         content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
       });
       return;
     },
@@ -252,7 +252,7 @@ ${quoteMessageContent(concern)}`);
         );
         await interaction.reply({
           content: "Something went wrong",
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
         });
         return;
       }

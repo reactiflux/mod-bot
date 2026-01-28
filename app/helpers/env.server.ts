@@ -29,6 +29,7 @@ console.log("");
 export const databaseUrl = getEnv("DATABASE_URL");
 export const sessionSecret = getEnv("SESSION_SECRET", true);
 
+export const emergencyWebhook = getEnv("EMERGENCY_WEBHOOK", true);
 export const applicationKey = getEnv("DISCORD_PUBLIC_KEY");
 export const discordSecret = getEnv("DISCORD_SECRET");
 export const applicationId = getEnv("DISCORD_APP_ID");

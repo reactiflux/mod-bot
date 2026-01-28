@@ -79,9 +79,7 @@ export const Command = [
               error,
             });
             yield* Effect.tryPromise(() =>
-              interaction.editReply({
-                content: "Failed to track message",
-              }),
+              interaction.editReply({ content: "Failed to track message" }),
             ).pipe(Effect.catchAll(() => Effect.void));
           }),
         ),
