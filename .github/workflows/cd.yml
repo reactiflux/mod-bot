@@ -160,7 +160,8 @@ jobs:
 
       # --- Preview deployment (PR branches only) ---
       - name: Deploy preview
-        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+        if: false
+        # if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         run: |
           PR_NUMBER=${{ steps.get-pr.outputs.result }}
           echo "Deploying preview for PR #${PR_NUMBER}"
