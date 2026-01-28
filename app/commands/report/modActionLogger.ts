@@ -1,7 +1,6 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import {
   AuditLogEvent,
-  AutoModerationActionType,
   Events,
   type AutoModerationActionExecution,
   type Client,
@@ -23,26 +22,6 @@ import { logModAction } from "./modActionLog";
 
 // Time window to check audit log for matching entries (5 seconds)
 const AUDIT_LOG_WINDOW_MS = 5000;
-
-// Deduplication for automod events - Discord fires multiple events per trigger
-const recentAutomodTriggers = new Set<string>();
-
-const getAutomodDedupeKey = (userId: string, guildId: string): string => {
-  // Group events within the same second
-  const timeWindow = Math.floor(Date.now() / 1000);
-  return `${userId}:${guildId}:${timeWindow}`;
-};
-
-const shouldProcessAutomod = (userId: string, guildId: string): boolean => {
-  const key = getAutomodDedupeKey(userId, guildId);
-  if (recentAutomodTriggers.has(key)) {
-    return false; // Already processed an event for this trigger
-  }
-  recentAutomodTriggers.add(key);
-  // Clean up after 2 seconds to prevent memory leak
-  setTimeout(() => recentAutomodTriggers.delete(key), 2000);
-  return true;
-};
 
 interface AuditLogEntryResult {
   executor: User | PartialUser | null;
@@ -268,32 +247,6 @@ const automodActionEffect = (execution: AutoModerationActionExecution) =>
       matchedKeyword,
       autoModerationRule,
     } = execution;
-
-    // Only log actions that actually affected a message
-    if (action.type === AutoModerationActionType.Timeout) {
-      yield* logEffect(
-        "info",
-        "Automod",
-        "Skipping timeout action (no message to log)",
-        {
-          userId,
-          guildId: guild.id,
-          ruleId: autoModerationRule?.name,
-        },
-      );
-      return;
-    }
-
-    // Deduplicate: only process first event per user/guild/second
-    // Discord fires multiple events (BlockMessage, SendAlertMessage, etc.) for one trigger
-    if (!shouldProcessAutomod(userId, guild.id)) {
-      yield* logEffect("debug", "Automod", "Skipping duplicate automod event", {
-        userId,
-        guildId: guild.id,
-        actionType: action.type,
-      });
-      return;
-    }
 
     yield* logEffect("info", "Automod", "Automod action executed", {
       userId,

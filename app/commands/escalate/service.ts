@@ -6,7 +6,7 @@ import { DatabaseLayer, DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
 import {
   AlreadyResolvedError,
-  EscalationNotFoundError,
+  NotFoundError,
   ResolutionExecutionError,
 } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
@@ -47,7 +47,7 @@ export interface IEscalationService {
    */
   readonly getEscalation: (
     id: string,
-  ) => Effect.Effect<Escalation, EscalationNotFoundError | SqlError>;
+  ) => Effect.Effect<Escalation, NotFoundError | SqlError>;
 
   /**
    * Record a vote for an escalation.
@@ -70,10 +70,7 @@ export interface IEscalationService {
   readonly resolveEscalation: (
     id: string,
     resolution: Resolution,
-  ) => Effect.Effect<
-    void,
-    EscalationNotFoundError | AlreadyResolvedError | SqlError
-  >;
+  ) => Effect.Effect<void, NotFoundError | AlreadyResolvedError | SqlError>;
 
   /**
    * Update the voting strategy for an escalation.
@@ -168,7 +165,7 @@ export const EscalationServiceLive = Layer.effect(
 
           if (!escalation) {
             return yield* Effect.fail(
-              new EscalationNotFoundError({ escalationId: id }),
+              new NotFoundError({ id, resource: "escalation" }),
             );
           }
 
@@ -258,7 +255,7 @@ export const EscalationServiceLive = Layer.effect(
 
           if (!escalation) {
             return yield* Effect.fail(
-              new EscalationNotFoundError({ escalationId: id }),
+              new NotFoundError({ id, resource: "escalation" }),
             );
           }
 

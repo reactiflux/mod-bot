@@ -91,7 +91,7 @@ const makeUserThread = (channel: TextChannel, user: User) =>
   Effect.tryPromise({
     try: () => channel.threads.create({ name: `${user.username} logs` }),
     catch: (error) =>
-      new DiscordApiError({ operation: "createThread", discordError: error }),
+      new DiscordApiError({ operation: "createThread", cause: error }),
   });
 
 /**
@@ -197,26 +197,20 @@ const doGetOrCreateUserThread = (guild: Guild, user: User) =>
     const { modLog: modLogId } = yield* Effect.tryPromise({
       try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
       catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
+        new DiscordApiError({ operation: "fetchSettings", cause: error }),
     });
 
     const modLog = yield* Effect.tryPromise({
       try: () => guild.channels.fetch(modLogId),
       catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchModLogChannel",
-          discordError: error,
-        }),
+        new DiscordApiError({ operation: "fetchModLogChannel", cause: error }),
     });
 
     if (!modLog || modLog.type !== ChannelType.GuildText) {
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "getOrCreateUserThread",
-          discordError: new Error("Invalid mod log channel"),
+          cause: new Error("Invalid mod log channel"),
         }),
       );
     }
@@ -227,10 +221,7 @@ const doGetOrCreateUserThread = (guild: Guild, user: User) =>
     yield* Effect.tryPromise({
       try: () => escalationControls(user.id, thread),
       catch: (error) =>
-        new DiscordApiError({
-          operation: "escalationControls",
-          discordError: error,
-        }),
+        new DiscordApiError({ operation: "escalationControls", cause: error }),
     });
 
     // Store or update the thread reference

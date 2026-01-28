@@ -8,14 +8,22 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DiscordApiError } from "#~/effects/errors";
+import {
+  editMessage,
+  fetchChannelFromClient,
+  fetchGuild,
+  fetchMemberOrNull,
+  fetchMessage,
+  fetchUserOrNull,
+  replyAndForwardSafe,
+} from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import {
   humanReadableResolutions,
   resolutions,
   type Resolution,
 } from "#~/helpers/modResponse";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
 import { tallyVotes } from "./voting";
@@ -57,19 +65,6 @@ export const processEscalationEffect = (
   Effect.gen(function* () {
     const escalationService = yield* EscalationService;
 
-    const logBag = {
-      escalationId: escalation.id,
-      reportedUserId: escalation.reported_user_id,
-      guildId: escalation.guild_id,
-    };
-
-    yield* logEffect(
-      "info",
-      "EscalationResolver",
-      "Processing due escalation",
-      logBag,
-    );
-
     // Get votes and determine resolution
     const votes = yield* escalationService.getVotesForEscalation(escalation.id);
     const tally = tallyVotes(
@@ -87,11 +82,7 @@ export const processEscalationEffect = (
         "warn",
         "EscalationResolver",
         "Auto-resolve defaulting to track due to tie",
-        {
-          ...logBag,
-          tiedResolutions: tally.tiedResolutions,
-          votingStrategy,
-        },
+        { tiedResolutions: tally.tiedResolutions, votingStrategy },
       );
       resolution = resolutions.track;
     } else if (tally.leader) {
@@ -100,57 +91,20 @@ export const processEscalationEffect = (
       resolution = resolutions.track;
     }
 
-    yield* logEffect(
-      "info",
-      "EscalationResolver",
-      "Auto-resolving escalation",
-      {
-        ...logBag,
+    const [{ modLog }, reportedUser, guild, channel] = yield* Effect.all([
+      fetchSettingsEffect(escalation.guild_id, [SETTINGS.modLog]),
+      fetchUserOrNull(client, escalation.reported_user_id),
+      fetchGuild(client, escalation.guild_id),
+      fetchChannelFromClient<ThreadChannel>(client, escalation.thread_id),
+      logEffect("info", "EscalationResolver", "Auto-resolving escalation", {
         resolution,
-      },
-    );
+      }),
+    ]).pipe(Effect.withConcurrency("unbounded"));
 
-    // Fetch Discord resources
-    const { modLog } = yield* Effect.tryPromise({
-      try: () => fetchSettings(escalation.guild_id, [SETTINGS.modLog]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
-
-    const guild = yield* Effect.tryPromise({
-      try: () => client.guilds.fetch(escalation.guild_id),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", discordError: error }),
-    });
-
-    const channel = yield* Effect.tryPromise({
-      try: () =>
-        client.channels.fetch(escalation.thread_id) as Promise<ThreadChannel>,
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchChannel", discordError: error }),
-    });
-
-    const reportedUser = yield* Effect.tryPromise({
-      try: () => client.users.fetch(escalation.reported_user_id),
-      catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
-
-    const voteMessage = yield* Effect.tryPromise({
-      try: () => channel.messages.fetch(escalation.vote_message_id),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchVoteMessage",
-          discordError: error,
-        }),
-    });
-
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => guild.members.fetch(escalation.reported_user_id),
-      catch: () => null,
-    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    const [reportedMember, voteMessage] = yield* Effect.all([
+      fetchMemberOrNull(guild, escalation.reported_user_id),
+      fetchMessage(channel, escalation.vote_message_id),
+    ]);
 
     // Calculate timing info
     const now = Math.floor(Date.now() / 1000);
@@ -164,109 +118,40 @@ export const processEscalationEffect = (
     const timing = `-# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`;
 
     // Handle case where user left the server or deleted their account
+    const disabledButtons = getDisabledButtons(voteMessage);
     if (!reportedMember) {
       const userLeft = reportedUser !== null;
       const reason = userLeft ? "left the server" : "account no longer exists";
+      const content = `${noticeText}\n${timing} (${reason})`;
 
-      yield* logEffect(
-        "info",
-        "EscalationResolver",
-        "Resolving escalation - user gone",
-        {
-          ...logBag,
-          reason,
-          userLeft,
-        },
-      );
-
-      // Mark as resolved with "track" since we can't take action
-      yield* escalationService.resolveEscalation(
-        escalation.id,
-        resolutions.track,
-      );
-
-      yield* Effect.tryPromise({
-        try: () =>
-          voteMessage.edit({ components: getDisabledButtons(voteMessage) }),
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "editVoteMessage",
-            discordError: error,
-          }),
-      });
-
-      // Try to reply and forward - but don't fail if it doesn't work
-      yield* Effect.tryPromise({
-        try: async () => {
-          const notice = await voteMessage.reply({
-            content: `${noticeText}\n${timing} (${reason})`,
-          });
-          await notice.forward(modLog);
-        },
-        catch: () => null,
-      }).pipe(
-        Effect.catchAll((error) =>
-          logEffect(
-            "warn",
-            "EscalationResolver",
-            "Could not update vote message",
-            {
-              ...logBag,
-              error,
-            },
-          ),
+      yield* Effect.all([
+        logEffect(
+          "info",
+          "EscalationResolver",
+          "Resolving escalation - user gone",
+          { reason, userLeft },
         ),
-      );
+        escalationService.resolveEscalation(escalation.id, resolutions.track),
+        editMessage(voteMessage, { components: disabledButtons }),
+        replyAndForwardSafe(voteMessage, content, modLog),
+      ]).pipe(Effect.withConcurrency("unbounded"));
 
       return { resolution: resolutions.track, userGone: true };
     }
 
-    // Execute the resolution
+    // Execute mod action first, then update DB/Discord in parallel
     yield* escalationService.executeResolution(resolution, escalation, guild);
-
-    // Mark as resolved
-    yield* escalationService.resolveEscalation(escalation.id, resolution);
-
-    // Update Discord message
-    yield* Effect.tryPromise({
-      try: () =>
-        voteMessage.edit({ components: getDisabledButtons(voteMessage) }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "editVoteMessage",
-          discordError: error,
-        }),
-    });
-
-    // Try to reply and forward - but don't fail if it doesn't work
-    yield* Effect.tryPromise({
-      try: async () => {
-        const notice = await voteMessage.reply({
-          content: `${noticeText}\n${timing}`,
-        });
-        await notice.forward(modLog);
-      },
-      catch: () => null,
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect(
-          "warn",
-          "EscalationResolver",
-          "Could not update vote message",
-          {
-            ...logBag,
-            error,
-          },
-        ),
+    yield* Effect.all([
+      escalationService.resolveEscalation(escalation.id, resolution),
+      editMessage(voteMessage, { components: disabledButtons }),
+      replyAndForwardSafe(voteMessage, `${noticeText}\n${timing}`, modLog),
+      logEffect(
+        "info",
+        "EscalationResolver",
+        "Successfully auto-resolved escalation",
+        { resolution },
       ),
-    );
-
-    yield* logEffect(
-      "info",
-      "EscalationResolver",
-      "Successfully auto-resolved escalation",
-      { ...logBag, resolution },
-    );
+    ]).pipe(Effect.withConcurrency("unbounded"));
 
     return { resolution, userGone: false };
   }).pipe(
@@ -274,6 +159,7 @@ export const processEscalationEffect = (
       attributes: {
         escalationId: escalation.id,
         guildId: escalation.guild_id,
+        reportedUserId: escalation.reported_user_id,
       },
     }),
   );
@@ -287,57 +173,37 @@ export const checkPendingEscalationsEffect = (client: Client) =>
     const escalationService = yield* EscalationService;
 
     const due = yield* escalationService.getDueEscalations();
+    yield* Effect.annotateCurrentSpan({ processed: due.length });
 
     if (due.length === 0) {
       return { processed: 0, succeeded: 0, failed: 0 };
     }
 
-    yield* logEffect(
-      "debug",
-      "EscalationResolver",
-      "Processing due escalations",
-      {
-        count: due.length,
-      },
-    );
-
-    let succeeded = 0;
-    let failed = 0;
+    yield* logEffect("debug", "EscalationResolver", "Processing escalations");
 
     // Process escalations sequentially to avoid rate limits
-    for (const escalation of due) {
-      yield* processEscalationEffect(client, escalation).pipe(
-        Effect.map(() => {
-          succeeded++;
-          return true;
-        }),
+    // TODO: In the future, we should have a smarter fetch that manages that
+    const results = yield* Effect.forEach(due, (escalation) =>
+      processEscalationEffect(client, escalation).pipe(
         Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            failed++;
-            yield* logEffect(
-              "error",
-              "EscalationResolver",
-              "Error processing escalation",
-              {
-                escalationId: escalation.id,
-                error: String(error),
-              },
-            );
-            return false;
-          }),
+          logEffect(
+            "error",
+            "EscalationResolver",
+            "Error processing escalation",
+            { escalationId: escalation.id, error: String(error) },
+          ),
         ),
-      );
-    }
+      ),
+    );
+
+    const succeeded = results.filter(Boolean).length;
+    const failed = results.length - succeeded;
 
     yield* logEffect(
       "info",
       "EscalationResolver",
       "Finished processing escalations",
-      {
-        processed: due.length,
-        succeeded,
-        failed,
-      },
+      { succeeded, failed },
     );
 
     return { processed: due.length, succeeded, failed };

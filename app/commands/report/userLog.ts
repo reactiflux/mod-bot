@@ -35,7 +35,7 @@ import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 import {
   constructLog,
   isForwardedMessage,
-  makeReportMessage,
+  ReadableReasons,
 } from "./constructLog";
 
 const getMessageContent = (message: Message): string => {
@@ -78,7 +78,7 @@ export function logUserMessage({
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "logUserMessage",
-          discordError: new Error("Tried to log a message without a guild"),
+          cause: new Error("Tried to log a message without a guild"),
         }),
       );
     }
@@ -91,7 +91,7 @@ export function logUserMessage({
         catch: (error) =>
           new DiscordApiError({
             operation: "fetchSettings",
-            discordError: error,
+            cause: error,
           }),
       }),
       constructLog({
@@ -118,11 +118,7 @@ export function logUserMessage({
       const latestReport = yield* Effect.tryPromise({
         try: async () => {
           try {
-            const reportContents = makeReportMessage({
-              message,
-              reason,
-              staff,
-            });
+            const reportContents = `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`;
             const priorLogMessage = await thread.messages.fetch(
               alreadyReported.log_message_id,
             );
@@ -136,7 +132,7 @@ export function logUserMessage({
         catch: (error) =>
           new DiscordApiError({
             operation: "logUserMessage existing",
-            discordError: error,
+            cause: error,
           }),
       });
 
@@ -198,7 +194,7 @@ export function logUserMessage({
       catch: (error) =>
         new DiscordApiError({
           operation: "sendLogMessages",
-          discordError: error,
+          cause: error,
         }),
     });
 
@@ -229,7 +225,7 @@ export function logUserMessage({
     yield* Effect.tryPromise({
       try: () => logMessage.forward(modLog),
       catch: (error) =>
-        new DiscordApiError({ operation: "forwardLog", discordError: error }),
+        new DiscordApiError({ operation: "forwardLog", cause: error }),
     }).pipe(
       Effect.catchAll((error) =>
         logEffect("error", "logUserMessage", "failed to forward to modLog", {
@@ -248,9 +244,12 @@ export function logUserMessage({
       const truncatedMsg =
         singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
 
+      const stats = yield* getMessageStats(message).pipe(
+        Effect.catchAll(() => Effect.succeed(undefined)),
+      );
+
       yield* Effect.tryPromise({
         try: async () => {
-          const stats = await getMessageStats(message).catch(() => undefined);
           await parentChannel.send({
             allowedMentions: {},
             content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
@@ -259,7 +258,7 @@ export function logUserMessage({
         catch: (error) =>
           new DiscordApiError({
             operation: "logUserMessage",
-            discordError: error,
+            cause: error,
           }),
       }).pipe(
         Effect.catchAll((error) =>

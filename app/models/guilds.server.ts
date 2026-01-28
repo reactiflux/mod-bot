@@ -1,3 +1,6 @@
+import { Effect } from "effect";
+
+import { DatabaseService } from "#~/Database.ts";
 import db, { SqliteError, type DB } from "#~/db.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -114,3 +117,22 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   ) as [T, string][];
   return Object.fromEntries(result) as Pick<SettingsRecord, T>;
 };
+
+export const fetchSettingsEffect = <T extends keyof typeof SETTINGS>(
+  guildId: string,
+  keys: T[],
+) =>
+  Effect.gen(function* () {
+    const db = yield* DatabaseService;
+    const rows = yield* db
+      .selectFrom("guilds")
+      // @ts-expect-error This is broken because of a migration from knex and
+      // old/bad use of jsonb for storing settings. The type is guaranteed here
+      // not by the codegen
+      .select<DB, "guilds", SettingsRecord>((eb) =>
+        keys.map((k) => eb.ref("settings", "->>").key(k).as(k)),
+      )
+      .where("id", "=", guildId);
+    const result = Object.entries(rows[0] ?? {}) as [T, string][];
+    return Object.fromEntries(result) as Pick<SettingsRecord, T>;
+  });

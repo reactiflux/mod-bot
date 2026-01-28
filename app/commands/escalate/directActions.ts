@@ -4,11 +4,12 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { fetchMember } from "#~/effects/discordSdk";
 import { DiscordApiError, NotAuthorizedError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { deleteAllReportedForUserEffect } from "#~/models/reportedMessages";
 
 export interface DeleteMessagesResult {
@@ -29,11 +30,7 @@ export const deleteMessagesEffect = (
     const guildId = interaction.guildId!;
 
     // Check permissions
-    const member = yield* Effect.tryPromise({
-      try: () => interaction.guild!.members.fetch(interaction.user.id),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchMember", discordError: error }),
-    });
+    const member = yield* fetchMember(interaction.guild!, interaction.user.id);
 
     if (!member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
       return yield* Effect.fail(
@@ -85,14 +82,9 @@ export const kickUserEffect = (interaction: MessageComponentInteraction) =>
     const guildId = interaction.guildId!;
 
     // Get settings and check permissions
-    const { moderator: modRoleId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guildId, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId } = yield* fetchSettingsEffect(guildId, [
+      SETTINGS.moderator,
+    ]);
 
     if (!hasModRole(interaction, modRoleId)) {
       return yield* Effect.fail(
@@ -105,20 +97,16 @@ export const kickUserEffect = (interaction: MessageComponentInteraction) =>
     }
 
     // Fetch the reported member
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => interaction.guild!.members.fetch(reportedUserId),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchReportedMember",
-          discordError: error,
-        }),
-    });
+    const reportedMember = yield* fetchMember(
+      interaction.guild!,
+      reportedUserId,
+    );
 
     // Execute kick
     yield* Effect.tryPromise({
       try: () => kick(reportedMember, "single moderator decision"),
       catch: (error) =>
-        new DiscordApiError({ operation: "kick", discordError: error }),
+        new DiscordApiError({ operation: "kick", cause: error }),
     });
 
     yield* logEffect("info", "DirectActions", "Kicked user", {
@@ -147,14 +135,9 @@ export const banUserEffect = (interaction: MessageComponentInteraction) =>
     const guildId = interaction.guildId!;
 
     // Get settings and check permissions
-    const { moderator: modRoleId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guildId, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId } = yield* fetchSettingsEffect(guildId, [
+      SETTINGS.moderator,
+    ]);
 
     if (!hasModRole(interaction, modRoleId)) {
       return yield* Effect.fail(
@@ -167,20 +150,15 @@ export const banUserEffect = (interaction: MessageComponentInteraction) =>
     }
 
     // Fetch the reported member
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => interaction.guild!.members.fetch(reportedUserId),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchReportedMember",
-          discordError: error,
-        }),
-    });
+    const reportedMember = yield* fetchMember(
+      interaction.guild!,
+      reportedUserId,
+    );
 
     // Execute ban
     yield* Effect.tryPromise({
       try: () => ban(reportedMember, "single moderator decision"),
-      catch: (error) =>
-        new DiscordApiError({ operation: "ban", discordError: error }),
+      catch: (error) => new DiscordApiError({ operation: "ban", cause: error }),
     });
 
     yield* logEffect("info", "DirectActions", "Banned user", {
@@ -209,14 +187,9 @@ export const restrictUserEffect = (interaction: MessageComponentInteraction) =>
     const guildId = interaction.guildId!;
 
     // Get settings and check permissions
-    const { moderator: modRoleId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guildId, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId } = yield* fetchSettingsEffect(guildId, [
+      SETTINGS.moderator,
+    ]);
 
     if (!hasModRole(interaction, modRoleId)) {
       return yield* Effect.fail(
@@ -229,14 +202,10 @@ export const restrictUserEffect = (interaction: MessageComponentInteraction) =>
     }
 
     // Fetch the reported member
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => interaction.guild!.members.fetch(reportedUserId),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchReportedMember",
-          discordError: error,
-        }),
-    });
+    const reportedMember = yield* fetchMember(
+      interaction.guild!,
+      reportedUserId,
+    );
 
     // Execute restriction
     yield* Effect.tryPromise({
@@ -244,7 +213,7 @@ export const restrictUserEffect = (interaction: MessageComponentInteraction) =>
       catch: (error) =>
         new DiscordApiError({
           operation: "applyRestriction",
-          discordError: error,
+          cause: error,
         }),
     });
 
@@ -274,14 +243,9 @@ export const timeoutUserEffect = (interaction: MessageComponentInteraction) =>
     const guildId = interaction.guildId!;
 
     // Get settings and check permissions
-    const { moderator: modRoleId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guildId, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId } = yield* fetchSettingsEffect(guildId, [
+      SETTINGS.moderator,
+    ]);
 
     if (!hasModRole(interaction, modRoleId)) {
       return yield* Effect.fail(
@@ -294,20 +258,16 @@ export const timeoutUserEffect = (interaction: MessageComponentInteraction) =>
     }
 
     // Fetch the reported member
-    const reportedMember = yield* Effect.tryPromise({
-      try: () => interaction.guild!.members.fetch(reportedUserId),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchReportedMember",
-          discordError: error,
-        }),
-    });
+    const reportedMember = yield* fetchMember(
+      interaction.guild!,
+      reportedUserId,
+    );
 
     // Execute timeout
     yield* Effect.tryPromise({
       try: () => timeout(reportedMember, "single moderator decision"),
       catch: (error) =>
-        new DiscordApiError({ operation: "timeout", discordError: error }),
+        new DiscordApiError({ operation: "timeout", cause: error }),
     });
 
     yield* logEffect("info", "DirectActions", "Timed out user", {

@@ -2,11 +2,10 @@ import { AutoModerationActionType, type Guild, type User } from "discord.js";
 import { Effect } from "effect";
 
 import { DatabaseLayer } from "#~/Database";
-import { DiscordApiError } from "#~/effects/errors";
+import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
-import { truncateMessage } from "#~/helpers/string";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
 export interface AutomodReport {
@@ -20,22 +19,23 @@ export interface AutomodReport {
   actionType: AutoModerationActionType;
 }
 
-const ActionTypeLabels: Record<AutoModerationActionType, string> = {
-  [AutoModerationActionType.BlockMessage]: "blocked message",
-  [AutoModerationActionType.SendAlertMessage]: "sent alert",
-  [AutoModerationActionType.Timeout]: "timed out user",
-  [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
-};
-
 export const logAutomod = ({
   guild,
   user,
   channelId,
   ruleName,
   matchedKeyword,
+  // TODO: log the full blocked message content
+  // content,
   actionType,
 }: AutomodReport) =>
   Effect.gen(function* () {
+    if (
+      actionType === AutoModerationActionType.SendAlertMessage ||
+      actionType === AutoModerationActionType.Timeout
+    ) {
+      return;
+    }
     yield* logEffect(
       "info",
       "logAutomod",
@@ -52,49 +52,34 @@ export const logAutomod = ({
     const thread = yield* getOrCreateUserThread(guild, user);
 
     // Get mod log for forwarding
-    const { modLog, moderator } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guild.id, [SETTINGS.modLog, SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { modLog, moderator } = yield* fetchSettingsEffect(guild.id, [
+      SETTINGS.modLog,
+      SETTINGS.moderator,
+    ]);
 
     // Construct the log message
     const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
-    const actionLabel = ActionTypeLabels[actionType] ?? "took action";
-
-    const logContent = truncateMessage(
-      `<@${user.id}> (${user.username}) triggered automod ${matchedKeyword ? `with text  \`${matchedKeyword}\` ` : ""}in ${channelMention}
--# ${ruleName} · Automod ${actionLabel}`,
-    ).trim();
+    const logContent = (() => {
+      switch (actionType) {
+        case AutoModerationActionType.BlockMemberInteraction:
+          return `-# Automod blocked member interaction
+${channelMention} by <@${user.id}> (${user.username})
+-# ${ruleName} · ${matchedKeyword ? `matched text  \`${matchedKeyword}\` ` : ""}`;
+        case AutoModerationActionType.BlockMessage:
+          return `-# Automod blocked message
+${channelMention} by <@${user.id}> (${user.username})
+-# ${ruleName} · ${matchedKeyword ? `matched text  \`${matchedKeyword}\` ` : ""}`;
+      }
+    })();
 
     // Send log to thread
-    const logMessage = yield* Effect.tryPromise({
-      try: () =>
-        thread.send({
-          content: logContent,
-          allowedMentions: { roles: [moderator] },
-        }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "sendLogMessage",
-          discordError: error,
-        }),
+    const logMessage = yield* sendMessage(thread, {
+      content: logContent,
+      allowedMentions: { roles: [moderator] },
     });
 
     // Forward to mod log (non-critical)
-    yield* Effect.tryPromise({
-      try: () => logMessage.forward(modLog),
-      catch: (error) => error,
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect("error", "logAutomod", "failed to forward to modLog", {
-          error: String(error),
-        }),
-      ),
-    );
+    yield* forwardMessageSafe(logMessage, modLog);
   }).pipe(
     Effect.withSpan("logAutomod", {
       attributes: { userId: user.id, guildId: guild.id, ruleName },
