@@ -5,7 +5,6 @@ import { DatabaseLayer } from "#~/Database";
 import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
-import { truncateMessage } from "#~/helpers/string";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
@@ -20,22 +19,23 @@ export interface AutomodReport {
   actionType: AutoModerationActionType;
 }
 
-const ActionTypeLabels: Record<AutoModerationActionType, string> = {
-  [AutoModerationActionType.BlockMessage]: "blocked message",
-  [AutoModerationActionType.SendAlertMessage]: "sent alert",
-  [AutoModerationActionType.Timeout]: "timed out user",
-  [AutoModerationActionType.BlockMemberInteraction]: "blocked interaction",
-};
-
 export const logAutomod = ({
   guild,
   user,
   channelId,
   ruleName,
   matchedKeyword,
+  // TODO: log the full blocked message content
+  // content,
   actionType,
 }: AutomodReport) =>
   Effect.gen(function* () {
+    if (
+      actionType === AutoModerationActionType.SendAlertMessage ||
+      actionType === AutoModerationActionType.Timeout
+    ) {
+      return;
+    }
     yield* logEffect(
       "info",
       "logAutomod",
@@ -59,12 +59,18 @@ export const logAutomod = ({
 
     // Construct the log message
     const channelMention = channelId ? `<#${channelId}>` : "Unknown channel";
-    const actionLabel = ActionTypeLabels[actionType] ?? "took action";
-
-    const logContent = truncateMessage(
-      `<@${user.id}> (${user.username}) triggered automod ${matchedKeyword ? `with text  \`${matchedKeyword}\` ` : ""}in ${channelMention}
--# ${ruleName} · Automod ${actionLabel}`,
-    ).trim();
+    const logContent = (() => {
+      switch (actionType) {
+        case AutoModerationActionType.BlockMemberInteraction:
+          return `-# Automod blocked member interaction
+${channelMention} by <@${user.id}> (${user.username})
+-# ${ruleName} · ${matchedKeyword ? `matched text  \`${matchedKeyword}\` ` : ""}`;
+        case AutoModerationActionType.BlockMessage:
+          return `-# Automod blocked message
+${channelMention} by <@${user.id}> (${user.username})
+-# ${ruleName} · ${matchedKeyword ? `matched text  \`${matchedKeyword}\` ` : ""}`;
+      }
+    })();
 
     // Send log to thread
     const logMessage = yield* sendMessage(thread, {

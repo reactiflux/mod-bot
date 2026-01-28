@@ -35,7 +35,7 @@ import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 import {
   constructLog,
   isForwardedMessage,
-  makeReportMessage,
+  ReadableReasons,
 } from "./constructLog";
 
 const getMessageContent = (message: Message): string => {
@@ -118,11 +118,7 @@ export function logUserMessage({
       const latestReport = yield* Effect.tryPromise({
         try: async () => {
           try {
-            const reportContents = makeReportMessage({
-              message,
-              reason,
-              staff,
-            });
+            const reportContents = `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`;
             const priorLogMessage = await thread.messages.fetch(
               alreadyReported.log_message_id,
             );

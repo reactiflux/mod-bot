@@ -12,18 +12,12 @@ import { truncateMessage } from "#~/helpers/string";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { ReportReasons, type Report } from "#~/models/reportedMessages";
 
-const ReadableReasons: Record<ReportReasons, string> = {
+export const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
   [ReportReasons.track]: "tracked",
   [ReportReasons.modResolution]: "Mod vote resolved",
   [ReportReasons.spam]: "detected as spam",
   [ReportReasons.automod]: "detected by automod",
-};
-
-export const makeReportMessage = ({ message: _, reason, staff }: Report) => {
-  return {
-    content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
-  };
 };
 
 export const constructLog = ({
@@ -61,8 +55,6 @@ export const constructLog = ({
       );
     }
 
-    const { content: report } = makeReportMessage(lastReport);
-
     // Add indicator if this is forwarded content
     const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
     const preface = `${constructDiscordLink(message)} by <@${author.id}> (${
@@ -71,8 +63,9 @@ export const constructLog = ({
     const extra = origExtra ? `${origExtra}\n` : "";
 
     return {
-      content: truncateMessage(`${preface}
--# ${report}
+      content: truncateMessage(`
+-# ${lastReport.staff ? ` ${lastReport.staff.username} ` : ""}${ReadableReasons[lastReport.reason]}
+${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
       allowedMentions: { roles: [moderator] },
     } satisfies MessageCreateOptions;
