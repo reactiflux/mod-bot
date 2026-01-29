@@ -1,10 +1,8 @@
 import { type Guild, type PartialUser, type User } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseLayer } from "#~/Database";
 import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
-import { runEffect } from "#~/effects/runtime";
 import { truncateMessage } from "#~/helpers/string";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
@@ -109,10 +107,3 @@ export const logModAction = (report: ModActionReport) =>
       },
     }),
   );
-
-/**
- * Logs a mod action (kick/ban/unban/timeout) to the user's persistent thread.
- * Used when Discord events indicate a moderation action occurred.
- */
-export const logModActionLegacy = (report: ModActionReport): Promise<void> =>
-  runEffect(Effect.provide(logModAction(report), DatabaseLayer));

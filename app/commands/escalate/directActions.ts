@@ -10,7 +10,7 @@ import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
 import { applyRestriction, ban, kick, timeout } from "#~/models/discord.server";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
-import { deleteAllReportedForUserEffect } from "#~/models/reportedMessages";
+import { deleteAllReportedForUser } from "#~/models/reportedMessages";
 
 export interface DeleteMessagesResult {
   deleted: number;
@@ -22,9 +22,7 @@ export interface DeleteMessagesResult {
  * Delete all reported messages for a user.
  * Requires ManageMessages permission.
  */
-export const deleteMessagesEffect = (
-  interaction: MessageComponentInteraction,
-) =>
+export const deleteMessages = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
     const reportedUserId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;
@@ -43,10 +41,7 @@ export const deleteMessagesEffect = (
     }
 
     // Delete messages
-    const result = yield* deleteAllReportedForUserEffect(
-      reportedUserId,
-      guildId,
-    );
+    const result = yield* deleteAllReportedForUser(reportedUserId, guildId);
 
     yield* logEffect("info", "DirectActions", "Deleted reported messages", {
       reportedUserId,
@@ -76,7 +71,7 @@ export interface ModActionResult {
  * Kick a user from the guild.
  * Requires moderator role.
  */
-export const kickUserEffect = (interaction: MessageComponentInteraction) =>
+export const kickUser = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
     const reportedUserId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;
@@ -129,7 +124,7 @@ export const kickUserEffect = (interaction: MessageComponentInteraction) =>
  * Ban a user from the guild.
  * Requires moderator role.
  */
-export const banUserEffect = (interaction: MessageComponentInteraction) =>
+export const banUser = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
     const reportedUserId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;
@@ -181,7 +176,7 @@ export const banUserEffect = (interaction: MessageComponentInteraction) =>
  * Apply restriction role to a user.
  * Requires moderator role.
  */
-export const restrictUserEffect = (interaction: MessageComponentInteraction) =>
+export const restrictUser = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
     const reportedUserId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;
@@ -237,7 +232,7 @@ export const restrictUserEffect = (interaction: MessageComponentInteraction) =>
  * Timeout a user for 12 hours.
  * Requires moderator role.
  */
-export const timeoutUserEffect = (interaction: MessageComponentInteraction) =>
+export const timeoutUser = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
     const reportedUserId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;

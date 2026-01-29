@@ -15,11 +15,11 @@ import {
 } from "#~/helpers/modResponse";
 
 import {
-  banUserEffect,
-  deleteMessagesEffect,
-  kickUserEffect,
-  restrictUserEffect,
-  timeoutUserEffect,
+  banUser,
+  deleteMessages,
+  kickUser,
+  restrictUser,
+  timeoutUser,
 } from "./directActions";
 import { createEscalationEffect, upgradeToMajorityEffect } from "./escalate";
 import { expediteEffect } from "./expedite";
@@ -31,222 +31,6 @@ import {
   buildVotesListContent,
 } from "./strings";
 import { voteEffect } from "./vote";
-
-const deleteMessages = (interaction: MessageComponentInteraction) =>
-  Effect.gen(function* () {
-    yield* Effect.tryPromise(() => interaction.deferReply());
-
-    const result = yield* deleteMessagesEffect(interaction);
-
-    yield* Effect.tryPromise(() =>
-      interaction.editReply(
-        `Messages deleted by ${result.deletedBy} (${result.deleted}/${result.total} successful)`,
-      ),
-    );
-  }).pipe(
-    Effect.provide(DatabaseLayer),
-    Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorObj = error as { _tag?: string };
-        yield* logEffect(
-          "error",
-          "EscalationHandlers",
-          "Error deleting messages",
-          {
-            error:
-              error instanceof Error ? error.message : JSON.stringify(error),
-          },
-        );
-        if (errorObj._tag === "NotAuthorizedError") {
-          yield* Effect.tryPromise(() =>
-            interaction.editReply({ content: "Insufficient permissions" }),
-          ).pipe(Effect.catchAll(() => Effect.void));
-          return;
-        }
-
-        yield* Effect.tryPromise(() =>
-          interaction.editReply({ content: "Failed to delete messages" }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-      }),
-    ),
-    Effect.withSpan("escalation-deleteMessages", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
-  );
-
-const kickUser = (interaction: MessageComponentInteraction) =>
-  Effect.gen(function* () {
-    const reportedUserId = interaction.customId.split("|")[1];
-
-    const result = yield* kickUserEffect(interaction);
-
-    yield* Effect.tryPromise(() =>
-      interaction.reply(`<@${reportedUserId}> kicked by ${result.actionBy}`),
-    );
-  }).pipe(
-    Effect.provide(DatabaseLayer),
-    Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorObj = error as { _tag?: string };
-        yield* logEffect("error", "EscalationHandlers", "Error kicking user", {
-          error: error instanceof Error ? error.message : JSON.stringify(error),
-        });
-        if (errorObj._tag === "NotAuthorizedError") {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Insufficient permissions",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
-          return;
-        }
-
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Failed to kick user",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-      }),
-    ),
-    Effect.withSpan("escalation-kickUser", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
-  );
-
-const banUser = (interaction: MessageComponentInteraction) =>
-  Effect.gen(function* () {
-    const reportedUserId = interaction.customId.split("|")[1];
-
-    const result = yield* banUserEffect(interaction);
-
-    yield* Effect.tryPromise(() =>
-      interaction.reply(`<@${reportedUserId}> banned by ${result.actionBy}`),
-    );
-  }).pipe(
-    Effect.provide(DatabaseLayer),
-    Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorObj = error as { _tag?: string };
-        yield* logEffect("error", "EscalationHandlers", "Error banning user", {
-          error: error instanceof Error ? error.message : JSON.stringify(error),
-        });
-        if (errorObj._tag === "NotAuthorizedError") {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Insufficient permissions",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
-          return;
-        }
-
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Failed to ban user",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-      }),
-    ),
-    Effect.withSpan("escalation-banUser", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
-  );
-
-const restrictUser = (interaction: MessageComponentInteraction) =>
-  Effect.gen(function* () {
-    const reportedUserId = interaction.customId.split("|")[1];
-
-    const result = yield* restrictUserEffect(interaction);
-
-    yield* Effect.tryPromise(() =>
-      interaction.reply(
-        `<@${reportedUserId}> restricted by ${result.actionBy}`,
-      ),
-    );
-  }).pipe(
-    Effect.provide(DatabaseLayer),
-    Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorObj = error as { _tag?: string };
-        yield* logEffect(
-          "error",
-          "EscalationHandlers",
-          "Error restricting user",
-          {
-            error:
-              error instanceof Error ? error.message : JSON.stringify(error),
-          },
-        );
-        if (errorObj._tag === "NotAuthorizedError") {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Insufficient permissions",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
-          return;
-        }
-
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Failed to restrict user",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-      }),
-    ),
-    Effect.withSpan("escalation-restrictUser", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
-  );
-
-const timeoutUser = (interaction: MessageComponentInteraction) =>
-  Effect.gen(function* () {
-    const reportedUserId = interaction.customId.split("|")[1];
-
-    const result = yield* timeoutUserEffect(interaction);
-
-    yield* Effect.tryPromise(() =>
-      interaction.reply(`<@${reportedUserId}> timed out by ${result.actionBy}`),
-    );
-  }).pipe(
-    Effect.provide(DatabaseLayer),
-    Effect.catchAll((error) =>
-      Effect.gen(function* () {
-        const errorObj = error as { _tag?: string };
-        yield* logEffect(
-          "error",
-          "EscalationHandlers",
-          "Error timing out user",
-          {
-            error:
-              error instanceof Error ? error.message : JSON.stringify(error),
-          },
-        );
-        if (errorObj._tag === "NotAuthorizedError") {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Insufficient permissions",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
-          return;
-        }
-
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Failed to timeout user",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-      }),
-    ),
-    Effect.withSpan("escalation-timeoutUser", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
-  );
 
 const vote =
   (resolution: Resolution) => (interaction: MessageComponentInteraction) =>
@@ -494,11 +278,224 @@ const escalate = (interaction: MessageComponentInteraction) =>
 
 export const EscalationHandlers = {
   // Direct action commands (no voting)
-  delete: deleteMessages,
-  kick: kickUser,
-  ban: banUser,
-  restrict: restrictUser,
-  timeout: timeoutUser,
+  delete: (interaction: MessageComponentInteraction) =>
+    Effect.gen(function* () {
+      yield* Effect.tryPromise(() => interaction.deferReply());
+
+      const result = yield* deleteMessages(interaction);
+
+      yield* Effect.tryPromise(() =>
+        interaction.editReply(
+          `Messages deleted by ${result.deletedBy} (${result.deleted}/${result.total} successful)`,
+        ),
+      );
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchTag("NotAuthorizedError", () =>
+        Effect.tryPromise(() =>
+          interaction.editReply({ content: "Insufficient permissions" }),
+        ).pipe(Effect.catchAll(() => Effect.void)),
+      ),
+      Effect.catchAll((error) =>
+        logEffect("error", "EscalationHandlers", "Error deleting messages", {
+          error,
+        }).pipe(() =>
+          Effect.tryPromise(() =>
+            interaction.editReply({ content: "Failed to delete messages" }),
+          ).pipe(Effect.catchAll(() => Effect.void)),
+        ),
+      ),
+      Effect.withSpan("escalation-deleteMessages", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
+  kick: (interaction: MessageComponentInteraction) =>
+    Effect.gen(function* () {
+      const reportedUserId = interaction.customId.split("|")[1];
+
+      const result = yield* kickUser(interaction);
+
+      yield* Effect.tryPromise(() =>
+        interaction.reply(`<@${reportedUserId}> kicked by ${result.actionBy}`),
+      );
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorObj = error as { _tag?: string };
+          yield* logEffect(
+            "error",
+            "EscalationHandlers",
+            "Error kicking user",
+            { error },
+          );
+          if (errorObj._tag === "NotAuthorizedError") {
+            yield* Effect.tryPromise(() =>
+              interaction.reply({
+                content: "Insufficient permissions",
+                flags: [MessageFlags.Ephemeral],
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+            return;
+          }
+
+          yield* Effect.tryPromise(() =>
+            interaction.reply({
+              content: "Failed to kick user",
+              flags: [MessageFlags.Ephemeral],
+            }),
+          ).pipe(Effect.catchAll(() => Effect.void));
+        }),
+      ),
+      Effect.withSpan("escalation-kickUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
+  ban: (interaction: MessageComponentInteraction) =>
+    Effect.gen(function* () {
+      const reportedUserId = interaction.customId.split("|")[1];
+
+      const result = yield* banUser(interaction);
+
+      yield* Effect.tryPromise(() =>
+        interaction.reply(`<@${reportedUserId}> banned by ${result.actionBy}`),
+      );
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorObj = error as { _tag?: string };
+          yield* logEffect(
+            "error",
+            "EscalationHandlers",
+            "Error banning user",
+            { error },
+          );
+          if (errorObj._tag === "NotAuthorizedError") {
+            yield* Effect.tryPromise(() =>
+              interaction.reply({
+                content: "Insufficient permissions",
+                flags: [MessageFlags.Ephemeral],
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+            return;
+          }
+
+          yield* Effect.tryPromise(() =>
+            interaction.reply({
+              content: "Failed to ban user",
+              flags: [MessageFlags.Ephemeral],
+            }),
+          ).pipe(Effect.catchAll(() => Effect.void));
+        }),
+      ),
+      Effect.withSpan("escalation-banUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
+  restrict: (interaction: MessageComponentInteraction) =>
+    Effect.gen(function* () {
+      const reportedUserId = interaction.customId.split("|")[1];
+
+      const result = yield* restrictUser(interaction);
+
+      yield* Effect.tryPromise(() =>
+        interaction.reply(
+          `<@${reportedUserId}> restricted by ${result.actionBy}`,
+        ),
+      );
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorObj = error as { _tag?: string };
+          yield* logEffect(
+            "error",
+            "EscalationHandlers",
+            "Error restricting user",
+            { error },
+          );
+          if (errorObj._tag === "NotAuthorizedError") {
+            yield* Effect.tryPromise(() =>
+              interaction.reply({
+                content: "Insufficient permissions",
+                flags: [MessageFlags.Ephemeral],
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+            return;
+          }
+
+          yield* Effect.tryPromise(() =>
+            interaction.reply({
+              content: "Failed to restrict user",
+              flags: [MessageFlags.Ephemeral],
+            }),
+          ).pipe(Effect.catchAll(() => Effect.void));
+        }),
+      ),
+      Effect.withSpan("escalation-restrictUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
+  timeout: (interaction: MessageComponentInteraction) =>
+    Effect.gen(function* () {
+      const reportedUserId = interaction.customId.split("|")[1];
+
+      const result = yield* timeoutUser(interaction);
+
+      yield* Effect.tryPromise(() =>
+        interaction.reply(
+          `<@${reportedUserId}> timed out by ${result.actionBy}`,
+        ),
+      );
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorObj = error as { _tag?: string };
+          yield* logEffect(
+            "error",
+            "EscalationHandlers",
+            "Error timing out user",
+            { error },
+          );
+          if (errorObj._tag === "NotAuthorizedError") {
+            yield* Effect.tryPromise(() =>
+              interaction.reply({
+                content: "Insufficient permissions",
+                flags: [MessageFlags.Ephemeral],
+              }),
+            ).pipe(Effect.catchAll(() => Effect.void));
+            return;
+          }
+
+          yield* Effect.tryPromise(() =>
+            interaction.reply({
+              content: "Failed to timeout user",
+              flags: [MessageFlags.Ephemeral],
+            }),
+          ).pipe(Effect.catchAll(() => Effect.void));
+        }),
+      ),
+      Effect.withSpan("escalation-timeoutUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
+    ),
 
   // Voting handlers
   expedite,

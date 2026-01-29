@@ -1,10 +1,8 @@
 import { AutoModerationActionType, type Guild, type User } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseLayer } from "#~/Database";
 import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
-import { runEffect } from "#~/effects/runtime";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
@@ -85,10 +83,3 @@ ${channelMention} by <@${user.id}> (${user.username})
       attributes: { userId: user.id, guildId: guild.id, ruleName },
     }),
   );
-
-/**
- * Logs an automod action when we don't have a full Message object.
- * Used when Discord's automod blocks/deletes a message before we can fetch it.
- */
-export const logAutomodLegacy = (report: AutomodReport): Promise<void> =>
-  runEffect(Effect.provide(logAutomod(report), DatabaseLayer));

@@ -10,7 +10,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
+import { logUserMessage } from "#~/commands/report/userLog.ts";
 import { DatabaseLayer } from "#~/Database.ts";
 import { client } from "#~/discord/client.server";
 import { logEffect } from "#~/effects/observability.ts";
@@ -49,13 +49,11 @@ export const Command = [
           );
         }
 
-        const { reportId, thread } = yield* Effect.tryPromise(() =>
-          logUserMessageLegacy({
-            reason: ReportReasons.track,
-            message,
-            staff: user,
-          }),
-        );
+        const { reportId, thread } = yield* logUserMessage({
+          reason: ReportReasons.track,
+          message,
+          staff: user,
+        });
 
         yield* Effect.tryPromise(() =>
           interaction.editReply({
@@ -73,6 +71,7 @@ export const Command = [
           }),
         );
       }).pipe(
+        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect("error", "Track", "Error tracking message", {
