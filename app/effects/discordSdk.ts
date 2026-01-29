@@ -5,14 +5,17 @@
  * when calling Discord.js APIs from Effect-based code.
  */
 import type {
+  ChatInputCommandInteraction,
   Client,
   Guild,
   GuildMember,
   GuildTextBasedChannel,
   Message,
+  MessageComponentInteraction,
   PartialMessage,
   ThreadChannel,
   User,
+  UserContextMenuCommandInteraction,
 } from "discord.js";
 import { Effect } from "effect";
 
@@ -159,3 +162,62 @@ export const resolveMessagePartial = (
           }),
       })
     : Effect.succeed(msg);
+
+export const interactionReply = (
+  interaction:
+    | MessageComponentInteraction
+    | ChatInputCommandInteraction
+    | UserContextMenuCommandInteraction,
+  options: Parameters<typeof interaction.reply>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.reply(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "interactionReply", cause: error }),
+  });
+export const interactionDeferReply = (
+  interaction:
+    | MessageComponentInteraction
+    | ChatInputCommandInteraction
+    | UserContextMenuCommandInteraction,
+  options?: Parameters<typeof interaction.deferReply>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.deferReply(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "interactionDeferReply", cause: error }),
+  });
+export const interactionEditReply = (
+  interaction:
+    | MessageComponentInteraction
+    | ChatInputCommandInteraction
+    | UserContextMenuCommandInteraction,
+  options: Parameters<typeof interaction.editReply>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.editReply(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "interactionEditReply", cause: error }),
+  });
+export const interactionFollowUp = (
+  interaction:
+    | MessageComponentInteraction
+    | ChatInputCommandInteraction
+    | UserContextMenuCommandInteraction,
+  options: Parameters<typeof interaction.followUp>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.followUp(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "interactionFollowUp", cause: error }),
+  });
+
+export const interactionUpdate = (
+  interaction: MessageComponentInteraction,
+  options: Parameters<typeof interaction.update>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.update(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "interactionUpdate", cause: error }),
+  });
