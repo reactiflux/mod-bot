@@ -8,6 +8,10 @@ import { Effect } from "effect";
 
 import { logUserMessage } from "#~/commands/report/userLog.ts";
 import { DatabaseLayer } from "#~/Database.ts";
+import {
+  interactionDeferReply,
+  interactionEditReply,
+} from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { EffectMessageContextCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
@@ -23,9 +27,9 @@ export const Command = {
     Effect.gen(function* () {
       const { targetMessage: message } = interaction;
 
-      yield* Effect.tryPromise(() =>
-        interaction.deferReply({ flags: [MessageFlags.Ephemeral] }),
-      );
+      yield* interactionDeferReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
+      });
 
       yield* logEffect("info", "Commands", "Report command executed");
 
@@ -40,11 +44,9 @@ export const Command = {
       commandStats.reportSubmitted(interaction, message.author.id);
       commandStats.commandExecuted(interaction, "report", true);
 
-      yield* Effect.tryPromise(() =>
-        interaction.editReply({
-          content: "This message has been reported anonymously",
-        }),
-      );
+      yield* interactionEditReply(interaction, {
+        content: "This message has been reported anonymously",
+      });
     }).pipe(
       Effect.provide(DatabaseLayer),
       Effect.catchAll((error) =>
@@ -53,12 +55,9 @@ export const Command = {
             error,
           });
 
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              flags: [MessageFlags.Ephemeral],
-              content: "Failed to submit report. Please try again later.",
-            }),
-          ).pipe(
+          yield* interactionEditReply(interaction, {
+            content: "Failed to submit report. Please try again later.",
+          }).pipe(
             Effect.catchAll(() => {
               commandStats.commandFailed(interaction, "report", error.message);
               return Effect.void;

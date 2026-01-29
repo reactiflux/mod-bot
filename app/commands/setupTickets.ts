@@ -15,8 +15,14 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { DatabaseLayer } from "#~/Database.ts";
 import db from "#~/db.server.js";
 import { ssrDiscordSdk as rest } from "#~/discord/api";
+import {
+  fetchChannel,
+  interactionReply,
+  sendMessage,
+} from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import {
   quoteMessageContent,
@@ -25,7 +31,7 @@ import {
   type EffectSlashCommand,
 } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
@@ -76,31 +82,27 @@ export const Command = [
           interaction.options.getString("button-text") ?? DEFAULT_BUTTON_TEXT;
 
         if (ticketChannel && ticketChannel.type !== ChannelType.GuildText) {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: `The channel configured must be a text channel! Tickets will be created as private threads.`,
-            }),
-          );
+          yield* interactionReply(interaction, {
+            content: `The channel configured must be a text channel! Tickets will be created as private threads.`,
+          });
           return;
         }
 
-        const interactionResponse = yield* Effect.tryPromise(() =>
-          interaction.reply({
-            components: [
-              {
-                type: ComponentType.ActionRow,
-                components: [
-                  {
-                    type: ComponentType.Button,
-                    label: buttonText,
-                    style: ButtonStyle.Primary,
-                    customId: "open-ticket",
-                  },
-                ],
-              },
-            ],
-          }),
-        );
+        const interactionResponse = yield* interactionReply(interaction, {
+          components: [
+            {
+              type: ComponentType.ActionRow,
+              components: [
+                {
+                  type: ComponentType.Button,
+                  label: buttonText,
+                  style: ButtonStyle.Primary,
+                  customId: "open-ticket",
+                },
+              ],
+            },
+          ],
+        });
 
         const producedMessage = yield* Effect.tryPromise(() =>
           interactionResponse.fetch(),
@@ -108,11 +110,9 @@ export const Command = [
 
         let roleId = pingableRole?.id;
         if (!roleId) {
-          const { [SETTINGS.moderator]: mod } = yield* Effect.tryPromise(() =>
-            fetchSettings(interaction.guild!.id, [
-              SETTINGS.moderator,
-              SETTINGS.modLog,
-            ]),
+          const { [SETTINGS.moderator]: mod } = yield* fetchSettingsEffect(
+            interaction.guild.id,
+            [SETTINGS.moderator, SETTINGS.modLog],
           );
           roleId = mod;
         }
@@ -134,15 +134,14 @@ export const Command = [
           ticketChannel?.id ?? interaction.channelId,
         );
       }).pipe(
+        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect(
               "error",
               "TicketsSetup",
               "Error setting up tickets",
-              {
-                error: String(error),
-              },
+              { error },
             );
           }),
         ),
@@ -198,12 +197,10 @@ export const Command = [
           !interaction.guild ||
           !interaction.message
         ) {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Something went wrong while creating a ticket",
-              flags: MessageFlags.Ephemeral,
-            }),
-          );
+          yield* interactionReply(interaction, {
+            content: "Something went wrong while creating a ticket",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -220,11 +217,9 @@ export const Command = [
 
         // If there's no config, that means that the button was set up before the db was set up. Add one with default values
         if (!config) {
-          const { [SETTINGS.moderator]: mod } = yield* Effect.tryPromise(() =>
-            fetchSettings(interaction.guild!.id, [
-              SETTINGS.moderator,
-              SETTINGS.modLog,
-            ]),
+          const { [SETTINGS.moderator]: mod } = yield* fetchSettingsEffect(
+            interaction.guild.id,
+            [SETTINGS.moderator, SETTINGS.modLog],
           );
           config = yield* Effect.tryPromise(() =>
             db
@@ -244,19 +239,16 @@ export const Command = [
         // If channel_id is configured but fetch returns null (channel deleted),
         // this will error, which is intended - the configured channel is invalid
         const ticketsChannel = config.channel_id
-          ? yield* Effect.tryPromise(() =>
-              interaction.guild!.channels.fetch(config.channel_id!),
-            )
+          ? yield* fetchChannel(interaction.guild, config.channel_id)
           : channel;
 
         if (
           !ticketsChannel?.isTextBased() ||
           ticketsChannel.type !== ChannelType.GuildText
         ) {
-          yield* Effect.tryPromise(() =>
-            interaction.reply(
-              "Couldn't make a ticket! Tell the admins that their ticket channel is misconfigured.",
-            ),
+          yield* interactionReply(
+            interaction,
+            "Couldn't make a ticket! Tell the admins that their ticket channel is misconfigured.",
           );
           return;
         }
@@ -270,64 +262,57 @@ export const Command = [
           }),
         );
 
-        yield* Effect.tryPromise(() =>
-          thread.send({
-            content: `<@${user.id}>, this is a private space only visible to you and the <@&${config.role_id}> role.`,
-          }),
+        yield* sendMessage(thread, {
+          content: `<@${user.id}>, this is a private space only visible to you and the <@&${config.role_id}> role.`,
+        });
+
+        yield* sendMessage(
+          thread,
+          `${user.displayName} said:\n${quoteMessageContent(concern)}`,
         );
 
-        yield* Effect.tryPromise(() =>
-          thread.send(`${user.displayName} said:
-${quoteMessageContent(concern)}`),
-        );
-
-        yield* Effect.tryPromise(() =>
-          thread.send({
-            content: "When you've finished, please close the ticket.",
-            components: [
-              // @ts-expect-error Types for this are super busted
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`close-ticket||${user.id}|| `)
-                  .setLabel("Close ticket")
-                  .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                  .setCustomId(`close-ticket||${user.id}||👍`)
-                  .setLabel("Close (👍)")
-                  .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                  .setCustomId(`close-ticket||${user.id}||👎`)
-                  .setLabel("Close (👎)")
-                  .setStyle(ButtonStyle.Danger),
-              ),
-            ],
-          }),
-        );
+        yield* sendMessage(thread, {
+          content: "When you've finished, please close the ticket.",
+          components: [
+            // @ts-expect-error Types for this are super busted
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`close-ticket||${user.id}|| `)
+                .setLabel("Close ticket")
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId(`close-ticket||${user.id}||👍`)
+                .setLabel("Close (👍)")
+                .setStyle(ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId(`close-ticket||${user.id}||👎`)
+                .setLabel("Close (👎)")
+                .setStyle(ButtonStyle.Danger),
+            ),
+          ],
+        });
 
         featureStats.ticketCreated(interaction.guild.id, user.id, thread.id);
 
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
-            flags: [MessageFlags.Ephemeral],
-          }),
-        );
+        yield* interactionReply(interaction, {
+          content: `A private thread with the moderation team has been opened for you: <#${thread.id}>`,
+          flags: [MessageFlags.Ephemeral],
+        });
       }).pipe(
+        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect(
               "error",
               "TicketsModal",
               "Error creating ticket from modal",
-              { error: String(error) },
+              { error },
             );
 
-            yield* Effect.tryPromise(() =>
-              interaction.reply({
-                content: "Something went wrong while creating the ticket",
-                flags: MessageFlags.Ephemeral,
-              }),
-            ).pipe(Effect.catchAll(() => Effect.void));
+            yield* interactionReply(interaction, {
+              content: "Something went wrong while creating the ticket",
+              flags: MessageFlags.Ephemeral,
+            }).pipe(Effect.catchAll(() => Effect.void));
           }),
         ),
         Effect.withSpan("modalOpenTicket", {
@@ -355,17 +340,16 @@ ${quoteMessageContent(concern)}`),
             "No member in ticket interaction",
             { interactionId: interaction.id },
           );
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: "Something went wrong",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          );
+          yield* interactionReply(interaction, {
+            content: "Something went wrong",
+            flags: [MessageFlags.Ephemeral],
+          });
           return;
         }
 
-        const { [SETTINGS.modLog]: modLog } = yield* Effect.tryPromise(() =>
-          fetchSettings(interaction.guild!.id, [SETTINGS.modLog]),
+        const { [SETTINGS.modLog]: modLog } = yield* fetchSettingsEffect(
+          interaction.guild.id,
+          [SETTINGS.modLog],
         );
 
         const { user } = interaction.member;
@@ -383,12 +367,10 @@ ${quoteMessageContent(concern)}`),
               },
             }),
           ),
-          Effect.tryPromise(() =>
-            interaction.reply({
-              content: `The ticket was closed by <@${interactionUserId}>`,
-              allowedMentions: {},
-            }),
-          ),
+          interactionReply(interaction, {
+            content: `The ticket was closed by <@${interactionUserId}>`,
+            allowedMentions: {},
+          }),
         ]);
 
         featureStats.ticketClosed(
@@ -398,18 +380,17 @@ ${quoteMessageContent(concern)}`),
           !!feedback?.trim(),
         );
       }).pipe(
+        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect("error", "TicketsClose", "Error closing ticket", {
-              error: String(error),
+              error,
             });
 
-            yield* Effect.tryPromise(() =>
-              interaction.reply({
-                content: "Something went wrong while closing the ticket",
-                flags: MessageFlags.Ephemeral,
-              }),
-            ).pipe(Effect.catchAll(() => Effect.void));
+            yield* interactionReply(interaction, {
+              content: "Something went wrong while closing the ticket",
+              flags: MessageFlags.Ephemeral,
+            }).pipe(Effect.catchAll(() => Effect.void));
           }),
         ),
         Effect.withSpan("closeTicket", {

@@ -8,6 +8,7 @@ import {
 import { Effect } from "effect";
 
 import db from "#~/db.server.js";
+import { interactionReply, sendMessage } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { EffectSlashCommand } from "#~/helpers/discord.js";
 import { featureStats } from "#~/helpers/metrics";
@@ -52,20 +53,16 @@ export const Command = [
           interaction.options.getString("message-text") ?? DEFAULT_MESSAGE_TEXT;
 
         if (!honeypotChannel?.id) {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: `You must provide a channel!`,
-            }),
-          );
+          yield* interactionReply(interaction, {
+            content: `You must provide a channel!`,
+          });
           return;
         }
 
         if (honeypotChannel.type !== ChannelType.GuildText) {
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content: `The channel configured must be a text channel!`,
-            }),
-          );
+          yield* interactionReply(interaction, {
+            content: `The channel configured must be a text channel!`,
+          });
           return;
         }
 
@@ -82,7 +79,7 @@ export const Command = [
         );
 
         if ((result[0].numInsertedOrUpdatedRows ?? 0) > 0) {
-          yield* Effect.tryPromise(() => castedChannel.send(messageText));
+          yield* sendMessage(castedChannel, messageText);
           featureStats.honeypotSetup(
             interaction.guildId,
             interaction.user.id,
@@ -90,12 +87,10 @@ export const Command = [
           );
         }
 
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Honeypot setup completed successfully!",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        );
+        yield* interactionReply(interaction, {
+          content: "Honeypot setup completed successfully!",
+          flags: [MessageFlags.Ephemeral],
+        });
       }).pipe(
         Effect.catchAll((error) =>
           Effect.gen(function* () {
@@ -108,12 +103,10 @@ export const Command = [
               },
             );
 
-            yield* Effect.tryPromise(() =>
-              interaction.reply({
-                content: "Failed to setup honeypot. Please try again.",
-                flags: [MessageFlags.Ephemeral],
-              }),
-            ).pipe(Effect.catchAll(() => Effect.void));
+            yield* interactionReply(interaction, {
+              content: "Failed to setup honeypot. Please try again.",
+              flags: [MessageFlags.Ephemeral],
+            }).pipe(Effect.catchAll(() => Effect.void));
           }),
         ),
         Effect.withSpan("honeypotSetupCommand", {

@@ -11,6 +11,7 @@ import {
   type DatabaseService,
   type SqlError,
 } from "#~/Database";
+import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk.ts";
 import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
@@ -22,7 +23,7 @@ import {
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import {
   getReportsForMessage,
   getUserReportStats,
@@ -86,14 +87,7 @@ export function logUserMessage({
     // Check if this exact message has already been reported
     const [existingReports, { modLog }, logBody, thread] = yield* Effect.all([
       getReportsForMessage(message.id, guild.id),
-      Effect.tryPromise({
-        try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "fetchSettings",
-            cause: error,
-          }),
-      }),
+      fetchSettingsEffect(guild.id, [SETTINGS.modLog]),
       constructLog({
         extra,
         logs: [{ message, reason, staff }],
@@ -181,22 +175,14 @@ export function logUserMessage({
       : quoteAndEscape(getMessageContent(message)).trim();
 
     // Send the detailed log message to thread
-    const [logMessage] = yield* Effect.tryPromise({
-      try: () =>
-        Promise.all([
-          thread.send(logBody),
-          thread.send({
-            content: reportedMessage,
-            allowedMentions: {},
-            embeds: embeds.length === 0 ? undefined : embeds,
-          }),
-        ]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "sendLogMessages",
-          cause: error,
-        }),
-    });
+    const [logMessage] = yield* Effect.all([
+      sendMessage(thread, logBody),
+      sendMessage(thread, {
+        content: reportedMessage,
+        allowedMentions: {},
+        embeds: embeds.length === 0 ? undefined : embeds,
+      }),
+    ]);
 
     // Record the report in database
     const recordResult = yield* recordReport({
@@ -222,17 +208,7 @@ export function logUserMessage({
     }
 
     // Forward to mod log (non-critical)
-    yield* Effect.tryPromise({
-      try: () => logMessage.forward(modLog),
-      catch: (error) =>
-        new DiscordApiError({ operation: "forwardLog", cause: error }),
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect("error", "logUserMessage", "failed to forward to modLog", {
-          error: String(error),
-        }),
-      ),
-    );
+    yield* forwardMessageSafe(logMessage, modLog);
 
     // Send summary to parent channel if possible (non-critical)
     const parentChannel = thread.parent;
@@ -248,22 +224,13 @@ export function logUserMessage({
         Effect.catchAll(() => Effect.succeed(undefined)),
       );
 
-      yield* Effect.tryPromise({
-        try: async () => {
-          await parentChannel.send({
-            allowedMentions: {},
-            content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
-          });
-        },
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "logUserMessage",
-            cause: error,
-          }),
+      yield* sendMessage(parentChannel, {
+        allowedMentions: {},
+        content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
       }).pipe(
         Effect.catchAll((error) =>
           logEffect("error", "logUserMessage", "failed to forward to modLog", {
-            error: String(error),
+            error,
           }),
         ),
       );

@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { EffectUserContextCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
@@ -41,12 +42,10 @@ export const Command = {
 
         commandStats.commandFailed(interaction, "force-ban", "No guild found");
 
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            flags: [MessageFlags.Ephemeral],
-            content: "Failed to ban user, couldn't find guild",
-          }),
-        );
+        yield* interactionReply(interaction, {
+          flags: [MessageFlags.Ephemeral],
+          content: "Failed to ban user, couldn't find guild",
+        });
         return;
       }
 
@@ -66,12 +65,10 @@ export const Command = {
 
       commandStats.commandExecuted(interaction, "force-ban", true);
 
-      yield* Effect.tryPromise(() =>
-        interaction.reply({
-          flags: [MessageFlags.Ephemeral],
-          content: "This member has been banned",
-        }),
-      );
+      yield* interactionReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
+        content: "This member has been banned",
+      });
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
@@ -88,13 +85,11 @@ export const Command = {
 
           commandStats.commandFailed(interaction, "force-ban", err.message);
 
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              flags: [MessageFlags.Ephemeral],
-              content:
-                "Failed to ban user, try checking the bot's permissions. If they look okay, make sure that the bot's role is near the top of the roles list — bots can't ban users with roles above their own.",
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
+          yield* interactionReply(interaction, {
+            flags: [MessageFlags.Ephemeral],
+            content:
+              "Failed to ban user, try checking the bot's permissions. If they look okay, make sure that the bot's role is near the top of the roles list — bots can't ban users with roles above their own.",
+          }).pipe(Effect.catchAll(() => Effect.void));
         }),
       ),
       Effect.withSpan("forceBanCommand", {

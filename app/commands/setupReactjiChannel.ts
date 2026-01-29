@@ -7,6 +7,7 @@ import {
 import { Effect } from "effect";
 
 import db from "#~/db.server.js";
+import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { EffectSlashCommand } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
@@ -42,12 +43,10 @@ export const Command = {
   handler: (interaction) =>
     Effect.gen(function* () {
       if (!interaction.guild) {
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "This command can only be used in a server.",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        );
+        yield* interactionReply(interaction, {
+          content: "This command can only be used in a server.",
+          flags: [MessageFlags.Ephemeral],
+        });
         return;
       }
 
@@ -65,12 +64,10 @@ export const Command = {
         : emojiInput.trim();
 
       if (!emoji) {
-        yield* Effect.tryPromise(() =>
-          interaction.reply({
-            content: "Please provide a valid emoji.",
-            flags: [MessageFlags.Ephemeral],
-          }),
-        );
+        yield* interactionReply(interaction, {
+          content: "Please provide a valid emoji.",
+          flags: [MessageFlags.Ephemeral],
+        });
         return;
       }
 
@@ -105,11 +102,9 @@ export const Command = {
 
       const thresholdText =
         threshold === 1 ? "" : ` (after ${threshold} reactions)`;
-      yield* Effect.tryPromise(() =>
-        interaction.reply({
-          content: `Configured by <@${configuredById}>: messages reacted with ${emoji} will be forwarded to this channel${thresholdText}.`,
-        }),
-      );
+      yield* interactionReply(interaction, {
+        content: `Configured by <@${configuredById}>: messages reacted with ${emoji} will be forwarded to this channel${thresholdText}.`,
+      });
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
@@ -120,13 +115,11 @@ export const Command = {
             { error: String(error) },
           );
 
-          yield* Effect.tryPromise(() =>
-            interaction.reply({
-              content:
-                "Something went wrong while configuring the reactji channeler.",
-              flags: [MessageFlags.Ephemeral],
-            }),
-          ).pipe(Effect.catchAll(() => Effect.void));
+          yield* interactionReply(interaction, {
+            content:
+              "Something went wrong while configuring the reactji channeler.",
+            flags: [MessageFlags.Ephemeral],
+          }).pipe(Effect.catchAll(() => Effect.void));
         }),
       ),
       Effect.withSpan("setupReactjiChannelCommand", {

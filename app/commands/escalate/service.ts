@@ -4,6 +4,7 @@ import type { Selectable } from "kysely";
 
 import { DatabaseLayer, DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
+import { fetchMember } from "#~/effects/discordSdk.ts";
 import {
   AlreadyResolvedError,
   NotFoundError,
@@ -317,10 +318,10 @@ export const EscalationServiceLive = Layer.effect(
           );
 
           // Try to fetch the member - they may have left
-          const reportedMember = yield* Effect.tryPromise({
-            try: () => guild.members.fetch(escalation.reported_user_id),
-            catch: () => null,
-          }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          const reportedMember = yield* fetchMember(
+            guild,
+            escalation.reported_user_id,
+          ).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
           if (!reportedMember) {
             yield* logEffect(

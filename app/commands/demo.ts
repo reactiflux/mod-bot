@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { interactionReply } from "#~/effects/discordSdk.ts";
 import type {
   EffectMessageContextCommand,
   EffectSlashCommand,
@@ -19,12 +20,10 @@ export const Command = [
       .setName("demo")
       .setDescription("TODO: replace everything in here"),
     handler: (interaction) =>
-      Effect.tryPromise(() =>
-        interaction.reply({
-          flags: [MessageFlags.Ephemeral],
-          content: "ok",
-        }),
-      ).pipe(Effect.catchAll(() => Effect.void)),
+      interactionReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
+        content: "ok",
+      }).pipe(Effect.catchAll(() => Effect.void)),
   } satisfies EffectSlashCommand,
   {
     type: "effect",
@@ -32,12 +31,10 @@ export const Command = [
       .setName("demo")
       .setType(ApplicationCommandType.User),
     handler: (interaction) =>
-      Effect.tryPromise(() =>
-        interaction.reply({
-          flags: [MessageFlags.Ephemeral],
-          content: "ok",
-        }),
-      ).pipe(Effect.catchAll(() => Effect.void)),
+      interactionReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
+        content: "ok",
+      }).pipe(Effect.catchAll(() => Effect.void)),
   } satisfies EffectUserContextCommand,
   {
     type: "effect",
@@ -45,11 +42,9 @@ export const Command = [
       .setName("demo")
       .setType(ApplicationCommandType.Message),
     handler: (interaction) =>
-      Effect.tryPromise(() =>
-        interaction.reply({
-          flags: [MessageFlags.Ephemeral],
-          content: "ok",
-        }),
-      ).pipe(Effect.catchAll(() => Effect.void)),
+      interactionReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
+        content: "ok",
+      }).pipe(Effect.catchAll(() => Effect.void)),
   } satisfies EffectMessageContextCommand,
 ];

@@ -15,6 +15,7 @@ import { Effect } from "effect";
 
 import { logAutomod } from "#~/commands/report/automodLog.ts";
 import { DatabaseLayer } from "#~/Database.ts";
+import { fetchUser } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { runEffect } from "#~/effects/runtime.ts";
 
@@ -258,10 +259,7 @@ const automodActionEffect = (execution: AutoModerationActionExecution) =>
       matchedKeyword,
     });
 
-    const user = yield* Effect.tryPromise({
-      try: () => guild.client.users.fetch(userId),
-      catch: (error) => error,
-    });
+    const user = yield* fetchUser(guild.client, userId);
 
     yield* logAutomod({
       guild,

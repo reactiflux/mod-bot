@@ -10,12 +10,13 @@ import type { Selectable } from "kysely";
 
 import { DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
-import { DiscordApiError } from "#~/effects/errors";
+import { fetchChannel } from "#~/effects/discordSdk.ts";
+import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { escalationControls } from "#~/helpers/escalate";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
-type ThreadError = DiscordApiError | SqlError;
+type ThreadError = DiscordApiError | SqlError | NotFoundError;
 
 // Use Selectable to get the type that Kysely returns from queries
 export type UserThread = Selectable<DB["user_threads"]>;
@@ -170,21 +171,16 @@ const doGetOrCreateUserThread = (guild: Guild, user: User) =>
 
     if (existingThread) {
       // Verify the thread still exists and is accessible
-      const thread = yield* Effect.tryPromise({
-        try: () => guild.channels.fetch(existingThread.thread_id),
-        catch: (error) => error,
-      }).pipe(
+
+      const thread = yield* fetchChannel(guild, existingThread.thread_id).pipe(
         Effect.map((channel) => (channel?.isThread() ? channel : null)),
         Effect.catchAll((error) =>
-          Effect.gen(function* () {
-            yield* logEffect(
-              "warn",
-              "getOrCreateUserThread",
-              "Existing thread not accessible, will create new one",
-              { error: String(error) },
-            );
-            return null;
-          }),
+          logEffect(
+            "warn",
+            "getOrCreateUserThread",
+            "Existing thread not accessible, will create new one",
+            { error },
+          ),
         ),
       );
 
@@ -194,17 +190,11 @@ const doGetOrCreateUserThread = (guild: Guild, user: User) =>
     }
 
     // Create new thread and store in database
-    const { modLog: modLogId } = yield* Effect.tryPromise({
-      try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchSettings", cause: error }),
-    });
+    const { modLog: modLogId } = yield* fetchSettingsEffect(guild.id, [
+      SETTINGS.modLog,
+    ]);
 
-    const modLog = yield* Effect.tryPromise({
-      try: () => guild.channels.fetch(modLogId),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchModLogChannel", cause: error }),
-    });
+    const modLog = yield* fetchChannel(guild, modLogId);
 
     if (!modLog || modLog.type !== ChannelType.GuildText) {
       return yield* Effect.fail(

@@ -3,9 +3,9 @@ import { Effect } from "effect";
 
 import {
   AlreadyResolvedError,
-  DiscordApiError,
   NoLeaderError,
   NotAuthorizedError,
+  NotFoundError,
 } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { hasModRole } from "#~/helpers/discord";
@@ -28,6 +28,11 @@ export interface ExpediteResult {
  */
 export const expediteEffect = (interaction: MessageComponentInteraction) =>
   Effect.gen(function* () {
+    if (!interaction.guild) {
+      return yield* Effect.fail(
+        new NotFoundError({ resource: "guild", id: interaction.guildId ?? "" }),
+      );
+    }
     const escalationService = yield* EscalationService;
     const escalationId = interaction.customId.split("|")[1];
     const guildId = interaction.guildId!;
@@ -77,15 +82,12 @@ export const expediteEffect = (interaction: MessageComponentInteraction) =>
       );
     }
 
-    // Fetch the guild for resolution execution
-    const guild = yield* Effect.tryPromise({
-      try: () => interaction.guild!.fetch(),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", cause: error }),
-    });
-
     // Execute the resolution
-    yield* escalationService.executeResolution(tally.leader, escalation, guild);
+    yield* escalationService.executeResolution(
+      tally.leader,
+      escalation,
+      interaction.guild,
+    );
 
     // Mark as resolved
     yield* escalationService.resolveEscalation(escalationId, tally.leader);

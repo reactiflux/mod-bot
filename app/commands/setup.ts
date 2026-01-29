@@ -1,6 +1,7 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { Effect } from "effect";
 
+import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { EffectSlashCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
@@ -87,7 +88,7 @@ export const Command = {
 
       commandStats.commandExecuted(interaction, "setup", true);
 
-      yield* Effect.tryPromise(() => interaction.reply("Setup completed!"));
+      yield* interactionReply(interaction, "Setup completed!");
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
@@ -102,12 +103,13 @@ export const Command = {
 
           commandStats.commandFailed(interaction, "setup", err.message);
 
-          yield* Effect.tryPromise(() =>
-            interaction.reply(`Something broke:
+          yield* interactionReply(
+            interaction,
+            `Something broke:
 \`\`\`
 ${err.toString()}
 \`\`\`
-`),
+`,
           ).pipe(Effect.catchAll(() => Effect.void));
         }),
       ),

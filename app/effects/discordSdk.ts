@@ -12,6 +12,8 @@ import type {
   GuildTextBasedChannel,
   Message,
   MessageComponentInteraction,
+  MessageContextMenuCommandInteraction,
+  ModalSubmitInteraction,
   PartialMessage,
   ThreadChannel,
   User,
@@ -88,6 +90,13 @@ export const fetchMessage = (
       new DiscordApiError({ operation: "fetchMessage", cause: error }),
   });
 
+export const deleteMessage = (message: Message | PartialMessage) =>
+  Effect.tryPromise({
+    try: () => message.delete(),
+    catch: (error) =>
+      new DiscordApiError({ operation: "deleteMessage", cause: error }),
+  });
+
 export const sendMessage = (
   channel: GuildTextBasedChannel | ThreadChannel,
   options: Parameters<typeof channel.send>[0],
@@ -121,6 +130,16 @@ export const forwardMessageSafe = (message: Message, targetChannelId: string) =>
       }),
     ),
   );
+
+export const messageReply = (
+  message: Message,
+  options: Parameters<Message["reply"]>[0],
+) =>
+  Effect.tryPromise({
+    try: () => message.reply(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "messageReply", cause: error }),
+  }).pipe(Effect.withSpan("messageReply"));
 
 export const replyAndForwardSafe = (
   message: Message,
@@ -166,8 +185,10 @@ export const resolveMessagePartial = (
 export const interactionReply = (
   interaction:
     | MessageComponentInteraction
+    | ModalSubmitInteraction
     | ChatInputCommandInteraction
-    | UserContextMenuCommandInteraction,
+    | UserContextMenuCommandInteraction
+    | MessageContextMenuCommandInteraction,
   options: Parameters<typeof interaction.reply>[0],
 ) =>
   Effect.tryPromise({
@@ -179,7 +200,8 @@ export const interactionDeferReply = (
   interaction:
     | MessageComponentInteraction
     | ChatInputCommandInteraction
-    | UserContextMenuCommandInteraction,
+    | UserContextMenuCommandInteraction
+    | MessageContextMenuCommandInteraction,
   options?: Parameters<typeof interaction.deferReply>[0],
 ) =>
   Effect.tryPromise({
@@ -191,7 +213,8 @@ export const interactionEditReply = (
   interaction:
     | MessageComponentInteraction
     | ChatInputCommandInteraction
-    | UserContextMenuCommandInteraction,
+    | UserContextMenuCommandInteraction
+    | MessageContextMenuCommandInteraction,
   options: Parameters<typeof interaction.editReply>[0],
 ) =>
   Effect.tryPromise({
@@ -203,7 +226,8 @@ export const interactionFollowUp = (
   interaction:
     | MessageComponentInteraction
     | ChatInputCommandInteraction
-    | UserContextMenuCommandInteraction,
+    | UserContextMenuCommandInteraction
+    | MessageContextMenuCommandInteraction,
   options: Parameters<typeof interaction.followUp>[0],
 ) =>
   Effect.tryPromise({
