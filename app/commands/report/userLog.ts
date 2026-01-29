@@ -11,7 +11,7 @@ import {
   type DatabaseService,
   type SqlError,
 } from "#~/Database";
-import { DiscordApiError } from "#~/effects/errors";
+import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
 import {
@@ -69,7 +69,7 @@ export function logUserMessage({
     allReportedMessages: Report[];
     reportId: string;
   },
-  DiscordApiError | SqlError,
+  DiscordApiError | SqlError | NotFoundError,
   DatabaseService
 > {
   return Effect.gen(function* () {

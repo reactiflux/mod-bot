@@ -2,6 +2,7 @@ import { Effect } from "effect";
 
 import { DatabaseService } from "#~/Database.ts";
 import db, { SqliteError, type DB } from "#~/db.server";
+import { NotFoundError } from "#~/effects/errors.ts";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type Guild = DB["guilds"];
@@ -134,5 +135,10 @@ export const fetchSettingsEffect = <T extends keyof typeof SETTINGS>(
       )
       .where("id", "=", guildId);
     const result = Object.entries(rows[0] ?? {}) as [T, string][];
+    if (result.length === 0) {
+      return yield* Effect.fail(
+        new NotFoundError({ id: guildId, resource: "guild" }),
+      );
+    }
     return Object.fromEntries(result) as Pick<SettingsRecord, T>;
   });
