@@ -89,6 +89,13 @@ const vote =
         ),
       });
     }).pipe(
+      Effect.withSpan("escalation-vote", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+          resolution,
+        },
+      }),
       Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
@@ -121,13 +128,6 @@ const vote =
           )
           .pipe(Effect.catchAll(() => Effect.void)),
       ),
-      Effect.withSpan("escalation-vote", {
-        attributes: {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-          resolution,
-        },
-      }),
     );
 
 const expedite = (interaction: MessageComponentInteraction) =>
@@ -144,6 +144,9 @@ ${buildVotesListContent(result.tally)}`,
       components: [], // Remove buttons
     });
   }).pipe(
+    Effect.withSpan("escalation-expedite", {
+      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
+    }),
     Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
     Effect.catchTag("NotAuthorizedError", () =>
       interactionFollowUp(interaction, {
@@ -179,9 +182,6 @@ ${buildVotesListContent(result.tally)}`,
         }).pipe(Effect.catchAll(() => Effect.void)),
       ),
     ),
-    Effect.withSpan("escalation-expedite", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
   );
 
 const escalate = (interaction: MessageComponentInteraction) =>
@@ -209,8 +209,12 @@ const escalate = (interaction: MessageComponentInteraction) =>
         interaction,
         "Escalation upgraded to majority voting",
       );
+      return;
     }
   }).pipe(
+    Effect.withSpan("escalation-escalate", {
+      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
+    }),
     Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
     Effect.catchTag("NotFoundError", () =>
       interactionEditReply(interaction, {
@@ -226,9 +230,6 @@ const escalate = (interaction: MessageComponentInteraction) =>
         }).pipe(Effect.catchAll(() => Effect.void)),
       ),
     ),
-    Effect.withSpan("escalation-escalate", {
-      attributes: { guildId: interaction.guildId, userId: interaction.user.id },
-    }),
   );
 
 export const EscalationHandlers = {
@@ -244,6 +245,12 @@ export const EscalationHandlers = {
         `Messages deleted by ${result.deletedBy} (${result.deleted}/${result.total} successful)`,
       );
     }).pipe(
+      Effect.withSpan("escalation-deleteMessages", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
       Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionEditReply(interaction, {
@@ -259,12 +266,6 @@ export const EscalationHandlers = {
           }).pipe(Effect.catchAll(() => Effect.void)),
         ),
       ),
-      Effect.withSpan("escalation-deleteMessages", {
-        attributes: {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-        },
-      }),
     ),
   kick: (interaction: MessageComponentInteraction) =>
     Effect.gen(function* () {
@@ -311,6 +312,12 @@ export const EscalationHandlers = {
         `<@${reportedUserId}> banned by ${result.actionBy}`,
       );
     }).pipe(
+      Effect.withSpan("escalation-banUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
       Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
@@ -328,12 +335,6 @@ export const EscalationHandlers = {
           }).pipe(Effect.catchAll(() => Effect.void)),
         ),
       ),
-      Effect.withSpan("escalation-banUser", {
-        attributes: {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-        },
-      }),
     ),
   restrict: (interaction: MessageComponentInteraction) =>
     Effect.gen(function* () {
@@ -346,6 +347,12 @@ export const EscalationHandlers = {
         `<@${reportedUserId}> restricted by ${result.actionBy}`,
       );
     }).pipe(
+      Effect.withSpan("escalation-restrictUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
       Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
@@ -363,12 +370,6 @@ export const EscalationHandlers = {
           }).pipe(Effect.catchAll(() => Effect.void)),
         ),
       ),
-      Effect.withSpan("escalation-restrictUser", {
-        attributes: {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-        },
-      }),
     ),
   timeout: (interaction: MessageComponentInteraction) =>
     Effect.gen(function* () {
@@ -381,6 +382,12 @@ export const EscalationHandlers = {
         `<@${reportedUserId}> timed out by ${result.actionBy}`,
       );
     }).pipe(
+      Effect.withSpan("escalation-timeoutUser", {
+        attributes: {
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+        },
+      }),
       Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
@@ -398,12 +405,6 @@ export const EscalationHandlers = {
           }).pipe(Effect.catchAll(() => Effect.void)),
         ),
       ),
-      Effect.withSpan("escalation-timeoutUser", {
-        attributes: {
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-        },
-      }),
     ),
 
   // Voting handlers

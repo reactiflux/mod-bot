@@ -4,7 +4,6 @@ import { Effect, Layer } from "effect";
 import { checkPendingEscalationsEffect } from "#~/commands/escalate/escalationResolver";
 import { getFailure } from "#~/commands/escalate/index";
 import { EscalationServiceLive } from "#~/commands/escalate/service.ts";
-import { DatabaseLayer } from "#~/Database.ts";
 import { runEffectExit } from "#~/effects/runtime.ts";
 import { log } from "#~/helpers/observability";
 import { scheduleTask } from "#~/helpers/schedule";
@@ -17,7 +16,7 @@ const ONE_MINUTE = 60 * 1000;
 async function checkPendingEscalations(client: Client): Promise<void> {
   const exit = await runEffectExit(
     checkPendingEscalationsEffect(client).pipe(
-      Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+      Effect.provide(Layer.mergeAll(EscalationServiceLive)),
     ),
   );
 
