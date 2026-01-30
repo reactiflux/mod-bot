@@ -3,12 +3,11 @@ import { Effect } from "effect";
 
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import type { EffectSlashCommand } from "#~/helpers/discord";
+import type { SlashCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
 import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 
 export const Command = {
-  type: "effect",
   command: new SlashCommandBuilder()
     .setName("setup")
     .setDescription("Set up necessities for using the bot")
@@ -120,4 +119,4 @@ ${err.toString()}
         },
       }),
     ),
-} satisfies EffectSlashCommand;
+} satisfies SlashCommand;

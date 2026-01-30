@@ -26,9 +26,9 @@ import {
 import { logEffect } from "#~/effects/observability.ts";
 import {
   quoteMessageContent,
-  type EffectMessageComponentCommand,
-  type EffectModalCommand,
-  type EffectSlashCommand,
+  type MessageComponentCommand,
+  type ModalCommand,
+  type SlashCommand,
 } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
@@ -37,7 +37,6 @@ const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
 export const Command = [
   {
-    type: "effect",
     command: new SlashCommandBuilder()
       .setName("tickets-channel")
       .addRoleOption((o) => {
@@ -152,10 +151,9 @@ export const Command = [
           },
         }),
       ),
-  } satisfies EffectSlashCommand,
+  } satisfies SlashCommand,
 
   {
-    type: "effect",
     command: { type: InteractionType.MessageComponent, name: "open-ticket" },
     handler: (interaction) =>
       Effect.gen(function* () {
@@ -184,10 +182,9 @@ export const Command = [
           },
         }),
       ),
-  } satisfies EffectMessageComponentCommand,
+  } satisfies MessageComponentCommand,
 
   {
-    type: "effect",
     command: { type: InteractionType.ModalSubmit, name: "modal-open-ticket" },
     handler: (interaction) =>
       Effect.gen(function* () {
@@ -322,10 +319,9 @@ export const Command = [
           },
         }),
       ),
-  } satisfies EffectModalCommand,
+  } satisfies ModalCommand,
 
   {
-    type: "effect",
     command: { type: InteractionType.MessageComponent, name: "close-ticket" },
     handler: (interaction) =>
       Effect.gen(function* () {
@@ -400,5 +396,5 @@ export const Command = [
           },
         }),
       ),
-  } satisfies EffectMessageComponentCommand,
+  } satisfies MessageComponentCommand,
 ];

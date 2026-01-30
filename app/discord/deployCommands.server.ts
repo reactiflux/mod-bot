@@ -9,7 +9,6 @@ import {
 
 import { ssrDiscordSdk } from "#~/discord/api";
 import {
-  isEffectCommand,
   isMessageContextCommand,
   isSlashCommand,
   isUserContextCommand,
@@ -17,7 +16,6 @@ import {
 } from "#~/helpers/discord";
 import { calculateChangedCommands } from "#~/helpers/discordCommands";
 import { applicationId, isProd } from "#~/helpers/env.server";
-import { log, trackPerformance } from "#~/helpers/observability.js";
 
 /**
  * deployCommands notifies Discord of the latest commands to use and registers
@@ -179,38 +177,15 @@ export const deployTestCommands = async (
   );
 };
 
-const withPerf = <T extends AnyCommand>(config: T): T => {
-  // Effect commands handle their own spans via Effect.withSpan
-  if (isEffectCommand(config)) {
-    return config;
-  }
-
-  const { command, handler } = config;
-  return {
-    command,
-    handler: (interaction: Parameters<typeof handler>[0]) => {
-      void trackPerformance(`withPerf HoF ${command.name}`, async () => {
-        try {
-          // @ts-expect-error Unclear why this isn't working but it seems fine
-          await handler(interaction);
-        } catch (e) {
-          log("debug", `perf`, "rethrowing error", { error: e });
-          throw e;
-        }
-      });
-    },
-  } as T;
-};
-
 const commands = new Map<string, AnyCommand>();
 export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
   if (Array.isArray(config)) {
     config.forEach((c) => {
-      commands.set(c.command.name, withPerf(c));
+      commands.set(c.command.name, c);
     });
     return;
   }
-  commands.set(config.command.name, withPerf(config));
+  commands.set(config.command.name, config);
 };
 export const matchCommand = (customId: string) => {
   const config = commands.get(customId);

@@ -1,13 +1,13 @@
 import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
-  InteractionType,
   SlashCommandBuilder,
   type APIEmbed,
   type ChatInputCommandInteraction,
   type Collection,
   type Guild,
   type GuildMember,
+  type InteractionType,
   type Message,
   type MessageComponentInteraction,
   type MessageContextMenuCommandInteraction,
@@ -23,7 +23,7 @@ import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
 import { resolveMessagePartial } from "#~/effects/discordSdk";
-import { type DiscordApiError, NotFoundError } from "#~/effects/errors.ts";
+import { NotFoundError, type DiscordApiError } from "#~/effects/errors.ts";
 import {
   getChars,
   getWords,
@@ -145,110 +145,51 @@ ${poll.answers.map((a) => `> - ${a.text}`).join("\n")}`;
 };
 
 //
-// Types and type helpers for command configs
-//
-export type AnyCommand =
-  | MessageContextCommand
-  | UserContextCommand
-  | SlashCommand
-  | MessageComponentCommand
-  | ModalCommand
-  | AnyEffectCommand;
-
-export interface MessageContextCommand {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: MessageContextMenuCommandInteraction) => Promise<void>;
-}
 export const isMessageContextCommand = (
   config: AnyCommand,
 ): config is MessageContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.Message;
-
-export interface UserContextCommand {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: UserContextMenuCommandInteraction) => Promise<void>;
-}
 export const isUserContextCommand = (
   config: AnyCommand,
 ): config is UserContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.User;
-
-export interface SlashCommand {
-  command: SlashCommandBuilder;
-  handler: (interaction: ChatInputCommandInteraction) => Promise<void>;
-}
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
-
-export interface MessageComponentCommand {
-  command: { type: InteractionType.MessageComponent; name: string };
-  handler: (interaction: MessageComponentInteraction) => Promise<void>;
-}
-export const isMessageComponentCommand = (
-  config: AnyCommand,
-): config is MessageComponentCommand =>
-  "type" in config.command &&
-  config.command.type === InteractionType.MessageComponent;
-
-export interface ModalCommand {
-  command: { type: InteractionType.ModalSubmit; name: string };
-  handler: (interaction: ModalSubmitInteraction) => Promise<void>;
-}
-export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
-  "type" in config.command &&
-  config.command.type === InteractionType.ModalSubmit;
-
-//
 // Effect-based command types
 // Handlers must be fully self-contained: E = never, R = never, A = void
 //
 
-export type EffectHandler<I> = (
-  interaction: I,
-) => Effect.Effect<void, never, never>;
+export type Handler<I> = (interaction: I) => Effect.Effect<void, never, never>;
 
-export interface EffectSlashCommand {
-  type: "effect";
+export interface SlashCommand {
   command: SlashCommandBuilder;
-  handler: EffectHandler<ChatInputCommandInteraction>;
+  handler: Handler<ChatInputCommandInteraction>;
 }
-
-export interface EffectMessageComponentCommand {
-  type: "effect";
+export interface MessageComponentCommand {
   command: { type: InteractionType.MessageComponent; name: string };
-  handler: EffectHandler<MessageComponentInteraction>;
+  handler: Handler<MessageComponentInteraction>;
 }
-
-export interface EffectUserContextCommand {
-  type: "effect";
+export interface UserContextCommand {
   command: ContextMenuCommandBuilder;
-  handler: EffectHandler<UserContextMenuCommandInteraction>;
+  handler: Handler<UserContextMenuCommandInteraction>;
 }
-
-export interface EffectMessageContextCommand {
-  type: "effect";
+export interface MessageContextCommand {
   command: ContextMenuCommandBuilder;
-  handler: EffectHandler<MessageContextMenuCommandInteraction>;
+  handler: Handler<MessageContextMenuCommandInteraction>;
 }
-
-export interface EffectModalCommand {
-  type: "effect";
+export interface ModalCommand {
   command: { type: InteractionType.ModalSubmit; name: string };
-  handler: EffectHandler<ModalSubmitInteraction>;
+  handler: Handler<ModalSubmitInteraction>;
 }
 
-export type AnyEffectCommand =
-  | EffectSlashCommand
-  | EffectMessageComponentCommand
-  | EffectUserContextCommand
-  | EffectMessageContextCommand
-  | EffectModalCommand;
-
-export const isEffectCommand = (
-  config: AnyCommand,
-): config is AnyEffectCommand => "type" in config && config.type === "effect";
+export type AnyCommand =
+  | SlashCommand
+  | MessageComponentCommand
+  | UserContextCommand
+  | MessageContextCommand
+  | ModalCommand;
 
 export interface CodeStats {
   chars: number;

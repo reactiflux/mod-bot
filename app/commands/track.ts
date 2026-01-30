@@ -24,8 +24,8 @@ import {
 } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type {
-  EffectMessageComponentCommand,
-  EffectMessageContextCommand,
+  MessageComponentCommand,
+  MessageContextCommand,
 } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
 import {
@@ -36,7 +36,6 @@ import {
 
 export const Command = [
   {
-    type: "effect",
     command: new ContextMenuCommandBuilder()
       .setName("Track")
       .setType(ApplicationCommandType.Message)
@@ -90,9 +89,8 @@ export const Command = [
           ]),
         ),
       ),
-  } satisfies EffectMessageContextCommand,
+  } satisfies MessageContextCommand,
   {
-    type: "effect",
     command: { type: InteractionType.MessageComponent, name: "delete-tracked" },
     handler: (interaction) =>
       Effect.gen(function* () {
@@ -158,5 +156,5 @@ export const Command = [
           }),
         ),
       ),
-  } satisfies EffectMessageComponentCommand,
+  } satisfies MessageComponentCommand,
 ];

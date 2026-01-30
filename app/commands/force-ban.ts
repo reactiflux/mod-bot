@@ -8,11 +8,10 @@ import { Effect } from "effect";
 
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import type { EffectUserContextCommand } from "#~/helpers/discord";
+import type { UserContextCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
 
 export const Command = {
-  type: "effect",
   command: new ContextMenuCommandBuilder()
     .setName("Force Ban")
     .setType(ApplicationCommandType.User)
@@ -100,4 +99,4 @@ export const Command = {
         },
       }),
     ),
-} satisfies EffectUserContextCommand;
+} satisfies UserContextCommand;

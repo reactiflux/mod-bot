@@ -13,12 +13,11 @@ import {
   interactionEditReply,
 } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import type { EffectMessageContextCommand } from "#~/helpers/discord";
+import type { MessageContextCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
 import { ReportReasons } from "#~/models/reportedMessages.ts";
 
 export const Command = {
-  type: "effect",
   command: new ContextMenuCommandBuilder()
     .setName("Report")
     .setType(ApplicationCommandType.Message)
@@ -76,4 +75,4 @@ export const Command = {
         },
       }),
     ),
-} satisfies EffectMessageContextCommand;
+} satisfies MessageContextCommand;

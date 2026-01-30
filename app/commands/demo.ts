@@ -8,14 +8,13 @@ import { Effect } from "effect";
 
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import type {
-  EffectMessageContextCommand,
-  EffectSlashCommand,
-  EffectUserContextCommand,
+  MessageContextCommand,
+  SlashCommand,
+  UserContextCommand,
 } from "#~/helpers/discord";
 
 export const Command = [
   {
-    type: "effect",
     command: new SlashCommandBuilder()
       .setName("demo")
       .setDescription("TODO: replace everything in here"),
@@ -24,9 +23,8 @@ export const Command = [
         flags: [MessageFlags.Ephemeral],
         content: "ok",
       }).pipe(Effect.catchAll(() => Effect.void)),
-  } satisfies EffectSlashCommand,
+  } satisfies SlashCommand,
   {
-    type: "effect",
     command: new ContextMenuCommandBuilder()
       .setName("demo")
       .setType(ApplicationCommandType.User),
@@ -35,9 +33,8 @@ export const Command = [
         flags: [MessageFlags.Ephemeral],
         content: "ok",
       }).pipe(Effect.catchAll(() => Effect.void)),
-  } satisfies EffectUserContextCommand,
+  } satisfies UserContextCommand,
   {
-    type: "effect",
     command: new ContextMenuCommandBuilder()
       .setName("demo")
       .setType(ApplicationCommandType.Message),
@@ -46,5 +43,5 @@ export const Command = [
         flags: [MessageFlags.Ephemeral],
         content: "ok",
       }).pipe(Effect.catchAll(() => Effect.void)),
-  } satisfies EffectMessageContextCommand,
+  } satisfies MessageContextCommand,
 ];

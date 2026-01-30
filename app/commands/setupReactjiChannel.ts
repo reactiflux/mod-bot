@@ -9,11 +9,10 @@ import { Effect } from "effect";
 import db from "#~/db.server.js";
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import type { EffectSlashCommand } from "#~/helpers/discord";
+import type { SlashCommand } from "#~/helpers/discord";
 import { featureStats } from "#~/helpers/metrics";
 
 export const Command = {
-  type: "effect",
   command: new SlashCommandBuilder()
     .setName("setup-reactji-channel")
     .addStringOption((o) => {
@@ -130,4 +129,4 @@ export const Command = {
         },
       }),
     ),
-} satisfies EffectSlashCommand;
+} satisfies SlashCommand;

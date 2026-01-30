@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import db from "#~/db.server.js";
 import { interactionReply, sendMessage } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import type { EffectSlashCommand } from "#~/helpers/discord.js";
+import type { SlashCommand } from "#~/helpers/discord.js";
 import { featureStats } from "#~/helpers/metrics";
 
 const DEFAULT_MESSAGE_TEXT =
@@ -18,7 +18,6 @@ const DEFAULT_MESSAGE_TEXT =
 
 export const Command = [
   {
-    type: "effect",
     command: new SlashCommandBuilder()
       .setName("honeypot-setup")
       .addChannelOption((o) => {
@@ -116,5 +115,5 @@ export const Command = [
           },
         }),
       ),
-  } satisfies EffectSlashCommand,
+  } satisfies SlashCommand,
 ];
