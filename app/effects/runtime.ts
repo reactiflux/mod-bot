@@ -1,4 +1,7 @@
-import { Effect, Layer, Logger } from "effect";
+import { Effect, Layer, Logger, LogLevel } from "effect";
+
+import { isProd } from "#~/helpers/env.server.js";
+import { log } from "#~/helpers/observability.js";
 
 import { TracingLive } from "./tracing.js";
 
@@ -25,9 +28,23 @@ const RuntimeLive = Layer.merge(TracingLive, Logger.json);
  * Automatically provides tracing (Sentry) and logging (JSON to stdout).
  * Throws if the Effect fails.
  */
-export const runEffect = <A, E>(
+export const runEffect = async <A, E>(
   effect: Effect.Effect<A, E, never>,
-): Promise<A> => Effect.runPromise(effect.pipe(Effect.provide(RuntimeLive)));
+): Promise<A> => {
+  try {
+    const program = effect.pipe(Effect.provide(RuntimeLive));
+    return Effect.runPromise(
+      isProd()
+        ? program.pipe(Logger.withMinimumLogLevel(LogLevel.Info))
+        : program,
+    );
+  } catch (error) {
+    log("error", "runtime", "Caught an error while executing Effect", {
+      error,
+    });
+    throw error;
+  }
+};
 
 /**
  * Run an Effect and return a Promise that resolves with an Exit value.
