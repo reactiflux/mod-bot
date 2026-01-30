@@ -3,17 +3,19 @@ import {
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  type ChatInputCommandInteraction,
   type TextChannel,
 } from "discord.js";
+import { Effect } from "effect";
 
 import db from "#~/db.server.js";
-import type { AnyCommand } from "#~/helpers/discord.js";
+import { interactionReply, sendMessage } from "#~/effects/discordSdk.ts";
+import { logEffect } from "#~/effects/observability.ts";
+import type { SlashCommand } from "#~/helpers/discord.js";
 import { featureStats } from "#~/helpers/metrics";
-import { log } from "#~/helpers/observability.js";
 
 const DEFAULT_MESSAGE_TEXT =
   "This channel is used to catch spambots. Do not send a message in this channel or you will be kicked automatically.";
+
 export const Command = [
   {
     command: new SlashCommandBuilder()
@@ -36,37 +38,47 @@ export const Command = [
       .setDefaultMemberPermissions(
         PermissionFlagsBits.Administrator,
       ) as SlashCommandBuilder,
-    handler: async (interaction: ChatInputCommandInteraction) => {
-      if (!interaction.guild || !interaction.guildId)
-        throw new Error("Interaction has no guild");
-      const honeypotChannel =
-        interaction.options.getChannel("channel") ?? interaction.channel;
-      const messageText =
-        interaction.options.getString("message-text") ?? DEFAULT_MESSAGE_TEXT;
-      if (!honeypotChannel?.id) {
-        await interaction.reply({
-          content: `You must provide a channel!`,
-        });
-        return;
-      }
-      if (honeypotChannel.type !== ChannelType.GuildText) {
-        await interaction.reply({
-          content: `The channel configured must be a text channel!`,
-        });
-        return;
-      }
-      try {
+
+    handler: (interaction) =>
+      Effect.gen(function* () {
+        if (!interaction.guild || !interaction.guildId) {
+          yield* Effect.fail(new Error("Interaction has no guild"));
+          return;
+        }
+
+        const honeypotChannel =
+          interaction.options.getChannel("channel") ?? interaction.channel;
+        const messageText =
+          interaction.options.getString("message-text") ?? DEFAULT_MESSAGE_TEXT;
+
+        if (!honeypotChannel?.id) {
+          yield* interactionReply(interaction, {
+            content: `You must provide a channel!`,
+          });
+          return;
+        }
+
+        if (honeypotChannel.type !== ChannelType.GuildText) {
+          yield* interactionReply(interaction, {
+            content: `The channel configured must be a text channel!`,
+          });
+          return;
+        }
+
         const castedChannel = honeypotChannel as TextChannel;
-        const result = await db
-          .insertInto("honeypot_config")
-          .values({
-            guild_id: interaction.guildId,
-            channel_id: honeypotChannel.id,
-          })
-          .onConflict((c) => c.doNothing())
-          .execute();
-        if (result[0].numInsertedOrUpdatedRows ?? 0 > 0) {
-          await castedChannel.send(messageText);
+        const result = yield* Effect.tryPromise(() =>
+          db
+            .insertInto("honeypot_config")
+            .values({
+              guild_id: interaction.guildId!,
+              channel_id: honeypotChannel.id,
+            })
+            .onConflict((c) => c.doNothing())
+            .execute(),
+        );
+
+        if ((result[0].numInsertedOrUpdatedRows ?? 0) > 0) {
+          yield* sendMessage(castedChannel, messageText);
           featureStats.honeypotSetup(
             interaction.guildId,
             interaction.user.id,
@@ -74,19 +86,34 @@ export const Command = [
           );
         }
 
-        await interaction.reply({
+        yield* interactionReply(interaction, {
           content: "Honeypot setup completed successfully!",
           flags: [MessageFlags.Ephemeral],
         });
-      } catch (e) {
-        log("error", "HoneypotSetup", "Error during honeypot action", {
-          error: e,
-        });
-        await interaction.reply({
-          content: "Failed to setup honeypot. Please try again.",
-          flags: [MessageFlags.Ephemeral],
-        });
-      }
-    },
-  },
-] as AnyCommand[];
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* logEffect(
+              "error",
+              "HoneypotSetup",
+              "Error during honeypot action",
+              {
+                error: String(error),
+              },
+            );
+
+            yield* interactionReply(interaction, {
+              content: "Failed to setup honeypot. Please try again.",
+              flags: [MessageFlags.Ephemeral],
+            }).pipe(Effect.catchAll(() => Effect.void));
+          }),
+        ),
+        Effect.withSpan("honeypotSetupCommand", {
+          attributes: {
+            guildId: interaction.guildId,
+            userId: interaction.user.id,
+          },
+        }),
+      ),
+  } satisfies SlashCommand,
+];

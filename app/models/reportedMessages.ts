@@ -6,7 +6,6 @@ import { DatabaseLayer, DatabaseService } from "#~/Database";
 import type { DB } from "#~/db";
 import { client } from "#~/discord/client.server";
 import { logEffect } from "#~/effects/observability";
-import { runEffect } from "#~/effects/runtime";
 
 export type ReportedMessage = Selectable<DB["reported_messages"]>;
 
@@ -323,10 +322,7 @@ const deleteSingleMessage = (
  * Delete all reported messages for a user.
  * Uses Effect-native logging throughout.
  */
-export const deleteAllReportedForUserEffect = (
-  userId: string,
-  guildId: string,
-) =>
+export const deleteAllReportedForUser = (userId: string, guildId: string) =>
   Effect.gen(function* () {
     const uniqueMessages = yield* Effect.provide(
       getUniqueNonDeletedMessages(userId, guildId),
@@ -377,15 +373,4 @@ export const deleteAllReportedForUserEffect = (
     Effect.withSpan("deleteAllReportedForUser", {
       attributes: { userId, guildId },
     }),
-  );
-
-/**
- * Delete all reported messages for a user.
- * Legacy wrapper that runs the Effect.
- */
-export const deleteAllReportedForUser = (userId: string, guildId: string) =>
-  runEffect(
-    deleteAllReportedForUserEffect(userId, guildId).pipe(
-      Effect.provide(DatabaseLayer),
-    ),
   );

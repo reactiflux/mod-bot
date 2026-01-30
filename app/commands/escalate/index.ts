@@ -1,17 +1,4 @@
-import { Cause, Effect } from "effect";
-
-import { runEffectExit } from "#~/effects/runtime";
-
-import { EscalationServiceLive, type EscalationService } from "./service";
-
-/**
- * Run an Effect that requires EscalationService.
- * Provides the service and all its dependencies automatically.
- * Returns an Exit for error handling in handlers.
- */
-export const runEscalationEffect = <A, E>(
-  effect: Effect.Effect<A, E, EscalationService>,
-) => runEffectExit(Effect.provide(effect, EscalationServiceLive));
+import { Cause } from "effect";
 
 /**
  * Extract the first failure from a Cause for type-safe error matching.

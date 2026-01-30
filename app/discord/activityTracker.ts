@@ -1,4 +1,5 @@
 import { ChannelType, Events, type Client } from "discord.js";
+import { Effect } from "effect";
 
 import db from "#~/db.server";
 import { getMessageStats } from "#~/helpers/discord.js";
@@ -34,7 +35,7 @@ export async function startActivityTracking(client: Client) {
       return;
     }
 
-    const info = await getMessageStats(msg);
+    const info = await Effect.runPromise(getMessageStats(msg));
 
     const channelInfo = await trackPerformance(
       "startActivityTracking: getOrFetchChannel",
@@ -75,7 +76,7 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processMessageUpdate",
       async () => {
-        const info = await getMessageStats(msg);
+        const info = await Effect.runPromise(getMessageStats(msg));
 
         await updateStatsById(msg.id)
           .set({

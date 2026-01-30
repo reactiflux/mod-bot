@@ -1,13 +1,13 @@
 import {
   ApplicationCommandType,
   ContextMenuCommandBuilder,
-  InteractionType,
   SlashCommandBuilder,
   type APIEmbed,
   type ChatInputCommandInteraction,
   type Collection,
   type Guild,
   type GuildMember,
+  type InteractionType,
   type Message,
   type MessageComponentInteraction,
   type MessageContextMenuCommandInteraction,
@@ -18,18 +18,17 @@ import {
   type Poll,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
-import { type Effect } from "effect";
+import { Effect } from "effect";
 import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
+import { resolveMessagePartial } from "#~/effects/discordSdk";
+import { NotFoundError, type DiscordApiError } from "#~/effects/errors.ts";
 import {
   getChars,
   getWords,
   parseMarkdownBlocks,
 } from "#~/helpers/messageParsing";
-import { trackPerformance } from "#~/helpers/observability";
-
-import { NotFoundError } from "./errors";
 
 const staffRoles = ["mvp", "moderator", "admin", "admins"];
 const helpfulRoles = ["mvp", "star helper"];
@@ -146,110 +145,51 @@ ${poll.answers.map((a) => `> - ${a.text}`).join("\n")}`;
 };
 
 //
-// Types and type helpers for command configs
-//
-export type AnyCommand =
-  | MessageContextCommand
-  | UserContextCommand
-  | SlashCommand
-  | MessageComponentCommand
-  | ModalCommand
-  | AnyEffectCommand;
-
-export interface MessageContextCommand {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: MessageContextMenuCommandInteraction) => Promise<void>;
-}
 export const isMessageContextCommand = (
   config: AnyCommand,
 ): config is MessageContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.Message;
-
-export interface UserContextCommand {
-  command: ContextMenuCommandBuilder;
-  handler: (interaction: UserContextMenuCommandInteraction) => Promise<void>;
-}
 export const isUserContextCommand = (
   config: AnyCommand,
 ): config is UserContextCommand =>
   config.command instanceof ContextMenuCommandBuilder &&
   config.command.type === ApplicationCommandType.User;
-
-export interface SlashCommand {
-  command: SlashCommandBuilder;
-  handler: (interaction: ChatInputCommandInteraction) => Promise<void>;
-}
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
-
-export interface MessageComponentCommand {
-  command: { type: InteractionType.MessageComponent; name: string };
-  handler: (interaction: MessageComponentInteraction) => Promise<void>;
-}
-export const isMessageComponentCommand = (
-  config: AnyCommand,
-): config is MessageComponentCommand =>
-  "type" in config.command &&
-  config.command.type === InteractionType.MessageComponent;
-
-export interface ModalCommand {
-  command: { type: InteractionType.ModalSubmit; name: string };
-  handler: (interaction: ModalSubmitInteraction) => Promise<void>;
-}
-export const isModalCommand = (config: AnyCommand): config is ModalCommand =>
-  "type" in config.command &&
-  config.command.type === InteractionType.ModalSubmit;
-
-//
 // Effect-based command types
 // Handlers must be fully self-contained: E = never, R = never, A = void
 //
 
-export type EffectHandler<I> = (
-  interaction: I,
-) => Effect.Effect<void, never, never>;
+export type Handler<I> = (interaction: I) => Effect.Effect<void, never, never>;
 
-export interface EffectSlashCommand {
-  type: "effect";
+export interface SlashCommand {
   command: SlashCommandBuilder;
-  handler: EffectHandler<ChatInputCommandInteraction>;
+  handler: Handler<ChatInputCommandInteraction>;
 }
-
-export interface EffectMessageComponentCommand {
-  type: "effect";
+export interface MessageComponentCommand {
   command: { type: InteractionType.MessageComponent; name: string };
-  handler: EffectHandler<MessageComponentInteraction>;
+  handler: Handler<MessageComponentInteraction>;
 }
-
-export interface EffectUserContextCommand {
-  type: "effect";
+export interface UserContextCommand {
   command: ContextMenuCommandBuilder;
-  handler: EffectHandler<UserContextMenuCommandInteraction>;
+  handler: Handler<UserContextMenuCommandInteraction>;
 }
-
-export interface EffectMessageContextCommand {
-  type: "effect";
+export interface MessageContextCommand {
   command: ContextMenuCommandBuilder;
-  handler: EffectHandler<MessageContextMenuCommandInteraction>;
+  handler: Handler<MessageContextMenuCommandInteraction>;
 }
-
-export interface EffectModalCommand {
-  type: "effect";
+export interface ModalCommand {
   command: { type: InteractionType.ModalSubmit; name: string };
-  handler: EffectHandler<ModalSubmitInteraction>;
+  handler: Handler<ModalSubmitInteraction>;
 }
 
-export type AnyEffectCommand =
-  | EffectSlashCommand
-  | EffectMessageComponentCommand
-  | EffectUserContextCommand
-  | EffectMessageContextCommand
-  | EffectModalCommand;
-
-export const isEffectCommand = (
-  config: AnyCommand,
-): config is AnyEffectCommand => "type" in config && config.type === "effect";
+export type AnyCommand =
+  | SlashCommand
+  | MessageComponentCommand
+  | UserContextCommand
+  | MessageContextCommand
+  | ModalCommand;
 
 export interface CodeStats {
   chars: number;
@@ -257,84 +197,97 @@ export interface CodeStats {
   lines: number;
   lang: string | undefined;
 }
+
+export interface MessageStats {
+  char_count: number;
+  word_count: number;
+  code_stats: CodeStats[];
+  link_stats: string[];
+  react_count: number;
+  sent_at: number;
+}
+
 /**
  * getMessageStats is a helper to retrieve common metrics from a message
  * @param msg A Discord Message or PartialMessage object
- * @returns { chars: number; words: number; lines: number; lang?: string }
+ * @returns MessageStats with char/word counts, code blocks, links, reactions, and timestamp
  */
-export async function getMessageStats(msg: Message | PartialMessage) {
-  return trackPerformance(
-    "startActivityTracking: getMessageStats",
-    async () => {
-      const { content } = await msg
-        .fetch()
-        .catch((_) => ({ content: undefined }));
-      if (!content) {
-        throw new NotFoundError("message", "getMessageStats");
-      }
+export const getMessageStats = (
+  msg: Message | PartialMessage,
+): Effect.Effect<MessageStats, NotFoundError | DiscordApiError, never> =>
+  Effect.gen(function* () {
+    const message = yield* resolveMessagePartial(msg);
 
-      const blocks = parseMarkdownBlocks(content);
-
-      // TODO: groupBy would be better here, but this was easier to keep typesafe
-      const [textblocks, nontextblocks] = partition(
-        blocks,
-        (b) => b.type === "text",
+    const { content } = message;
+    if (!content) {
+      return yield* Effect.fail(
+        new NotFoundError({ resource: "message", id: msg.id }),
       );
-      const [links, codeblocks] = partition(
-        nontextblocks,
-        (b) => b.type === "link",
-      );
+    }
 
-      const linkStats = links.map((link) => link.url);
+    const blocks = parseMarkdownBlocks(content);
 
-      const { wordCount, charCount } = [...links, ...textblocks].reduce(
-        (acc, block) => {
-          const content =
-            block.type === "link" ? (block.label ?? "") : block.content;
-          const words = getWords(content).length;
-          const chars = getChars(content).length;
+    // TODO: groupBy would be better here, but this was easier to keep typesafe
+    const [textblocks, nontextblocks] = partition(
+      blocks,
+      (b) => b.type === "text",
+    );
+    const [links, codeblocks] = partition(
+      nontextblocks,
+      (b) => b.type === "link",
+    );
+
+    const linkStats = links.map((link) => link.url);
+
+    const { wordCount, charCount } = [...links, ...textblocks].reduce(
+      (acc, block) => {
+        const content =
+          block.type === "link" ? (block.label ?? "") : block.content;
+        const words = getWords(content).length;
+        const chars = getChars(content).length;
+        return {
+          wordCount: acc.wordCount + words,
+          charCount: acc.charCount + chars,
+        };
+      },
+      { wordCount: 0, charCount: 0 },
+    );
+
+    const codeStats = codeblocks.map((block): CodeStats => {
+      switch (block.type) {
+        case "fencedcode": {
+          const content = block.code.join("\n");
           return {
-            wordCount: acc.wordCount + words,
-            charCount: acc.charCount + chars,
+            chars: getChars(content).length,
+            words: getWords(content).length,
+            lines: block.code.length,
+            lang: block.lang,
           };
-        },
-        { wordCount: 0, charCount: 0 },
-      );
-
-      const codeStats = codeblocks.map((block): CodeStats => {
-        switch (block.type) {
-          case "fencedcode": {
-            const content = block.code.join("\n");
-            return {
-              chars: getChars(content).length,
-              words: getWords(content).length,
-              lines: block.code.length,
-              lang: block.lang,
-            };
-          }
-          case "inlinecode": {
-            return {
-              chars: getChars(block.code).length,
-              words: getWords(block.code).length,
-              lines: 1,
-              lang: undefined,
-            };
-          }
         }
-      });
+        case "inlinecode": {
+          return {
+            chars: getChars(block.code).length,
+            words: getWords(block.code).length,
+            lines: 1,
+            lang: undefined,
+          };
+        }
+      }
+    });
 
-      const values = {
-        char_count: charCount,
-        word_count: wordCount,
-        code_stats: codeStats,
-        link_stats: linkStats,
-        react_count: msg.reactions.cache.size,
-        sent_at: msg.createdTimestamp,
-      };
-      return values;
-    },
+    return {
+      char_count: charCount,
+      word_count: wordCount,
+      code_stats: codeStats,
+      link_stats: linkStats,
+      react_count: msg.reactions.cache.size,
+      sent_at: msg.createdTimestamp,
+    };
+  }).pipe(
+    Effect.withSpan("getMessageStats", {
+      attributes: { messageId: msg.id },
+    }),
   );
-}
 
 export function hasModRole(
   interaction: MessageComponentInteraction,

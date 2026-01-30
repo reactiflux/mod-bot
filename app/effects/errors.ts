@@ -3,17 +3,22 @@ import { Data } from "effect";
 // Re-export SQL errors from @effect/sql for convenience
 export { SqlError, ResultLengthMismatch } from "@effect/sql/SqlError";
 
-// Tagged error types for discriminated unions
-// Each error has a _tag property for pattern matching with Effect.catchTag
-
-export class DiscordApiError extends Data.TaggedError("DiscordApiError")<{
+export class NotAuthorizedError extends Data.TaggedError("NotAuthorizedError")<{
   operation: string;
-  discordError: unknown;
+  userId: string;
+  requiredRole?: string;
 }> {}
 
+// TODO: refine
+export class DiscordApiError extends Data.TaggedError("DiscordApiError")<{
+  operation: string;
+  cause: unknown;
+}> {}
+
+// TODO: refine
 export class StripeApiError extends Data.TaggedError("StripeApiError")<{
   operation: string;
-  stripeError: unknown;
+  cause: unknown;
 }> {}
 
 export class NotFoundError extends Data.TaggedError("NotFoundError")<{
@@ -38,24 +43,11 @@ export class DatabaseCorruptionError extends Data.TaggedError(
 }> {}
 
 // Escalation-specific errors
-
-export class EscalationNotFoundError extends Data.TaggedError(
-  "EscalationNotFoundError",
-)<{
-  escalationId: string;
-}> {}
-
 export class AlreadyResolvedError extends Data.TaggedError(
   "AlreadyResolvedError",
 )<{
   escalationId: string;
   resolvedAt: string;
-}> {}
-
-export class NotAuthorizedError extends Data.TaggedError("NotAuthorizedError")<{
-  operation: string;
-  userId: string;
-  requiredRole?: string;
 }> {}
 
 export class NoLeaderError extends Data.TaggedError("NoLeaderError")<{

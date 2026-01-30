@@ -9,21 +9,15 @@ import { Effect } from "effect";
 import { DiscordApiError } from "#~/effects/errors";
 import { constructDiscordLink } from "#~/helpers/discord";
 import { truncateMessage } from "#~/helpers/string";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import { ReportReasons, type Report } from "#~/models/reportedMessages";
 
-const ReadableReasons: Record<ReportReasons, string> = {
+export const ReadableReasons: Record<ReportReasons, string> = {
   [ReportReasons.anonReport]: "Reported anonymously",
   [ReportReasons.track]: "tracked",
   [ReportReasons.modResolution]: "Mod vote resolved",
   [ReportReasons.spam]: "detected as spam",
   [ReportReasons.automod]: "detected by automod",
-};
-
-export const makeReportMessage = ({ message: _, reason, staff }: Report) => {
-  return {
-    content: `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`,
-  };
 };
 
 export const constructLog = ({
@@ -38,7 +32,7 @@ export const constructLog = ({
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "constructLog",
-          discordError: new Error(
+          cause: new Error(
             "Something went wrong when trying to retrieve last report",
           ),
         }),
@@ -46,27 +40,20 @@ export const constructLog = ({
     }
     const { message } = lastReport;
     const { author } = message;
-    const { moderator } = yield* Effect.tryPromise({
-      try: () =>
-        fetchSettings(lastReport.message.guild!.id, [SETTINGS.moderator]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator } = yield* fetchSettingsEffect(
+      lastReport.message.guild.id,
+      [SETTINGS.moderator],
+    );
 
     // This should never be possible but we gotta satisfy types
     if (!moderator) {
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "constructLog",
-          discordError: new Error("No role configured to be used as moderator"),
+          cause: new Error("No role configured to be used as moderator"),
         }),
       );
     }
-
-    const { content: report } = makeReportMessage(lastReport);
 
     // Add indicator if this is forwarded content
     const forwardNote = isForwardedMessage(message) ? " (forwarded)" : "";
@@ -76,8 +63,9 @@ export const constructLog = ({
     const extra = origExtra ? `${origExtra}\n` : "";
 
     return {
-      content: truncateMessage(`${preface}
--# ${report}
+      content: truncateMessage(`
+-# ${lastReport.staff ? ` ${lastReport.staff.username} ` : ""}${ReadableReasons[lastReport.reason]}
+${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
       allowedMentions: { roles: [moderator] },
     } satisfies MessageCreateOptions;

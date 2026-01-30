@@ -2,6 +2,13 @@ import type { MessageComponentInteraction, ThreadChannel } from "discord.js";
 import { Effect } from "effect";
 
 import { client } from "#~/discord/client.server";
+import {
+  editMessage,
+  fetchChannel,
+  fetchGuild,
+  fetchMessage,
+  sendMessage,
+} from "#~/effects/discordSdk";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { calculateScheduledFor } from "#~/helpers/escalationVotes";
@@ -9,7 +16,7 @@ import type { Features } from "#~/helpers/featuresFlags";
 import { votingStrategies, type Resolution } from "#~/helpers/modResponse";
 import {
   DEFAULT_QUORUM,
-  fetchSettings,
+  fetchSettingsEffect,
   SETTINGS,
 } from "#~/models/guilds.server";
 
@@ -38,38 +45,24 @@ export const createEscalationEffect = (
     const features: Features[] = [];
 
     // Get settings
-    const { moderator: modRoleId, restricted } = yield* Effect.tryPromise({
-      try: () =>
-        fetchSettings(guildId, [SETTINGS.moderator, SETTINGS.restricted]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId, restricted } = yield* fetchSettingsEffect(
+      guildId,
+      [SETTINGS.moderator, SETTINGS.restricted],
+    );
 
     if (restricted) {
       features.push("restrict");
     }
 
     // Fetch guild and channel
-    const guild = yield* Effect.tryPromise({
-      try: () => client.guilds.fetch(guildId),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", discordError: error }),
-    });
-
-    const channel = yield* Effect.tryPromise({
-      try: () => guild.channels.fetch(interaction.channelId),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchChannel", discordError: error }),
-    });
+    const guild = yield* fetchGuild(client, guildId);
+    const channel = yield* fetchChannel(guild, interaction.channelId);
 
     if (!channel || !("send" in channel)) {
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "validateChannel",
-          discordError: new Error("Invalid channel - cannot send messages"),
+          cause: new Error("Invalid channel - cannot send messages"),
         }),
       );
     }
@@ -104,28 +97,20 @@ export const createEscalationEffect = (
     };
 
     // Send vote message to get its ID
-    const voteMessage = yield* Effect.tryPromise({
-      try: () =>
-        (channel as ThreadChannel).send({
-          content: buildVoteMessageContent(
-            modRoleId,
-            votingStrategy,
-            tempEscalation,
-            emptyTally,
-          ),
-          components: buildVoteButtons(
-            features,
-            votingStrategy,
-            tempEscalation,
-            emptyTally,
-            false,
-          ),
-        }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "sendVoteMessage",
-          discordError: error,
-        }),
+    const voteMessage = yield* sendMessage(channel as ThreadChannel, {
+      content: buildVoteMessageContent(
+        modRoleId,
+        votingStrategy,
+        tempEscalation,
+        emptyTally,
+      ),
+      components: buildVoteButtons(
+        features,
+        votingStrategy,
+        tempEscalation,
+        emptyTally,
+        false,
+      ),
     });
 
     // Create escalation record with the correct message ID
@@ -178,32 +163,21 @@ export const upgradeToMajorityEffect = (
     const features: Features[] = [];
 
     // Get settings
-    const { moderator: modRoleId, restricted } = yield* Effect.tryPromise({
-      try: () =>
-        fetchSettings(guildId, [SETTINGS.moderator, SETTINGS.restricted]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchSettings",
-          discordError: error,
-        }),
-    });
+    const { moderator: modRoleId, restricted } = yield* fetchSettingsEffect(
+      guildId,
+      [SETTINGS.moderator, SETTINGS.restricted],
+    );
 
     if (restricted) {
       features.push("restrict");
     }
 
     // Fetch guild and channel
-    const guild = yield* Effect.tryPromise({
-      try: () => client.guilds.fetch(guildId),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchGuild", discordError: error }),
-    });
-
-    const channel = yield* Effect.tryPromise({
-      try: () => guild.channels.fetch(interaction.channelId),
-      catch: (error) =>
-        new DiscordApiError({ operation: "fetchChannel", discordError: error }),
-    }) as Effect.Effect<ThreadChannel, DiscordApiError>;
+    const guild = yield* fetchGuild(client, guildId);
+    const channel = (yield* fetchChannel(
+      guild,
+      interaction.channelId,
+    )) as ThreadChannel;
 
     const votingStrategy = votingStrategies.majority;
 
@@ -211,14 +185,10 @@ export const upgradeToMajorityEffect = (
     const escalation = yield* escalationService.getEscalation(escalationId);
 
     // Fetch the vote message
-    const voteMessage = yield* Effect.tryPromise({
-      try: () => channel.messages.fetch(escalation.vote_message_id),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "fetchVoteMessage",
-          discordError: error,
-        }),
-    });
+    const voteMessage = yield* fetchMessage(
+      channel,
+      escalation.vote_message_id,
+    );
 
     // Get current votes to display
     const votes = yield* escalationService.getVotesForEscalation(escalationId);
@@ -240,28 +210,20 @@ export const upgradeToMajorityEffect = (
     };
 
     // Update the vote message
-    yield* Effect.tryPromise({
-      try: () =>
-        voteMessage.edit({
-          content: buildVoteMessageContent(
-            modRoleId,
-            votingStrategy,
-            updatedEscalation,
-            tally,
-          ),
-          components: buildVoteButtons(
-            features,
-            votingStrategy,
-            escalation,
-            tally,
-            false, // Never in early resolution state when upgrading to majority
-          ),
-        }),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "editVoteMessage",
-          discordError: error,
-        }),
+    yield* editMessage(voteMessage, {
+      content: buildVoteMessageContent(
+        modRoleId,
+        votingStrategy,
+        updatedEscalation,
+        tally,
+      ),
+      components: buildVoteButtons(
+        features,
+        votingStrategy,
+        escalation,
+        tally,
+        false, // Never in early resolution state when upgrading to majority
+      ),
     });
 
     // Update the escalation's voting strategy and scheduled_for

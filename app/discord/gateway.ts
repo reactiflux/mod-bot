@@ -11,14 +11,7 @@ import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
 import { runEffect } from "#~/effects/runtime";
-import {
-  isEffectCommand,
-  isMessageComponentCommand,
-  isMessageContextCommand,
-  isModalCommand,
-  isSlashCommand,
-  isUserContextCommand,
-} from "#~/helpers/discord.ts";
+import { type AnyCommand } from "#~/helpers/discord.ts";
 import { botStats, shutdownMetrics } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
@@ -122,109 +115,37 @@ export default function init() {
   });
 
   client.on(Events.InteractionCreate, (interaction) => {
-    log("info", "deployCommands", "Handling interaction", {
+    log("debug", "deployCommands", "Handling interaction", {
       type: interaction.type,
       id: interaction.id,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      commandName: interaction.commandName,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      customId: interaction.customId,
     });
+    let config: AnyCommand | undefined = undefined;
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
-        const config = matchCommand(interaction.commandName);
-        if (!config) return;
-
-        // Effect commands handle themselves - just run and return
-        if (isEffectCommand(config)) {
-          void runEffect(config.handler(interaction as never));
-          return;
-        }
-
-        if (
-          isMessageContextCommand(config) &&
-          interaction.isMessageContextMenuCommand()
-        ) {
-          log(
-            "info",
-            "Message Context command received",
-            `${interaction.commandName} ${interaction.id} messageId: ${interaction.targetMessage.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        if (
-          isUserContextCommand(config) &&
-          interaction.isUserContextMenuCommand()
-        ) {
-          log(
-            "info",
-            "User Context command received",
-            `${interaction.commandName} ${interaction.id} userId: ${interaction.targetUser.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        if (isSlashCommand(config) && interaction.isChatInputCommand()) {
-          log(
-            "info",
-            "Slash command received",
-            `${interaction.commandName} ${interaction.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        throw new Error("Didn't find a handler for an interaction");
+        config = matchCommand(interaction.commandName);
+        break;
       }
-
-      case InteractionType.MessageComponent: {
-        const config = matchCommand(interaction.customId);
-        if (!config) return;
-
-        // Effect commands handle themselves - just run and return
-        if (isEffectCommand(config)) {
-          void runEffect(config.handler(interaction as never));
-          return;
-        }
-
-        if (
-          isMessageComponentCommand(config) &&
-          interaction.isMessageComponent()
-        ) {
-          log(
-            "info",
-            "Message component interaction received",
-            `${interaction.customId} ${interaction.id} messageId: ${interaction.message.id}`,
-          );
-          void config.handler(interaction);
-          return;
-        }
-        return;
-      }
+      case InteractionType.MessageComponent:
       case InteractionType.ModalSubmit: {
-        const config = matchCommand(interaction.customId);
-        if (!config) return;
-
-        // Effect commands handle themselves - just run and return
-        if (isEffectCommand(config)) {
-          void runEffect(config.handler(interaction as never));
-          return;
-        }
-
-        if (isModalCommand(config) && interaction.isModalSubmit()) {
-          log(
-            "info",
-            "Modal submit received",
-            `${interaction.customId} ${interaction.id} messageId: ${interaction.message?.id ?? "null"}`,
-          );
-          void config.handler(interaction);
-        }
-        return;
+        config = matchCommand(interaction.customId);
+        break;
       }
     }
+
+    if (!config) {
+      log("debug", "deployCommands", "no matching command found");
+      return;
+    }
+    log("debug", "deployCommands", "found matching command", { config });
+
+    void runEffect(config.handler(interaction as never));
   });
-
-  // client.on(Events.messageCreate, async (msg) => {
-  //   if (msg.author?.id === client.user?.id) return;
-
-  //   //
-  // });
 
   const errorHandler = (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);

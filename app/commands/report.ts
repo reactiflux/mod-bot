@@ -3,87 +3,76 @@ import {
   ContextMenuCommandBuilder,
   MessageFlags,
   PermissionFlagsBits,
-  type MessageContextMenuCommandInteraction,
 } from "discord.js";
+import { Effect } from "effect";
 
-import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
+import { logUserMessage } from "#~/commands/report/userLog.ts";
+import { DatabaseLayer } from "#~/Database.ts";
+import {
+  interactionDeferReply,
+  interactionEditReply,
+} from "#~/effects/discordSdk.ts";
+import { logEffect } from "#~/effects/observability.ts";
+import type { MessageContextCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
-import { log, trackPerformance } from "#~/helpers/observability";
 import { ReportReasons } from "#~/models/reportedMessages.ts";
 
-const command = new ContextMenuCommandBuilder()
-  .setName("Report")
-  .setType(ApplicationCommandType.Message)
-  .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages);
-
-const handler = async (interaction: MessageContextMenuCommandInteraction) => {
-  // Defer immediately to avoid 3-second timeout - creating threads can take time
-  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-  await trackPerformance(
-    "reportCommand",
-    async () => {
+export const Command = {
+  command: new ContextMenuCommandBuilder()
+    .setName("Report")
+    .setType(ApplicationCommandType.Message)
+    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
+  handler: (interaction) =>
+    Effect.gen(function* () {
       const { targetMessage: message } = interaction;
 
-      log("info", "Commands", "Report command executed", {
-        guildId: interaction.guildId,
-        reporterUserId: interaction.user.id,
-        targetUserId: message.author.id,
-        targetMessageId: message.id,
-        channelId: interaction.channelId,
+      yield* interactionDeferReply(interaction, {
+        flags: [MessageFlags.Ephemeral],
       });
 
-      try {
-        await logUserMessageLegacy({
-          reason: ReportReasons.anonReport,
-          message,
-          staff: false,
-        });
+      yield* logEffect("info", "Commands", "Report command executed");
 
-        log("info", "Commands", "Report submitted successfully", {
+      yield* logUserMessage({
+        reason: ReportReasons.anonReport,
+        message,
+        staff: false,
+      });
+
+      yield* logEffect("info", "Commands", "Report submitted successfully");
+
+      commandStats.reportSubmitted(interaction, message.author.id);
+      commandStats.commandExecuted(interaction, "report", true);
+
+      yield* interactionEditReply(interaction, {
+        content: "This message has been reported anonymously",
+      });
+    }).pipe(
+      Effect.provide(DatabaseLayer),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          yield* logEffect("error", "Commands", "Report command failed", {
+            error,
+          });
+
+          yield* interactionEditReply(interaction, {
+            content: "Failed to submit report. Please try again later.",
+          }).pipe(
+            Effect.catchAll(() => {
+              commandStats.commandFailed(interaction, "report", error.message);
+              return Effect.void;
+            }),
+          );
+        }),
+      ),
+      Effect.withSpan("reportCommand", {
+        attributes: {
           guildId: interaction.guildId,
           reporterUserId: interaction.user.id,
-          targetUserId: message.author.id,
-          targetMessageId: message.id,
+          targetUserId: interaction.targetMessage.author.id,
+          targetMessageId: interaction.targetMessage.id,
           reason: ReportReasons.anonReport,
-        });
-
-        // Track successful report in business analytics
-        commandStats.reportSubmitted(interaction, message.author.id);
-
-        // Track command success
-        commandStats.commandExecuted(interaction, "report", true);
-
-        await interaction.editReply({
-          content: "This message has been reported anonymously",
-        });
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-
-        log("error", "Commands", "Report command failed", {
-          guildId: interaction.guildId,
-          reporterUserId: interaction.user.id,
-          targetUserId: message.author.id,
-          targetMessageId: message.id,
-          error: err.message,
-          stack: err.stack,
-        });
-
-        // Track command failure in business analytics
-        commandStats.commandFailed(interaction, "report", err.message);
-
-        await interaction.editReply({
-          content: "Failed to submit report. Please try again later.",
-        });
-      }
-    },
-    {
-      commandName: "report",
-      guildId: interaction.guildId,
-      reporterUserId: interaction.user.id,
-      targetUserId: interaction.targetMessage.author.id,
-    },
-  );
-};
-
-export const Command = { handler, command };
+          channelId: interaction.channelId,
+        },
+      }),
+    ),
+} satisfies MessageContextCommand;

@@ -27,6 +27,7 @@ export const EscalationCommands: MessageComponentCommand[] = [
 
   // Create vote handlers for each resolution
   ...Object.values(resolutions).map((resolution) => ({
+    type: "effect" as const,
     command: {
       type: InteractionType.MessageComponent as const,
       name: `vote-${resolution}`,

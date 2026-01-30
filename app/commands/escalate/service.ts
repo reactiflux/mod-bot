@@ -4,9 +4,10 @@ import type { Selectable } from "kysely";
 
 import { DatabaseLayer, DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
+import { fetchMember } from "#~/effects/discordSdk.ts";
 import {
   AlreadyResolvedError,
-  EscalationNotFoundError,
+  NotFoundError,
   ResolutionExecutionError,
 } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
@@ -35,70 +36,39 @@ export interface RecordVoteData {
 }
 
 export interface IEscalationService {
-  /**
-   * Create a new escalation record.
-   */
   readonly createEscalation: (
     data: CreateEscalationData,
   ) => Effect.Effect<Escalation, SqlError>;
 
-  /**
-   * Get an escalation by ID.
-   */
   readonly getEscalation: (
     id: string,
-  ) => Effect.Effect<Escalation, EscalationNotFoundError | SqlError>;
+  ) => Effect.Effect<Escalation, NotFoundError | SqlError>;
 
-  /**
-   * Record a vote for an escalation.
-   * Toggle behavior: voting the same resolution twice removes the vote.
-   */
   readonly recordVote: (
     data: RecordVoteData,
   ) => Effect.Effect<{ isNew: boolean }, SqlError>;
 
-  /**
-   * Get all votes for an escalation.
-   */
   readonly getVotesForEscalation: (
     escalationId: string,
   ) => Effect.Effect<EscalationRecord[], SqlError>;
 
-  /**
-   * Mark an escalation as resolved.
-   */
   readonly resolveEscalation: (
     id: string,
     resolution: Resolution,
-  ) => Effect.Effect<
-    void,
-    EscalationNotFoundError | AlreadyResolvedError | SqlError
-  >;
+  ) => Effect.Effect<void, NotFoundError | AlreadyResolvedError | SqlError>;
 
-  /**
-   * Update the voting strategy for an escalation.
-   */
   readonly updateEscalationStrategy: (
     id: string,
     strategy: VotingStrategy,
   ) => Effect.Effect<void, SqlError>;
 
-  /**
-   * Update the scheduled resolution time for an escalation.
-   */
   readonly updateScheduledFor: (
     id: string,
     timestamp: string,
   ) => Effect.Effect<void, SqlError>;
 
-  /**
-   * Get all escalations that are due for auto-resolution.
-   */
   readonly getDueEscalations: () => Effect.Effect<Escalation[], SqlError>;
 
-  /**
-   * Execute the resolution action for an escalation.
-   */
   readonly executeResolution: (
     resolution: Resolution,
     escalation: Escalation,
@@ -138,8 +108,6 @@ export const EscalationServiceLive = Layer.effect(
           yield* db.insertInto("escalations").values(escalation);
 
           yield* logEffect("info", "EscalationService", "Created escalation", {
-            escalationId: data.id,
-            reportedUserId: data.reportedUserId,
             guildId: data.guildId,
           });
 
@@ -168,7 +136,7 @@ export const EscalationServiceLive = Layer.effect(
 
           if (!escalation) {
             return yield* Effect.fail(
-              new EscalationNotFoundError({ escalationId: id }),
+              new NotFoundError({ id, resource: "escalation" }),
             );
           }
 
@@ -200,11 +168,7 @@ export const EscalationServiceLive = Layer.effect(
               "info",
               "EscalationService",
               "Deleted existing vote",
-              {
-                escalationId: data.escalationId,
-                voterId: data.voterId,
-                vote: data.vote,
-              },
+              { vote: data.vote },
             );
 
             return { isNew: false };
@@ -258,7 +222,7 @@ export const EscalationServiceLive = Layer.effect(
 
           if (!escalation) {
             return yield* Effect.fail(
-              new EscalationNotFoundError({ escalationId: id }),
+              new NotFoundError({ id, resource: "escalation" }),
             );
           }
 
@@ -279,10 +243,7 @@ export const EscalationServiceLive = Layer.effect(
             })
             .where("id", "=", id);
 
-          yield* logEffect("info", "EscalationService", "Resolved escalation", {
-            escalationId: id,
-            resolution,
-          });
+          yield* logEffect("info", "EscalationService", "Resolved escalation");
         }).pipe(
           Effect.withSpan("resolveEscalation", {
             attributes: { escalationId: id, resolution },
@@ -300,10 +261,6 @@ export const EscalationServiceLive = Layer.effect(
             "info",
             "EscalationService",
             "Updated voting strategy",
-            {
-              escalationId: id,
-              strategy,
-            },
           );
         }).pipe(
           Effect.withSpan("updateEscalationStrategy", {
@@ -322,14 +279,10 @@ export const EscalationServiceLive = Layer.effect(
             "debug",
             "EscalationService",
             "Updated scheduled_for",
-            {
-              escalationId: id,
-              scheduledFor: timestamp,
-            },
           );
         }).pipe(
           Effect.withSpan("updateScheduledFor", {
-            attributes: { escalationId: id },
+            attributes: { escalationId: id, scheduledFor: timestamp },
           }),
         ),
 
@@ -345,9 +298,7 @@ export const EscalationServiceLive = Layer.effect(
             "debug",
             "EscalationService",
             "Found due escalations",
-            {
-              count: escalations.length,
-            },
+            { count: escalations.length },
           );
 
           return escalations;
@@ -367,20 +318,16 @@ export const EscalationServiceLive = Layer.effect(
           );
 
           // Try to fetch the member - they may have left
-          const reportedMember = yield* Effect.tryPromise({
-            try: () => guild.members.fetch(escalation.reported_user_id),
-            catch: () => null,
-          }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          const reportedMember = yield* fetchMember(
+            guild,
+            escalation.reported_user_id,
+          ).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
           if (!reportedMember) {
             yield* logEffect(
               "debug",
               "EscalationService",
               "Member not found, skipping action",
-              {
-                escalationId: escalation.id,
-                reportedUserId: escalation.reported_user_id,
-              },
             );
             return;
           }
@@ -413,11 +360,7 @@ export const EscalationServiceLive = Layer.effect(
               }),
           });
 
-          yield* logEffect("info", "EscalationService", "Resolution executed", {
-            resolution,
-            escalationId: escalation.id,
-            reportedUserId: escalation.reported_user_id,
-          });
+          yield* logEffect("info", "EscalationService", "Resolution executed");
         }).pipe(
           Effect.withSpan("executeResolution", {
             attributes: {

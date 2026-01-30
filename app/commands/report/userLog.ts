@@ -11,7 +11,8 @@ import {
   type DatabaseService,
   type SqlError,
 } from "#~/Database";
-import { DiscordApiError } from "#~/effects/errors";
+import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk.ts";
+import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import { runEffect } from "#~/effects/runtime";
 import {
@@ -22,7 +23,7 @@ import {
   quoteAndEscape,
   quoteAndEscapePoll,
 } from "#~/helpers/discord";
-import { fetchSettings, SETTINGS } from "#~/models/guilds.server";
+import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 import {
   getReportsForMessage,
   getUserReportStats,
@@ -35,7 +36,7 @@ import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 import {
   constructLog,
   isForwardedMessage,
-  makeReportMessage,
+  ReadableReasons,
 } from "./constructLog";
 
 const getMessageContent = (message: Message): string => {
@@ -69,7 +70,7 @@ export function logUserMessage({
     allReportedMessages: Report[];
     reportId: string;
   },
-  DiscordApiError | SqlError,
+  DiscordApiError | SqlError | NotFoundError,
   DatabaseService
 > {
   return Effect.gen(function* () {
@@ -78,7 +79,7 @@ export function logUserMessage({
       return yield* Effect.fail(
         new DiscordApiError({
           operation: "logUserMessage",
-          discordError: new Error("Tried to log a message without a guild"),
+          cause: new Error("Tried to log a message without a guild"),
         }),
       );
     }
@@ -86,14 +87,7 @@ export function logUserMessage({
     // Check if this exact message has already been reported
     const [existingReports, { modLog }, logBody, thread] = yield* Effect.all([
       getReportsForMessage(message.id, guild.id),
-      Effect.tryPromise({
-        try: () => fetchSettings(guild.id, [SETTINGS.modLog]),
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "fetchSettings",
-            discordError: error,
-          }),
-      }),
+      fetchSettingsEffect(guild.id, [SETTINGS.modLog]),
       constructLog({
         extra,
         logs: [{ message, reason, staff }],
@@ -118,11 +112,7 @@ export function logUserMessage({
       const latestReport = yield* Effect.tryPromise({
         try: async () => {
           try {
-            const reportContents = makeReportMessage({
-              message,
-              reason,
-              staff,
-            });
+            const reportContents = `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`;
             const priorLogMessage = await thread.messages.fetch(
               alreadyReported.log_message_id,
             );
@@ -136,7 +126,7 @@ export function logUserMessage({
         catch: (error) =>
           new DiscordApiError({
             operation: "logUserMessage existing",
-            discordError: error,
+            cause: error,
           }),
       });
 
@@ -185,22 +175,14 @@ export function logUserMessage({
       : quoteAndEscape(getMessageContent(message)).trim();
 
     // Send the detailed log message to thread
-    const [logMessage] = yield* Effect.tryPromise({
-      try: () =>
-        Promise.all([
-          thread.send(logBody),
-          thread.send({
-            content: reportedMessage,
-            allowedMentions: {},
-            embeds: embeds.length === 0 ? undefined : embeds,
-          }),
-        ]),
-      catch: (error) =>
-        new DiscordApiError({
-          operation: "sendLogMessages",
-          discordError: error,
-        }),
-    });
+    const [logMessage] = yield* Effect.all([
+      sendMessage(thread, logBody),
+      sendMessage(thread, {
+        content: reportedMessage,
+        allowedMentions: {},
+        embeds: embeds.length === 0 ? undefined : embeds,
+      }),
+    ]);
 
     // Record the report in database
     const recordResult = yield* recordReport({
@@ -226,17 +208,7 @@ export function logUserMessage({
     }
 
     // Forward to mod log (non-critical)
-    yield* Effect.tryPromise({
-      try: () => logMessage.forward(modLog),
-      catch: (error) =>
-        new DiscordApiError({ operation: "forwardLog", discordError: error }),
-    }).pipe(
-      Effect.catchAll((error) =>
-        logEffect("error", "logUserMessage", "failed to forward to modLog", {
-          error: String(error),
-        }),
-      ),
-    );
+    yield* forwardMessageSafe(logMessage, modLog);
 
     // Send summary to parent channel if possible (non-critical)
     const parentChannel = thread.parent;
@@ -248,23 +220,17 @@ export function logUserMessage({
       const truncatedMsg =
         singleLine.length > 80 ? `${singleLine.slice(0, 80)}…` : singleLine;
 
-      yield* Effect.tryPromise({
-        try: async () => {
-          const stats = await getMessageStats(message).catch(() => undefined);
-          await parentChannel.send({
-            allowedMentions: {},
-            content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
-          });
-        },
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "logUserMessage",
-            discordError: error,
-          }),
+      const stats = yield* getMessageStats(message).pipe(
+        Effect.catchAll(() => Effect.succeed(undefined)),
+      );
+
+      yield* sendMessage(parentChannel, {
+        allowedMentions: {},
+        content: `> ${escapeDisruptiveContent(truncatedMsg)}\n-# [${!stats ? "stats failed to load" : `${stats.char_count} chars in ${stats.word_count} words. ${stats.link_stats.length} links, ${stats.code_stats.reduce((count, { lines }) => count + lines, 0)} lines of code. ${message.attachments.size} attachments, ${message.reactions.cache.size} reactions`}](${messageLink(logMessage.channelId, logMessage.id)})`,
       }).pipe(
         Effect.catchAll((error) =>
           logEffect("error", "logUserMessage", "failed to forward to modLog", {
-            error: String(error),
+            error,
           }),
         ),
       );
