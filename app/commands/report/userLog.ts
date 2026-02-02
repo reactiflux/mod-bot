@@ -6,11 +6,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import {
-  DatabaseLayer,
-  type DatabaseService,
-  type SqlError,
-} from "#~/Database";
+import { type DatabaseService, type SqlError } from "#~/Database";
 import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk.ts";
 import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
@@ -262,10 +258,4 @@ export const logUserMessageLegacy = ({
   staff,
 }: Omit<Report, "date">): Promise<
   Reported & { allReportedMessages: Report[] }
-> =>
-  runEffect(
-    Effect.provide(
-      logUserMessage({ reason, message, extra, staff }),
-      DatabaseLayer,
-    ),
-  );
+> => runEffect(logUserMessage({ reason, message, extra, staff }));

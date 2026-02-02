@@ -1,8 +1,6 @@
 import { Events, type Client } from "discord.js";
-import { Effect } from "effect";
 
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { DatabaseLayer } from "#~/Database.js";
 import { runEffect } from "#~/effects/runtime.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
@@ -40,12 +38,7 @@ export default async (bot: Client) => {
       await message
         .delete()
         .then(() =>
-          runEffect(
-            Effect.provide(
-              markMessageAsDeleted(message.id, message.guild!.id),
-              DatabaseLayer,
-            ),
-          ),
+          runEffect(markMessageAsDeleted(message.id, message.guild!.id)),
         );
 
       featureStats.spamDetected(

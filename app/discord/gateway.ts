@@ -1,8 +1,7 @@
 import { Events, InteractionType } from "discord.js";
 
 import modActionLogger from "#~/commands/report/modActionLogger";
-import { startIntegrityCheck } from "#~/Database";
-import { shutdownDatabase } from "#~/db.server";
+import { shutdownDatabase, startIntegrityCheck } from "#~/Database";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
