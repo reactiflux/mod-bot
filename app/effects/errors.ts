@@ -63,3 +63,11 @@ export class ResolutionExecutionError extends Data.TaggedError(
   resolution: string;
   cause: unknown;
 }> {}
+
+export class FeatureDisabledError extends Data.TaggedError(
+  "FeatureDisabledError",
+)<{
+  feature: string;
+  guildId: string;
+  reason: "not_in_rollout" | "tier_required" | "flag_unavailable";
+}> {}

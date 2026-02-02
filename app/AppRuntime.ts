@@ -1,11 +1,21 @@
 import { Effect, Layer, ManagedRuntime } from "effect";
+import type { PostHog } from "posthog-node";
 
 import { DatabaseLayer, DatabaseService, type EffectKysely } from "#~/Database";
 import { NotFoundError } from "#~/effects/errors";
+import { FeatureFlagServiceLive } from "#~/effects/featureFlags";
+import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
 
 // App layer: database + PostHog + feature flags
 // FeatureFlagServiceLive depends on both DatabaseService and PostHogService
-const AppLayer = Layer.mergeAll(DatabaseLayer);
+const AppLayer = Layer.mergeAll(
+  DatabaseLayer,
+  PostHogServiceLive,
+  Layer.provide(
+    FeatureFlagServiceLive,
+    Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
+  ),
+);
 
 // ManagedRuntime keeps the AppLayer scope alive for the process lifetime.
 // Unlike Effect.runSync which closes the scope (and thus the SQLite connection)
@@ -19,7 +29,11 @@ export type RuntimeContext = ManagedRuntime.ManagedRuntime.Context<
 >;
 
 // Extract the PostHog client for use by metrics.ts (null when no API key configured).
-export const db: EffectKysely = await runtime.runPromise(DatabaseService);
+export const [posthogClient, db]: [PostHog | null, EffectKysely] =
+  await Promise.all([
+    runtime.runPromise(PostHogService),
+    runtime.runPromise(DatabaseService),
+  ]);
 
 // --- Bridge functions for legacy async/await code ---
 
