@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import db from "#~/db.server.js";
+import { DatabaseService } from "#~/Database.ts";
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { SlashCommand } from "#~/helpers/discord";
@@ -71,26 +71,24 @@ export const Command = {
       }
 
       // Upsert: update if exists, insert if not
-      yield* Effect.tryPromise(() =>
-        db
-          .insertInto("reactji_channeler_config")
-          .values({
-            id: randomUUID(),
-            guild_id: guildId,
+      const db = yield* DatabaseService;
+      yield* db
+        .insertInto("reactji_channeler_config")
+        .values({
+          id: randomUUID(),
+          guild_id: guildId,
+          channel_id: channelId,
+          emoji,
+          configured_by_id: configuredById,
+          threshold,
+        })
+        .onConflict((oc) =>
+          oc.columns(["guild_id", "emoji"]).doUpdateSet({
             channel_id: channelId,
-            emoji,
             configured_by_id: configuredById,
             threshold,
-          })
-          .onConflict((oc) =>
-            oc.columns(["guild_id", "emoji"]).doUpdateSet({
-              channel_id: channelId,
-              configured_by_id: configuredById,
-              threshold,
-            }),
-          )
-          .execute(),
-      );
+          }),
+        );
 
       featureStats.reactjiChannelSetup(
         guildId,
@@ -111,7 +109,7 @@ export const Command = {
             "error",
             "Commands",
             "Error configuring reactji channeler",
-            { error: String(error) },
+            { error },
           );
 
           yield* interactionReply(interaction, {

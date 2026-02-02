@@ -40,7 +40,7 @@ export const myHandler = (input: Input) =>
     // 3. Return value
     return result;
   }).pipe(
-    Effect.provide(DatabaseLayer), // Inject dependencies
+    // DatabaseLayer is provided by the ManagedRuntime — no need to provide it here
     Effect.catchAll((e) => ...), // Handle errors
     Effect.withSpan("myHandler"), // Add tracing
   );
@@ -274,7 +274,7 @@ export const fetchMemberOrNull = (guild: Guild, userId: string) =>
 
 ```typescript
 import { Effect } from "effect";
-import { DatabaseLayer } from "#~/Database";
+import { DatabaseService } from "#~/Database";
 import { logEffect } from "#~/effects/observability";
 
 export const handleMyCommand = (input: Input) =>
@@ -291,13 +291,13 @@ export const handleMyCommand = (input: Input) =>
 
     return result;
   }).pipe(
+    // DatabaseLayer is provided by the ManagedRuntime — no need to provide it here
     Effect.catchAll((error) =>
       logEffect("error", "MyCommand", "Command failed", {
         error: String(error),
       }),
     ),
     Effect.withSpan("handleMyCommand"),
-    Effect.provide(DatabaseLayer),
   );
 ```
 
@@ -305,7 +305,7 @@ export const handleMyCommand = (input: Input) =>
 
 ```typescript
 import { Context, Effect, Layer } from "effect";
-import { DatabaseLayer, DatabaseService } from "#~/Database";
+import { DatabaseService } from "#~/Database";
 
 // 1. Interface
 export interface IMyService {
@@ -319,6 +319,7 @@ export class MyService extends Context.Tag("MyService")<
 >() {}
 
 // 3. Implementation
+// DatabaseService is provided by the ManagedRuntime, no Layer.provide needed
 export const MyServiceLive = Layer.effect(
   MyService,
   Effect.gen(function* () {
@@ -332,7 +333,7 @@ export const MyServiceLive = Layer.effect(
         ),
     };
   }),
-).pipe(Layer.provide(DatabaseLayer));
+);
 ```
 
 ## Anti-Patterns
