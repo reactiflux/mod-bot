@@ -7,7 +7,13 @@ import {
 } from "react-router";
 import { AuthorizationCode } from "simple-oauth2";
 
-import db, { type DB } from "#~/db.server";
+import {
+  db,
+  run,
+  runTakeFirst,
+  runTakeFirstOrThrow,
+  type DB,
+} from "#~/Database";
 import {
   applicationId,
   discordSecret,
@@ -70,15 +76,16 @@ const {
     sameSite: "lax",
   },
   async createData(data, expires) {
-    const result = await db
-      .insertInto("sessions")
-      .values({
-        id: randomUUID(),
-        data: JSON.stringify(data),
-        expires: expires?.toString(),
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
+    const result = await runTakeFirstOrThrow(
+      db
+        .insertInto("sessions")
+        .values({
+          id: randomUUID(),
+          data: JSON.stringify(data),
+          expires: expires?.toString(),
+        })
+        .returning("id"),
+    );
     if (!result.id) {
       console.error({ result, data, expires });
       throw new Error("Failed to create session data");
@@ -86,24 +93,29 @@ const {
     return result.id;
   },
   async readData(id) {
-    const result = await db
-      .selectFrom("sessions")
-      .where("id", "=", id)
-      .selectAll()
-      .executeTakeFirst();
+    const result = await runTakeFirst(
+      db.selectFrom("sessions").where("id", "=", id).selectAll(),
+    );
 
-    return (result?.data as unknown) ?? null;
+    if (!result?.data) return null;
+    // @effect/sql-kysely doesn't include ParseJSONResultsPlugin, so JSON
+    // columns come back as raw strings. Parse before returning to the
+    // session storage, which expects a deserialized object.
+    return typeof result.data === "string"
+      ? JSON.parse(result.data)
+      : result.data;
   },
   async updateData(id, data, expires) {
-    await db
-      .updateTable("sessions")
-      .set("data", JSON.stringify(data))
-      .set("expires", expires?.toString() ?? null)
-      .where("id", "=", id)
-      .execute();
+    await run(
+      db
+        .updateTable("sessions")
+        .set("data", JSON.stringify(data))
+        .set("expires", expires?.toString() ?? null)
+        .where("id", "=", id),
+    );
   },
   async deleteData(id) {
-    await db.deleteFrom("sessions").where("id", "=", id).execute();
+    await run(db.deleteFrom("sessions").where("id", "=", id));
   },
 });
 export type DbSession = Awaited<ReturnType<typeof getDbSession>>;

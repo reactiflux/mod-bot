@@ -45,7 +45,9 @@ export const Command = {
         return;
       }
 
-      yield* Effect.tryPromise(() => registerGuild(interaction.guildId!));
+      yield* Effect.tryPromise(() =>
+        registerGuild(interaction.guildId!).catch(console.error),
+      );
 
       const role = interaction.options.getRole("moderator");
       const channel = interaction.options.getChannel("mod-log-channel");
@@ -96,8 +98,7 @@ export const Command = {
           yield* logEffect("error", "Commands", "Setup command failed", {
             guildId: interaction.guildId,
             userId: interaction.user.id,
-            error: err.message,
-            stack: err.stack,
+            error: err,
           });
 
           commandStats.commandFailed(interaction, "setup", err.message);

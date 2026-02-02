@@ -1,7 +1,13 @@
 import { Effect } from "effect";
 
+import {
+  db,
+  run,
+  runTakeFirst,
+  runTakeFirstOrThrow,
+  type DB,
+} from "#~/Database";
 import { DatabaseService } from "#~/Database.ts";
-import db, { SqliteError, type DB } from "#~/db.server";
 import { NotFoundError } from "#~/effects/errors.ts";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -31,11 +37,9 @@ export const fetchGuild = async (guildId: string) => {
     async () => {
       log("debug", "Guild", "Fetching guild", { guildId });
 
-      const guild = await db
-        .selectFrom("guilds")
-        .selectAll()
-        .where("id", "=", guildId)
-        .executeTakeFirst();
+      const guild = await runTakeFirst(
+        db.selectFrom("guilds").selectAll().where("id", "=", guildId),
+      );
 
       log("debug", "Guild", guild ? "Guild found" : "Guild not found", {
         guildId,
@@ -55,32 +59,17 @@ export const registerGuild = async (guildId: string) => {
     async () => {
       log("info", "Guild", "Registering guild", { guildId });
 
-      try {
-        await db
+      await run(
+        db
           .insertInto("guilds")
           .values({
             id: guildId,
             settings: JSON.stringify({}),
           })
-          .execute();
+          .onConflict((oc) => oc.column("id").doNothing()),
+      );
 
-        log("info", "Guild", "Guild registered successfully", { guildId });
-      } catch (e) {
-        if (
-          e instanceof SqliteError &&
-          e.code === "SQLITE_CONSTRAINT_PRIMARYKEY"
-        ) {
-          log("debug", "Guild", "Guild already exists", { guildId });
-          // do nothing
-        } else {
-          log("error", "Guild", "Failed to register guild", {
-            guildId,
-            error: e instanceof Error ? e.message : String(e),
-            stack: e instanceof Error ? e.stack : undefined,
-          });
-          throw e;
-        }
-      }
+      log("info", "Guild", "Guild registered successfully", { guildId });
     },
     { guildId },
   );
@@ -90,13 +79,14 @@ export const setSettings = async (
   guildId: string,
   settings: SettingsRecord,
 ) => {
-  await db
-    .updateTable("guilds")
-    .set("settings", (eb) =>
-      eb.fn("json_patch", ["settings", eb.val(JSON.stringify(settings))]),
-    )
-    .where("id", "=", guildId)
-    .execute();
+  await run(
+    db
+      .updateTable("guilds")
+      .set("settings", (eb) =>
+        eb.fn("json_patch", ["settings", eb.val(JSON.stringify(settings))]),
+      )
+      .where("id", "=", guildId),
+  );
 };
 
 export const fetchSettings = async <T extends keyof typeof SETTINGS>(
@@ -104,17 +94,18 @@ export const fetchSettings = async <T extends keyof typeof SETTINGS>(
   keys: T[],
 ) => {
   const result = Object.entries(
-    await db
-      .selectFrom("guilds")
-      // @ts-expect-error This is broken because of a migration from knex and
-      // old/bad use of jsonb for storing settings. The type is guaranteed here
-      // not by the codegen
-      .select<DB, "guilds", SettingsRecord>((eb) =>
-        keys.map((k) => eb.ref("settings", "->>").key(k).as(k)),
-      )
-      .where("id", "=", guildId)
+    await runTakeFirstOrThrow(
+      db
+        .selectFrom("guilds")
+        // @ts-expect-error This is broken because of a migration from knex and
+        // old/bad use of jsonb for storing settings. The type is guaranteed here
+        // not by the codegen
+        .select<DB, "guilds", SettingsRecord>((eb) =>
+          keys.map((k) => eb.ref("settings", "->>").key(k).as(k)),
+        )
+        .where("id", "=", guildId),
       // This cast is also evidence of the pattern being broken
-      .executeTakeFirstOrThrow(),
+    ),
   ) as [T, string][];
   return Object.fromEntries(result) as Pick<SettingsRecord, T>;
 };

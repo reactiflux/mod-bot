@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 
-import db, { type DB } from "#~/db.server";
+import {
+  db,
+  run,
+  runTakeFirst,
+  runTakeFirstOrThrow,
+  type DB,
+} from "#~/Database";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type User = DB["users"];
@@ -11,11 +17,9 @@ export async function getUserById(id: User["id"]) {
     async () => {
       log("debug", "User", "Fetching user by ID", { userId: id });
 
-      const user = await db
-        .selectFrom("users")
-        .selectAll()
-        .where("id", "=", id)
-        .executeTakeFirst();
+      const user = await runTakeFirst(
+        db.selectFrom("users").selectAll().where("id", "=", id),
+      );
 
       log("debug", "User", user ? "User found" : "User not found", {
         userId: id,
@@ -36,11 +40,9 @@ export async function getUserByExternalId(externalId: User["externalId"]) {
     async () => {
       log("debug", "User", "Fetching user by external ID", { externalId });
 
-      const user = await db
-        .selectFrom("users")
-        .selectAll()
-        .where("externalId", "=", externalId)
-        .executeTakeFirst();
+      const user = await runTakeFirst(
+        db.selectFrom("users").selectAll().where("externalId", "=", externalId),
+      );
 
       log(
         "debug",
@@ -67,11 +69,9 @@ export async function getUserByEmail(email: User["email"]) {
     async () => {
       log("debug", "User", "Fetching user by email", { email });
 
-      const user = await db
-        .selectFrom("users")
-        .selectAll()
-        .where("email", "=", email)
-        .executeTakeFirst();
+      const user = await runTakeFirst(
+        db.selectFrom("users").selectAll().where("email", "=", email),
+      );
 
       log(
         "debug",
@@ -104,18 +104,19 @@ export async function createUser(
         authProvider: "discord",
       });
 
-      const out = await db
-        .insertInto("users")
-        .values([
-          {
-            id: randomUUID(),
-            email,
-            externalId,
-            authProvider: "discord",
-          },
-        ])
-        .returningAll()
-        .executeTakeFirstOrThrow();
+      const out = await runTakeFirstOrThrow(
+        db
+          .insertInto("users")
+          .values([
+            {
+              id: randomUUID(),
+              email,
+              externalId,
+              authProvider: "discord",
+            },
+          ])
+          .returningAll(),
+      );
 
       log("info", "User", "User created successfully", {
         userId: out.id,
@@ -131,5 +132,5 @@ export async function createUser(
 }
 
 export async function deleteUserByEmail(email: User["email"]) {
-  return db.deleteFrom("users").where("email", "=", email).execute();
+  return run(db.deleteFrom("users").where("email", "=", email));
 }

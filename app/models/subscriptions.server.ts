@@ -1,4 +1,4 @@
-import db from "#~/db.server";
+import { db, run, runTakeFirst } from "#~/Database";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
@@ -17,11 +17,12 @@ export const SubscriptionService = {
           guildId,
         });
 
-        const result = await db
-          .selectFrom("guild_subscriptions")
-          .selectAll()
-          .where("guild_id", "=", guildId)
-          .executeTakeFirst();
+        const result = await runTakeFirst(
+          db
+            .selectFrom("guild_subscriptions")
+            .selectAll()
+            .where("guild_id", "=", guildId),
+        );
 
         if (result) {
           log("debug", "Subscription", "Found existing subscription", {
@@ -67,29 +68,30 @@ export const SubscriptionService = {
         const existing = await this.getGuildSubscription(data.guild_id);
         const isUpdate = !!existing;
 
-        await db
-          .insertInto("guild_subscriptions")
-          .values({
-            guild_id: data.guild_id,
-            stripe_customer_id: data.stripe_customer_id ?? null,
-            stripe_subscription_id: data.stripe_subscription_id ?? null,
-            product_tier: data.product_tier,
-            status: data.status ?? "active",
-            current_period_end: data.current_period_end ?? null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .onConflict((oc) =>
-            oc.column("guild_id").doUpdateSet({
+        await run(
+          db
+            .insertInto("guild_subscriptions")
+            .values({
+              guild_id: data.guild_id,
               stripe_customer_id: data.stripe_customer_id ?? null,
               stripe_subscription_id: data.stripe_subscription_id ?? null,
               product_tier: data.product_tier,
               status: data.status ?? "active",
               current_period_end: data.current_period_end ?? null,
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-            }),
-          )
-          .execute();
+            })
+            .onConflict((oc) =>
+              oc.column("guild_id").doUpdateSet({
+                stripe_customer_id: data.stripe_customer_id ?? null,
+                stripe_subscription_id: data.stripe_subscription_id ?? null,
+                product_tier: data.product_tier,
+                status: data.status ?? "active",
+                current_period_end: data.current_period_end ?? null,
+                updated_at: new Date().toISOString(),
+              }),
+            ),
+        );
 
         log(
           "info",
@@ -138,15 +140,16 @@ export const SubscriptionService = {
           throw new Error(`No subscription found for guild ${guildId}`);
         }
 
-        await db
-          .updateTable("guild_subscriptions")
-          .set({
-            status,
-            current_period_end: currentPeriodEnd ?? null,
-            updated_at: new Date().toISOString(),
-          })
-          .where("guild_id", "=", guildId)
-          .execute();
+        await run(
+          db
+            .updateTable("guild_subscriptions")
+            .set({
+              status,
+              current_period_end: currentPeriodEnd ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .where("guild_id", "=", guildId),
+        );
 
         log(
           "info",
@@ -337,30 +340,35 @@ export const SubscriptionService = {
         log("debug", "Subscription", "Fetching subscription metrics");
 
         const [total, active, free, paid, inactive] = await Promise.all([
-          db
-            .selectFrom("guild_subscriptions")
-            .select((eb) => eb.fn.countAll<number>().as("count"))
-            .executeTakeFirst(),
-          db
-            .selectFrom("guild_subscriptions")
-            .select((eb) => eb.fn.countAll<number>().as("count"))
-            .where("status", "=", "active")
-            .executeTakeFirst(),
-          db
-            .selectFrom("guild_subscriptions")
-            .select((eb) => eb.fn.countAll<number>().as("count"))
-            .where("product_tier", "=", "free")
-            .executeTakeFirst(),
-          db
-            .selectFrom("guild_subscriptions")
-            .select((eb) => eb.fn.countAll<number>().as("count"))
-            .where("product_tier", "=", "paid")
-            .executeTakeFirst(),
-          db
-            .selectFrom("guild_subscriptions")
-            .select((eb) => eb.fn.countAll<number>().as("count"))
-            .where("status", "=", "inactive")
-            .executeTakeFirst(),
+          runTakeFirst(
+            db
+              .selectFrom("guild_subscriptions")
+              .select((eb) => eb.fn.countAll<number>().as("count")),
+          ),
+          runTakeFirst(
+            db
+              .selectFrom("guild_subscriptions")
+              .select((eb) => eb.fn.countAll<number>().as("count"))
+              .where("status", "=", "active"),
+          ),
+          runTakeFirst(
+            db
+              .selectFrom("guild_subscriptions")
+              .select((eb) => eb.fn.countAll<number>().as("count"))
+              .where("product_tier", "=", "free"),
+          ),
+          runTakeFirst(
+            db
+              .selectFrom("guild_subscriptions")
+              .select((eb) => eb.fn.countAll<number>().as("count"))
+              .where("product_tier", "=", "paid"),
+          ),
+          runTakeFirst(
+            db
+              .selectFrom("guild_subscriptions")
+              .select((eb) => eb.fn.countAll<number>().as("count"))
+              .where("status", "=", "inactive"),
+          ),
         ]);
 
         const metrics = {

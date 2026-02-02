@@ -1,6 +1,6 @@
 import { sql } from "kysely";
 
-import db, { type DB } from "#~/db.server";
+import { db, run, type DB } from "#~/Database";
 import { getUserCohortAnalysis } from "#~/helpers/cohortAnalysis";
 import { fillDateGaps } from "#~/helpers/dateUtils";
 import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
@@ -108,9 +108,9 @@ export async function getUserMessageAnalytics(
 
   const [dailyResults, categoryBreakdown, channelBreakdown, userInfo] =
     await Promise.all([
-      dailyQuery.execute(),
-      categoryQuery.execute(),
-      channelQuery.execute(),
+      run(dailyQuery),
+      run(categoryQuery),
+      run(channelQuery),
       getOrFetchUser(userId),
     ]);
 
@@ -204,7 +204,7 @@ export async function getTopParticipants(
     )
     .limit(config.count);
   console.log(topMembersQuery.compile().sql);
-  const topMembers = await topMembersQuery.execute();
+  const topMembers = await run(topMembersQuery);
 
   const dailyParticipationQuery = db
     .with("interval_message_stats", () => filteredQuery)
@@ -227,7 +227,7 @@ export async function getTopParticipants(
       topMembers.map((m) => m.author_id),
     );
   console.log(dailyParticipationQuery.compile().sql);
-  const rawDailyParticipation = await dailyParticipationQuery.execute();
+  const rawDailyParticipation = await run(dailyParticipationQuery);
   // Group by author and fill date gaps inline
   const groupedData = rawDailyParticipation.reduce((acc, record) => {
     const { author_id, date } = record;
