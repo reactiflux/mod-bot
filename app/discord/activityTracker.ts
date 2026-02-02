@@ -1,7 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
-import db from "#~/db.server";
+import { db, run } from "#~/Database";
 import { getMessageStats } from "#~/helpers/discord.js";
 import { threadStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
@@ -42,9 +42,8 @@ export async function startActivityTracking(client: Client) {
       async () => getOrFetchChannel(msg),
     );
 
-    await db
-      .insertInto("message_stats")
-      .values({
+    await run(
+      db.insertInto("message_stats").values({
         ...info,
         code_stats: JSON.stringify(info.code_stats),
         link_stats: JSON.stringify(info.link_stats),
@@ -54,8 +53,8 @@ export async function startActivityTracking(client: Client) {
         channel_id: msg.channelId,
         recipient_id: msg.mentions.repliedUser?.id ?? null,
         channel_category: channelInfo.category,
-      })
-      .execute();
+      }),
+    );
 
     log("debug", "ActivityTracker", "Message stats stored", {
       messageId: msg.id,
@@ -78,13 +77,13 @@ export async function startActivityTracking(client: Client) {
       async () => {
         const info = await Effect.runPromise(getMessageStats(msg));
 
-        await updateStatsById(msg.id)
-          .set({
+        await run(
+          updateStatsById(msg.id).set({
             ...info,
             code_stats: JSON.stringify(info.code_stats),
             link_stats: JSON.stringify(info.link_stats),
-          })
-          .execute();
+          }),
+        );
 
         log("debug", "ActivityTracker", "Message stats updated", {
           messageId: msg.id,
@@ -103,10 +102,9 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processMessageDelete",
       async () => {
-        await db
-          .deleteFrom("message_stats")
-          .where("message_id", "=", msg.id)
-          .execute();
+        await run(
+          db.deleteFrom("message_stats").where("message_id", "=", msg.id),
+        );
 
         log("debug", "ActivityTracker", "Message stats deleted", {
           messageId: msg.id,
@@ -120,9 +118,11 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processReactionAdd",
       async () => {
-        await updateStatsById(msg.message.id)
-          .set({ react_count: (eb) => eb(eb.ref("react_count"), "+", 1) })
-          .execute();
+        await run(
+          updateStatsById(msg.message.id).set({
+            react_count: (eb) => eb(eb.ref("react_count"), "+", 1),
+          }),
+        );
 
         log("debug", "ActivityTracker", "Reaction added to message", {
           messageId: msg.message.id,
@@ -138,9 +138,11 @@ export async function startActivityTracking(client: Client) {
     await trackPerformance(
       "processReactionRemove",
       async () => {
-        await updateStatsById(msg.message.id)
-          .set({ react_count: (eb) => eb(eb.ref("react_count"), "-", 1) })
-          .execute();
+        await run(
+          updateStatsById(msg.message.id).set({
+            react_count: (eb) => eb(eb.ref("react_count"), "-", 1),
+          }),
+        );
 
         log("debug", "ActivityTracker", "Reaction removed from message", {
           messageId: msg.message.id,
@@ -164,20 +166,21 @@ export async function reportByGuild(guildId: string) {
         guildId,
       });
 
-      const result = await db
-        .selectFrom("message_stats")
-        .select((eb) => [
-          eb.fn.countAll().as("message_count"),
-          eb.fn.sum("char_count").as("char_total"),
-          eb.fn.sum("word_count").as("word_total"),
-          eb.fn.sum("react_count").as("react_total"),
-          eb.fn.avg("char_count").as("avg_chars"),
-          eb.fn.avg("word_count").as("avg_words"),
-          eb.fn.avg("react_count").as("avg_reacts"),
-        ])
-        .where("guild_id", "=", guildId)
-        .groupBy("author_id")
-        .execute();
+      const result = await run(
+        db
+          .selectFrom("message_stats")
+          .select((eb) => [
+            eb.fn.countAll().as("message_count"),
+            eb.fn.sum("char_count").as("char_total"),
+            eb.fn.sum("word_count").as("word_total"),
+            eb.fn.sum("react_count").as("react_total"),
+            eb.fn.avg("char_count").as("avg_chars"),
+            eb.fn.avg("word_count").as("avg_words"),
+            eb.fn.avg("react_count").as("avg_reacts"),
+          ])
+          .where("guild_id", "=", guildId)
+          .groupBy("author_id"),
+      );
 
       log("info", "ActivityTracker", "Guild report generated", {
         guildId,

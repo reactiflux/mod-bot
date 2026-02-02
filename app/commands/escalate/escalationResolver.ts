@@ -8,7 +8,6 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseLayer } from "#~/Database.ts";
 import {
   editMessage,
   fetchChannelFromClient,
@@ -186,7 +185,6 @@ export const checkPendingEscalationsEffect = (client: Client) =>
     // TODO: In the future, we should have a smarter fetch that manages that
     const results = yield* Effect.forEach(due, (escalation) =>
       processEscalationEffect(client, escalation).pipe(
-        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           logEffect(
             "error",

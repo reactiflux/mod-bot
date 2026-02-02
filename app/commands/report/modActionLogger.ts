@@ -14,7 +14,6 @@ import {
 import { Effect } from "effect";
 
 import { logAutomod } from "#~/commands/report/automodLog.ts";
-import { DatabaseLayer } from "#~/Database.ts";
 import { fetchUser } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { runEffect } from "#~/effects/runtime.ts";
@@ -357,23 +356,16 @@ const memberUpdateEffect = (
   }).pipe(Effect.withSpan("handleMemberUpdate"));
 
 // Thin async wrappers that execute the Effects
-const handleBanAdd = (ban: GuildBan) =>
-  runEffect(banAddEffect(ban).pipe(Effect.provide(DatabaseLayer)));
-const handleBanRemove = (ban: GuildBan) =>
-  runEffect(banRemoveEffect(ban).pipe(Effect.provide(DatabaseLayer)));
+const handleBanAdd = (ban: GuildBan) => runEffect(banAddEffect(ban));
+const handleBanRemove = (ban: GuildBan) => runEffect(banRemoveEffect(ban));
 const handleMemberRemove = (member: GuildMember | PartialGuildMember) =>
-  runEffect(memberRemoveEffect(member).pipe(Effect.provide(DatabaseLayer)));
+  runEffect(memberRemoveEffect(member));
 const handleAutomodAction = (execution: AutoModerationActionExecution) =>
-  runEffect(automodActionEffect(execution).pipe(Effect.provide(DatabaseLayer)));
+  runEffect(automodActionEffect(execution));
 const handleMemberUpdate = (
   oldMember: GuildMember | PartialGuildMember,
   newMember: GuildMember | PartialGuildMember,
-) =>
-  runEffect(
-    memberUpdateEffect(oldMember, newMember).pipe(
-      Effect.provide(DatabaseLayer),
-    ),
-  );
+) => runEffect(memberUpdateEffect(oldMember, newMember));
 
 export default async (bot: Client) => {
   bot.on(Events.GuildBanAdd, handleBanAdd);

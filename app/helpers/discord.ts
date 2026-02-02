@@ -22,6 +22,7 @@ import { Effect } from "effect";
 import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
+import type { RuntimeContext } from "#~/Database";
 import { resolveMessagePartial } from "#~/effects/discordSdk";
 import { NotFoundError, type DiscordApiError } from "#~/effects/errors.ts";
 import {
@@ -158,10 +159,12 @@ export const isUserContextCommand = (
 export const isSlashCommand = (config: AnyCommand): config is SlashCommand =>
   config.command instanceof SlashCommandBuilder;
 // Effect-based command types
-// Handlers must be fully self-contained: E = never, R = never, A = void
-//
+// Handlers return Effects that may require database access (RuntimeContext).
+// The runtime provides these dependencies when the handler is executed.
 
-export type Handler<I> = (interaction: I) => Effect.Effect<void, never, never>;
+export type Handler<I> = (
+  interaction: I,
+) => Effect.Effect<void, never, RuntimeContext>;
 
 export interface SlashCommand {
   command: SlashCommandBuilder;

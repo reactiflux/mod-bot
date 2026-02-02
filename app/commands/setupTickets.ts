@@ -15,8 +15,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import { DatabaseLayer } from "#~/Database.ts";
-import db from "#~/db.server.js";
+import { DatabaseService } from "#~/Database.ts";
 import { ssrDiscordSdk as rest } from "#~/discord/api";
 import {
   fetchChannel,
@@ -116,16 +115,12 @@ export const Command = [
           roleId = mod;
         }
 
-        yield* Effect.tryPromise(() =>
-          db
-            .insertInto("tickets_config")
-            .values({
-              message_id: producedMessage.id,
-              channel_id: ticketChannel?.id,
-              role_id: roleId,
-            })
-            .execute(),
-        );
+        const db = yield* DatabaseService;
+        yield* db.insertInto("tickets_config").values({
+          message_id: producedMessage.id,
+          channel_id: ticketChannel?.id,
+          role_id: roleId,
+        });
 
         featureStats.ticketChannelSetup(
           interaction.guild.id,
@@ -133,7 +128,6 @@ export const Command = [
           ticketChannel?.id ?? interaction.channelId,
         );
       }).pipe(
-        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect(
@@ -204,13 +198,12 @@ export const Command = [
         const { channel, fields, user } = interaction;
         const concern = fields.getTextInputValue("concern");
 
-        let config = yield* Effect.tryPromise(() =>
-          db
-            .selectFrom("tickets_config")
-            .selectAll()
-            .where("message_id", "=", interaction.message!.id)
-            .executeTakeFirst(),
-        );
+        const db = yield* DatabaseService;
+        const configRows = yield* db
+          .selectFrom("tickets_config")
+          .selectAll()
+          .where("message_id", "=", interaction.message.id);
+        let config = configRows[0];
 
         // If there's no config, that means that the button was set up before the db was set up. Add one with default values
         if (!config) {
@@ -218,13 +211,11 @@ export const Command = [
             interaction.guild.id,
             [SETTINGS.moderator, SETTINGS.modLog],
           );
-          config = yield* Effect.tryPromise(() =>
-            db
-              .insertInto("tickets_config")
-              .returningAll()
-              .values({ message_id: interaction.message!.id, role_id: mod })
-              .executeTakeFirst(),
-          );
+          const insertedRows = yield* db
+            .insertInto("tickets_config")
+            .returningAll()
+            .values({ message_id: interaction.message.id, role_id: mod });
+          config = insertedRows[0];
           if (!config) {
             yield* Effect.fail(
               new Error("Something went wrong while fixing tickets config"),
@@ -296,7 +287,6 @@ export const Command = [
           flags: [MessageFlags.Ephemeral],
         });
       }).pipe(
-        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect(
@@ -376,7 +366,6 @@ export const Command = [
           !!feedback?.trim(),
         );
       }).pipe(
-        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
             yield* logEffect("error", "TicketsClose", "Error closing ticket", {

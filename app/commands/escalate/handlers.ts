@@ -5,9 +5,8 @@ import {
   MessageFlags,
   type MessageComponentInteraction,
 } from "discord.js";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-import { DatabaseLayer } from "#~/Database.ts";
 import {
   editMessage,
   interactionDeferReply,
@@ -96,7 +95,7 @@ const vote =
           resolution,
         },
       }),
-      Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+      Effect.provide(EscalationServiceLive),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
           content: "Only moderators can vote on escalations.",
@@ -147,7 +146,7 @@ ${buildVotesListContent(result.tally)}`,
     Effect.withSpan("escalation-expedite", {
       attributes: { guildId: interaction.guildId, userId: interaction.user.id },
     }),
-    Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+    Effect.provide(EscalationServiceLive),
     Effect.catchTag("NotAuthorizedError", () =>
       interactionFollowUp(interaction, {
         content: "Only moderators can expedite resolutions.",
@@ -215,7 +214,7 @@ const escalate = (interaction: MessageComponentInteraction) =>
     Effect.withSpan("escalation-escalate", {
       attributes: { guildId: interaction.guildId, userId: interaction.user.id },
     }),
-    Effect.provide(Layer.mergeAll(DatabaseLayer, EscalationServiceLive)),
+    Effect.provide(EscalationServiceLive),
     Effect.catchTag("NotFoundError", () =>
       interactionEditReply(interaction, {
         content: "Failed to re-escalate, couldn't find escalation",
@@ -251,7 +250,6 @@ export const EscalationHandlers = {
           userId: interaction.user.id,
         },
       }),
-      Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionEditReply(interaction, {
           content: "Insufficient permissions",
@@ -277,7 +275,6 @@ export const EscalationHandlers = {
         `<@${reportedUserId}> kicked by ${result.actionBy}`,
       );
     }).pipe(
-      Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
           content: "Insufficient permissions",
@@ -318,7 +315,6 @@ export const EscalationHandlers = {
           userId: interaction.user.id,
         },
       }),
-      Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
           content: "Insufficient permissions",
@@ -353,7 +349,6 @@ export const EscalationHandlers = {
           userId: interaction.user.id,
         },
       }),
-      Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
           content: "Insufficient permissions",
@@ -388,7 +383,6 @@ export const EscalationHandlers = {
           userId: interaction.user.id,
         },
       }),
-      Effect.provide(DatabaseLayer),
       Effect.catchTag("NotAuthorizedError", () =>
         interactionReply(interaction, {
           content: "Insufficient permissions",

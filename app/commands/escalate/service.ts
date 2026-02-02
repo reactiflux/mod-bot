@@ -2,7 +2,7 @@ import type { Guild } from "discord.js";
 import { Context, Effect, Layer } from "effect";
 import type { Selectable } from "kysely";
 
-import { DatabaseLayer, DatabaseService, type SqlError } from "#~/Database";
+import { DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
 import { fetchMember } from "#~/effects/discordSdk.ts";
 import {
@@ -372,4 +372,4 @@ export const EscalationServiceLive = Layer.effect(
         ),
     };
   }),
-).pipe(Layer.provide(DatabaseLayer));
+);

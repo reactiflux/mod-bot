@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 import { partition } from "lodash-es";
 
+import { run } from "#~/Database";
 import type { CodeStats } from "#~/helpers/discord";
 import { descriptiveStats, percentile } from "#~/helpers/statistics";
 import { createMessageStatsQuery } from "#~/models/activity.server";
@@ -281,7 +282,7 @@ export async function getCohortMetrics(
       eb(eb.fn.count<number>("author_id"), ">=", minMessageThreshold),
     );
 
-  const userStats = await userStatsQuery.execute();
+  const userStats = await run(userStatsQuery);
 
   // Get daily activity for streak calculation
   const dailyActivityQuery = createMessageStatsQuery(guildId, start, end)
@@ -299,7 +300,7 @@ export async function getCohortMetrics(
       userStats.map((u) => u.author_id),
     );
 
-  const dailyActivity = await dailyActivityQuery.execute();
+  const dailyActivity = await run(dailyActivityQuery);
 
   // Group daily activity by user
   const dailyActivityByUser = dailyActivity.reduce(

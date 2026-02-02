@@ -11,7 +11,6 @@ import {
 import { Effect } from "effect";
 
 import { logUserMessage } from "#~/commands/report/userLog.ts";
-import { DatabaseLayer } from "#~/Database.ts";
 import { client } from "#~/discord/client.server";
 import {
   deleteMessage,
@@ -77,7 +76,6 @@ export const Command = [
             : [],
         });
       }).pipe(
-        Effect.provide(DatabaseLayer),
         Effect.catchAll((error) =>
           Effect.all([
             logEffect("error", "Track", "Error tracking message", {
@@ -96,9 +94,7 @@ export const Command = [
       Effect.gen(function* () {
         const [, reportId] = interaction.customId.split("|");
 
-        const report = yield* getReportById(reportId).pipe(
-          Effect.provide(DatabaseLayer),
-        );
+        const report = yield* getReportById(reportId);
 
         if (!report) {
           yield* interactionUpdate(interaction, {
@@ -121,7 +117,7 @@ export const Command = [
         yield* markMessageAsDeleted(
           report.reported_message_id,
           report.guild_id,
-        ).pipe(Effect.provide(DatabaseLayer));
+        );
 
         const logChannel = yield* fetchChannelFromClient(
           client,

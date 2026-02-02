@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, ManagedRuntime } from "effect";
 
 import { SqlClient } from "@effect/sql";
 import * as Sqlite from "@effect/sql-kysely/Sqlite";
@@ -6,13 +6,14 @@ import { SqliteClient } from "@effect/sql-sqlite-node";
 import { ResultLengthMismatch, SqlError } from "@effect/sql/SqlError";
 
 import type { DB } from "./db";
-import { DatabaseCorruptionError } from "./effects/errors";
+import { DatabaseCorruptionError, NotFoundError } from "./effects/errors";
 import { databaseUrl, emergencyWebhook } from "./helpers/env.server";
 import { log } from "./helpers/observability";
 import { scheduleTask } from "./helpers/schedule";
 
-// Re-export SQL errors for consumers
+// Re-export SQL errors and DB type for consumers
 export { SqlError, ResultLengthMismatch };
+export type { DB };
 
 // Type alias for the effectified Kysely instance
 export type EffectKysely = Sqlite.EffectKysely<DB>;
@@ -38,6 +39,68 @@ const KyselyLive = Layer.effect(DatabaseService, Sqlite.make<DB>()).pipe(
 export const DatabaseLayer = Layer.mergeAll(SqliteLive, KyselyLive);
 
 log("info", "Database", `Database configured at ${databaseUrl}`);
+
+// --- ManagedRuntime (single connection for the process lifetime) ---
+
+// ManagedRuntime keeps the DatabaseLayer scope alive for the process lifetime.
+// Unlike Effect.runSync which closes the scope (and thus the SQLite connection)
+// after execution, ManagedRuntime holds the scope open until explicit disposal.
+export const runtime = ManagedRuntime.make(DatabaseLayer);
+
+// The context type provided by the ManagedRuntime. Use this for typing functions
+// that accept effects which need database access.
+export type RuntimeContext = ManagedRuntime.ManagedRuntime.Context<
+  typeof runtime
+>;
+
+// Extract the EffectKysely instance synchronously.
+// The connection stays open because the runtime manages the layer's lifecycle.
+export const db: EffectKysely = runtime.runSync(DatabaseService);
+
+// Set busy_timeout so queries wait for locks instead of failing immediately
+runtime.runSync(
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    yield* sql.unsafe("PRAGMA busy_timeout = 5000");
+  }),
+);
+
+/** Checkpoint WAL to main database and dispose the runtime. Call on process shutdown. */
+export function shutdownDatabase() {
+  try {
+    runtime.runSync(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        yield* sql.unsafe("PRAGMA wal_checkpoint(TRUNCATE)");
+      }),
+    );
+  } catch (e) {
+    console.error("Failed to checkpoint WAL on shutdown", e);
+  }
+}
+
+// --- Bridge functions for legacy async/await code ---
+
+// Convenience helpers for legacy async/await code that needs to run
+// EffectKysely query builders as Promises.
+export const run = <A>(effect: Effect.Effect<A, unknown, never>): Promise<A> =>
+  Effect.runPromise(effect);
+
+export const runTakeFirst = <A>(
+  effect: Effect.Effect<A[], unknown, never>,
+): Promise<A | undefined> =>
+  Effect.runPromise(Effect.map(effect, (rows) => rows[0]));
+
+export const runTakeFirstOrThrow = <A>(
+  effect: Effect.Effect<A[], unknown, never>,
+): Promise<A> =>
+  Effect.runPromise(
+    Effect.flatMap(effect, (rows) =>
+      rows[0] !== undefined
+        ? Effect.succeed(rows[0])
+        : Effect.fail(new NotFoundError({ resource: "db record", id: "" })),
+    ),
+  );
 
 // --- Integrity Check ---
 
@@ -103,9 +166,7 @@ export const runIntegrityCheck = Effect.gen(function* () {
 /** Start the twice-daily integrity check scheduler */
 export function startIntegrityCheck() {
   return scheduleTask("IntegrityCheck", TWELVE_HOURS, () => {
-    Effect.runPromise(
-      runIntegrityCheck.pipe(Effect.provide(DatabaseLayer)),
-    ).catch(() => {
+    runtime.runPromise(runIntegrityCheck).catch(() => {
       // Errors already logged and webhook sent
     });
   });

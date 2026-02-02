@@ -2,7 +2,7 @@ import type { Message, User } from "discord.js";
 import { Effect } from "effect";
 import type { Selectable } from "kysely";
 
-import { DatabaseLayer, DatabaseService } from "#~/Database";
+import { DatabaseService } from "#~/Database";
 import type { DB } from "#~/db";
 import { client } from "#~/discord/client.server";
 import { logEffect } from "#~/effects/observability";
@@ -324,10 +324,7 @@ const deleteSingleMessage = (
  */
 export const deleteAllReportedForUser = (userId: string, guildId: string) =>
   Effect.gen(function* () {
-    const uniqueMessages = yield* Effect.provide(
-      getUniqueNonDeletedMessages(userId, guildId),
-      DatabaseLayer,
-    );
+    const uniqueMessages = yield* getUniqueNonDeletedMessages(userId, guildId);
 
     if (uniqueMessages.length === 0) {
       yield* logEffect("info", "ReportedMessage", "No messages to delete", {

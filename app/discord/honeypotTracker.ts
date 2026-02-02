@@ -1,7 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import db from "#~/db.server.js";
+import { db, run } from "#~/Database";
 import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";
@@ -41,11 +41,12 @@ export async function startHoneypotTracking(client: Client) {
     const { guild } = msg;
     const cacheEntry = configCache[msg.guildId];
     if (!cacheEntry || cacheEntry.cachedAt + CACHE_TTL_IN_MS < Date.now()) {
-      config = await db
-        .selectFrom("honeypot_config")
-        .selectAll()
-        .where("guild_id", "=", msg.guildId)
-        .execute();
+      config = await run(
+        db
+          .selectFrom("honeypot_config")
+          .selectAll()
+          .where("guild_id", "=", msg.guildId),
+      );
 
       configCache[msg.guildId] = { config, cachedAt: Date.now() };
       log(

@@ -7,7 +7,6 @@ import {
 import { Effect } from "effect";
 
 import { logUserMessage } from "#~/commands/report/userLog.ts";
-import { DatabaseLayer } from "#~/Database.ts";
 import {
   interactionDeferReply,
   interactionEditReply,
@@ -47,7 +46,6 @@ export const Command = {
         content: "This message has been reported anonymously",
       });
     }).pipe(
-      Effect.provide(DatabaseLayer),
       Effect.catchAll((error) =>
         Effect.gen(function* () {
           yield* logEffect("error", "Commands", "Report command failed", {

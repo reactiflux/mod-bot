@@ -1,15 +1,13 @@
 import type { Message, TextChannel } from "discord.js";
 
-import db from "#~/db.server";
+import { db, run, runTakeFirst } from "#~/Database";
 import { log } from "#~/helpers/observability";
 
 export async function getOrFetchChannel(msg: Message) {
   // TODO: cache eviction?
-  const channelInfo = await db
-    .selectFrom("channel_info")
-    .selectAll()
-    .where("id", "=", msg.channelId)
-    .executeTakeFirst();
+  const channelInfo = await runTakeFirst(
+    db.selectFrom("channel_info").selectAll().where("id", "=", msg.channelId),
+  );
 
   if (channelInfo) {
     log("debug", "ActivityTracker", "Channel info found in cache", {
@@ -31,14 +29,13 @@ export async function getOrFetchChannel(msg: Message) {
     name: data.name,
   };
 
-  await db
-    .insertInto("channel_info")
-    .values({
+  await run(
+    db.insertInto("channel_info").values({
       id: msg.channelId,
       name: data.name,
       category: data.parent?.name ?? null,
-    })
-    .execute();
+    }),
+  );
 
   log("debug", "ActivityTracker", "Channel info added to cache", {
     channelId: msg.channelId,

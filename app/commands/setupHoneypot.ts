@@ -7,7 +7,7 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
-import db from "#~/db.server.js";
+import { DatabaseService } from "#~/Database.ts";
 import { interactionReply, sendMessage } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { SlashCommand } from "#~/helpers/discord.js";
@@ -66,18 +66,16 @@ export const Command = [
         }
 
         const castedChannel = honeypotChannel as TextChannel;
-        const result = yield* Effect.tryPromise(() =>
-          db
-            .insertInto("honeypot_config")
-            .values({
-              guild_id: interaction.guildId!,
-              channel_id: honeypotChannel.id,
-            })
-            .onConflict((c) => c.doNothing())
-            .execute(),
-        );
+        const db = yield* DatabaseService;
+        const result = yield* db
+          .insertInto("honeypot_config")
+          .values({
+            guild_id: interaction.guildId,
+            channel_id: honeypotChannel.id,
+          })
+          .onConflict((c) => c.doNothing());
 
-        if ((result[0].numInsertedOrUpdatedRows ?? 0) > 0) {
+        if ((result[0]?.numInsertedOrUpdatedRows ?? 0) > 0) {
           yield* sendMessage(castedChannel, messageText);
           featureStats.honeypotSetup(
             interaction.guildId,
@@ -97,9 +95,7 @@ export const Command = [
               "error",
               "HoneypotSetup",
               "Error during honeypot action",
-              {
-                error: String(error),
-              },
+              { error },
             );
 
             yield* interactionReply(interaction, {
