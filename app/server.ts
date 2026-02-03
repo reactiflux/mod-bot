@@ -64,7 +64,7 @@ app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
 
 const startup = Effect.gen(function* () {
   yield* initDiscordBot;
-  yield* Effect.forkDaemon(runIntegrityCheck);
+  yield* runtime.runFork(runIntegrityCheck);
 
   yield* registerCommand(setup);
   yield* registerCommand(report);

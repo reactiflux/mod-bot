@@ -94,7 +94,6 @@ export const runIntegrityCheck = Effect.gen(function* () {
 
   return yield* new DatabaseCorruptionError({ errors });
 }).pipe(
-  Effect.provide(SqliteLive),
   Effect.repeat(Schedule.fixed("6 hours")),
   Effect.catchTag("SqlError", (error) =>
     Effect.all([
