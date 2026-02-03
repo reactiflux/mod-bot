@@ -4,6 +4,7 @@ import { reactRouter } from "@react-router/dev/vite";
 
 export default defineConfig(({ isSsrBuild }) => ({
   build: {
+    target: isSsrBuild ? "esnext" : undefined,
     sourcemap: true,
     rollupOptions: isSsrBuild ? { input: "./app/server.ts" } : undefined,
   },
