@@ -190,7 +190,15 @@ export const registerCommand = (
       return;
     }
     commands.set(config.command.name, config);
-  });
+  }).pipe(
+    Effect.withSpan("registerCommand", {
+      attributes: {
+        name: Array.isArray(config)
+          ? config.map((c) => c.command.name)
+          : config.command.name,
+      },
+    }),
+  );
 export const matchCommand = (customId: string) => {
   const config = commands.get(customId);
   if (config) {

@@ -63,8 +63,12 @@ app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
 });
 
 const startup = Effect.gen(function* () {
+  yield* logEffect("debug", "Server", "startup init");
   yield* initDiscordBot;
+  yield* logEffect("debug", "Server", "scheduling integrity check");
   yield* runtime.runFork(runIntegrityCheck);
+
+  yield* logEffect("debug", "Server", "initializing commands");
 
   yield* registerCommand(setup);
   yield* registerCommand(report);
@@ -95,8 +99,11 @@ const startup = Effect.gen(function* () {
       )
       .then(() => runtime.dispose().then(() => console.log("ok")));
 
+  yield* logEffect("debug", "Server", "setting signal handlers");
   process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
   process.on("SIGINT", () => void handleShutdown("SIGINT"));
 });
 
-void Effect.runPromise(startup);
+console.log("running program");
+const exit = await Effect.runPromiseExit(startup);
+console.log({ exit });

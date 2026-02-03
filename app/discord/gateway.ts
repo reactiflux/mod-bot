@@ -9,6 +9,7 @@ import { deployCommands, matchCommand } from "#~/discord/deployCommands.server";
 import { startEscalationResolver } from "#~/discord/escalationResolver";
 import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
+import { logEffect } from "#~/effects/observability.ts";
 import { runEffect } from "#~/effects/runtime";
 import { type AnyCommand } from "#~/helpers/discord.ts";
 import { botStats } from "#~/helpers/metrics";
@@ -23,9 +24,9 @@ declare global {
   var __discordGatewayInitialized: boolean | undefined;
 }
 
-export const initDiscordBot: Effect.Effect<void> = Effect.sync(() => {
+export const initDiscordBot: Effect.Effect<void> = Effect.gen(function* () {
   if (globalThis.__discordGatewayInitialized) {
-    log(
+    yield* logEffect(
       "info",
       "Gateway",
       "Gateway already initialized, skipping duplicate init",
@@ -33,7 +34,7 @@ export const initDiscordBot: Effect.Effect<void> = Effect.sync(() => {
     return;
   }
 
-  log("info", "Gateway", "Initializing Discord gateway");
+  yield* logEffect("info", "Gateway", "Initializing Discord gateway");
   globalThis.__discordGatewayInitialized = true;
 
   void login();
