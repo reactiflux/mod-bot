@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { partition } from "lodash-es";
 
-import { run } from "#~/Database";
+import { run } from "#~/AppRuntime";
 import type { CodeStats } from "#~/helpers/discord";
 import { descriptiveStats, percentile } from "#~/helpers/statistics";
 import { createMessageStatsQuery } from "#~/models/activity.server";

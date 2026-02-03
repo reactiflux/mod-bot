@@ -1,7 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
-import { db, run } from "#~/Database";
+import { db, run } from "#~/AppRuntime";
 import { getMessageStats } from "#~/helpers/discord.js";
 import { threadStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";

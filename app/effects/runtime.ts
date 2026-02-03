@@ -1,6 +1,6 @@
 import { Effect, Layer, Logger, LogLevel } from "effect";
 
-import { runtime, type RuntimeContext } from "#~/Database.js";
+import { runtime, type RuntimeContext } from "#~/AppRuntime.js";
 import { isProd } from "#~/helpers/env.server.js";
 import { log } from "#~/helpers/observability.js";
 

@@ -8,8 +8,9 @@ import type {
 } from "discord.js";
 import { PostHog } from "posthog-node";
 
-import { posthogApiKey, posthogHost } from "#~/helpers/env.server";
 import { log } from "#~/helpers/observability";
+
+import { posthogApiKey, posthogHost } from "./env.server";
 
 type EventValue = string | number | boolean;
 type EmitEventData = Record<string, EventValue | EventValue[]>;

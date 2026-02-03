@@ -22,7 +22,7 @@ import { Effect } from "effect";
 import { partition } from "lodash-es";
 import prettyBytes from "pretty-bytes";
 
-import type { RuntimeContext } from "#~/Database";
+import type { RuntimeContext } from "#~/AppRuntime";
 import { resolveMessagePartial } from "#~/effects/discordSdk";
 import { NotFoundError, type DiscordApiError } from "#~/effects/errors.ts";
 import {

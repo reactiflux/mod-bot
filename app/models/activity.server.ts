@@ -1,9 +1,10 @@
 import { sql } from "kysely";
 
-import { db, run, type DB } from "#~/Database";
+import { db, run } from "#~/AppRuntime";
+import { type DB } from "#~/Database";
 import { getUserCohortAnalysis } from "#~/helpers/cohortAnalysis";
 import { fillDateGaps } from "#~/helpers/dateUtils";
-import { getOrFetchUser } from "#~/helpers/userInfoCache.js";
+import { getOrFetchUser } from "#~/helpers/userInfoCache";
 
 type MessageStats = DB["message_stats"];
 
