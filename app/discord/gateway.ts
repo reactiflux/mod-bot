@@ -1,7 +1,7 @@
 import { Events, InteractionType } from "discord.js";
+import { Effect } from "effect";
 
 import modActionLogger from "#~/commands/report/modActionLogger";
-import { shutdownDatabase, startIntegrityCheck } from "#~/Database";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
@@ -11,7 +11,7 @@ import onboardGuild from "#~/discord/onboardGuild";
 import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
 import { runEffect } from "#~/effects/runtime";
 import { type AnyCommand } from "#~/helpers/discord.ts";
-import { botStats, shutdownMetrics } from "#~/helpers/metrics";
+import { botStats } from "#~/helpers/metrics";
 import { log, trackPerformance } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
 
@@ -23,7 +23,7 @@ declare global {
   var __discordGatewayInitialized: boolean | undefined;
 }
 
-export default function init() {
+export const initDiscordBot: Effect.Effect<void> = Effect.sync(() => {
   if (globalThis.__discordGatewayInitialized) {
     log(
       "info",
@@ -72,9 +72,6 @@ export default function init() {
 
         // Start escalation resolver scheduler (must be after client is ready)
         startEscalationResolver(client);
-
-        // Start twice-daily database integrity check
-        startIntegrityCheck();
 
         log("info", "Gateway", "Gateway initialization completed", {
           guildCount: client.guilds.cache.size,
@@ -181,20 +178,4 @@ export default function init() {
     // Track reconnections in business analytics
     botStats.reconnection(client.guilds.cache.size, client.users.cache.size);
   });
-
-  // Graceful shutdown handler to flush metrics and close database
-  const handleShutdown = async (signal: string) => {
-    log("info", "Gateway", `Received ${signal}, shutting down gracefully`, {});
-    await shutdownMetrics();
-    try {
-      shutdownDatabase();
-      log("info", "Gateway", "Database closed cleanly", {});
-    } catch (e) {
-      log("error", "Gateway", "Error closing database", { error: String(e) });
-    }
-    process.exit(0);
-  };
-
-  process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
-  process.on("SIGINT", () => void handleShutdown("SIGINT"));
-}
+});

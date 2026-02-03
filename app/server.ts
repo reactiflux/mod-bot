@@ -2,6 +2,7 @@ import "react-router";
 
 import bodyParser from "body-parser";
 import { verifyKey } from "discord-interactions";
+import { Effect } from "effect";
 import express from "express";
 import pinoHttp from "pino-http";
 
@@ -16,8 +17,12 @@ import { Command as setupReactjiChannel } from "#~/commands/setupReactjiChannel"
 import { Command as setupTicket } from "#~/commands/setupTickets";
 import { Command as track } from "#~/commands/track";
 import { registerCommand } from "#~/discord/deployCommands.server";
-import discordBot from "#~/discord/gateway";
+import { initDiscordBot } from "#~/discord/gateway";
 import { applicationKey } from "#~/helpers/env.server";
+
+import { runtime } from "./AppRuntime";
+import { checkpointWal, runIntegrityCheck } from "./Database";
+import { logEffect } from "./effects/observability";
 
 export const app = express();
 
@@ -57,19 +62,41 @@ app.post("/webhooks/discord", bodyParser.json(), async (req, res, next) => {
   next();
 });
 
-/**
- * Initialize Discord gateway.
- */
-discordBot();
+const startup = Effect.gen(function* () {
+  yield* initDiscordBot;
+  yield* Effect.forkDaemon(runIntegrityCheck);
 
-/**
- * Register Discord commands.
- */
-registerCommand(setup);
-registerCommand(report);
-registerCommand(forceBan);
-registerCommand(track);
-registerCommand(setupTicket);
-registerCommand(setupReactjiChannel);
-registerCommand(EscalationCommands);
-registerCommand(setupHoneypot);
+  yield* registerCommand(setup);
+  yield* registerCommand(report);
+  yield* registerCommand(forceBan);
+  yield* registerCommand(track);
+  yield* registerCommand(setupTicket);
+  yield* registerCommand(setupReactjiChannel);
+  yield* registerCommand(EscalationCommands);
+  yield* registerCommand(setupHoneypot);
+
+  // Graceful shutdown handler to checkpoint WAL and dispose the runtime
+  // (tears down PostHog finalizer, feature flag interval, and SQLite connection)
+  const handleShutdown = (signal: string) =>
+    runtime
+      .runPromise(
+        Effect.gen(function* () {
+          yield* logEffect("info", "Server", `Received ${signal}`);
+          try {
+            yield* checkpointWal();
+            yield* logEffect("info", "Server", "Database WAL checkpointed");
+          } catch (e) {
+            yield* logEffect("error", "Server", "Error checkpointing WAL", {
+              error: String(e),
+            });
+          }
+          process.exit(0);
+        }),
+      )
+      .then(() => runtime.dispose().then(() => console.log("ok")));
+
+  process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
+  process.on("SIGINT", () => void handleShutdown("SIGINT"));
+});
+
+void Effect.runPromise(startup);
