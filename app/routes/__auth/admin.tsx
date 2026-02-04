@@ -11,7 +11,7 @@ import { SubscriptionService } from "#~/models/subscriptions.server";
 
 import type { Route } from "./+types/admin";
 import {
-  FeatureFlagsSection,
+  PostHogSection,
   type loader as guildDetailLoader,
 } from "./admin.$guildId";
 
@@ -63,28 +63,42 @@ export async function loader({ request }: Route.LoaderArgs) {
       >;
       invoices: Awaited<ReturnType<typeof StripeService.listInvoices>>;
       featureFlags: Record<string, string | boolean> | null;
+      groupProperties: Record<string, string | number>;
     }
   > = {};
 
   for (const guildId of expandedGuildIds) {
     const sub = subscriptionsByGuildId.get(guildId);
+    const guild = guilds.find((g) => g.id === guildId);
     const featureFlags: Record<string, string | boolean> | null = posthogClient
-      ? ((await posthogClient.getAllFlags(guildId, {
-          onlyEvaluateLocally: true,
-        })) as Record<string, string | boolean>)
+      ? ((await posthogClient.getAllFlags(guildId)) as Record<
+          string,
+          string | boolean
+        >)
       : null;
+    const groupProperties = {
+      name: guild?.name ?? guildId,
+      subscription_tier: sub?.product_tier ?? "free",
+      subscription_status: sub?.status ?? "none",
+    };
 
     if (sub?.stripe_customer_id) {
       const [paymentMethods, invoices] = await Promise.all([
         StripeService.listPaymentMethods(sub.stripe_customer_id),
         StripeService.listInvoices(sub.stripe_customer_id),
       ]);
-      expandedDetails[guildId] = { paymentMethods, invoices, featureFlags };
+      expandedDetails[guildId] = {
+        paymentMethods,
+        invoices,
+        featureFlags,
+        groupProperties,
+      };
     } else {
       expandedDetails[guildId] = {
         paymentMethods: [],
         invoices: [],
         featureFlags,
+        groupProperties,
       };
     }
   }
@@ -197,6 +211,7 @@ function StripeDetails({
     >;
     invoices: Awaited<ReturnType<typeof StripeService.listInvoices>>;
     featureFlags?: Record<string, string | boolean> | null;
+    groupProperties?: Record<string, string | number> | null;
   };
   fetcherData?: Awaited<ReturnType<typeof guildDetailLoader>> | undefined;
 }) {
@@ -205,6 +220,8 @@ function StripeDetails({
   const invoices = serverData?.invoices ?? fetcherData?.invoices ?? [];
   const featureFlags =
     serverData?.featureFlags ?? fetcherData?.featureFlags ?? null;
+  const groupProperties =
+    serverData?.groupProperties ?? fetcherData?.groupProperties ?? null;
   const stripeCustomerUrl = subscription?.stripe_customer_id
     ? `https://dashboard.stripe.com/customers/${subscription.stripe_customer_id}`
     : null;
@@ -343,7 +360,11 @@ function StripeDetails({
         )}
       </div>
 
-      <FeatureFlagsSection featureFlags={featureFlags} compact />
+      <PostHogSection
+        featureFlags={featureFlags}
+        groupProperties={groupProperties}
+        compact
+      />
 
       <div className="pt-1">
         <Link
@@ -382,6 +403,7 @@ function GuildRow({
     >;
     invoices: Awaited<ReturnType<typeof StripeService.listInvoices>>;
     featureFlags?: Record<string, string | boolean> | null;
+    groupProperties?: Record<string, string | number> | null;
   };
 }) {
   const [searchParams, setSearchParams] = useSearchParams();

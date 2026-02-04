@@ -26,13 +26,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const subscription = await SubscriptionService.getGuildSubscription(guildId);
 
   // Fetch guild info from Discord
-  let guildInfo: { name: string; icon: string | null } = {
+  let guildInfo: { name: string; icon: string | null; memberCount: number } = {
     name: guildId,
     icon: null,
+    memberCount: 0,
   };
   try {
-    const guild = (await ssrDiscordSdk.get(Routes.guild(guildId))) as APIGuild;
-    guildInfo = { name: guild.name, icon: guild.icon ?? null };
+    const guild = (await ssrDiscordSdk.get(Routes.guild(guildId), {
+      query: new URLSearchParams({ with_counts: "true" }),
+    })) as APIGuild;
+    guildInfo = {
+      name: guild.name,
+      icon: guild.icon ?? null,
+      memberCount: guild.approximate_member_count ?? 0,
+    };
   } catch (e) {
     log("warn", "admin", "Failed to fetch guild info from Discord", {
       guildId,
@@ -41,9 +48,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   const featureFlags: Record<string, string | boolean> | null = posthogClient
-    ? ((await posthogClient.getAllFlags(guildId, {
-        onlyEvaluateLocally: true,
-      })) as Record<string, string | boolean>)
+    ? ((await posthogClient.getAllFlags(guildId)) as Record<
+        string,
+        string | boolean
+      >)
     : null;
 
   let paymentMethods: Awaited<
@@ -71,6 +79,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     hasStripeCustomer: !!subscription?.stripe_customer_id,
   });
 
+  const groupProperties = {
+    name: guildInfo.name,
+    member_count: guildInfo.memberCount,
+    subscription_tier: subscription?.product_tier ?? "free",
+    subscription_status: subscription?.status ?? "none",
+  };
+
   return {
     guildId,
     guildInfo,
@@ -80,6 +95,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     stripeCustomerUrl,
     stripeSubscriptionUrl,
     featureFlags,
+    groupProperties,
   };
 }
 
@@ -115,17 +131,23 @@ function ExternalLink({
   );
 }
 
-export function FeatureFlagsSection({
+export function PostHogSection({
   featureFlags,
+  groupProperties,
   compact,
 }: {
   featureFlags: Record<string, string | boolean> | null;
+  groupProperties?: Record<string, string | number> | null;
   compact?: boolean;
 }) {
   const Heading = compact ? "h4" : "h2";
+  const SubHeading = compact ? "h5" : "h3";
   const headingClass = compact
     ? "mb-2 text-sm font-medium text-gray-300"
     : "text-lg font-semibold text-gray-200";
+  const subHeadingClass = compact
+    ? "mb-1 text-xs font-medium text-gray-400"
+    : "mb-2 text-sm font-medium text-gray-400";
   const wrapperClass = compact
     ? ""
     : "space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4";
@@ -133,53 +155,58 @@ export function FeatureFlagsSection({
   if (featureFlags === null) {
     return (
       <div className={wrapperClass}>
-        <Heading className={headingClass}>Feature Flags</Heading>
+        <Heading className={headingClass}>PostHog</Heading>
         <p className="text-sm text-gray-500">PostHog not configured</p>
       </div>
     );
   }
 
-  const entries = Object.entries(featureFlags);
+  const flagEntries = Object.entries(featureFlags).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  const propEntries = groupProperties ? Object.entries(groupProperties) : [];
 
   return (
     <div className={wrapperClass}>
-      <Heading className={headingClass}>Feature Flags</Heading>
-      {entries.length === 0 ? (
-        <p className="text-sm text-gray-500">No feature flags evaluated</p>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-600 text-left text-gray-400">
-              <th className="pb-2 pr-4 font-medium">Flag</th>
-              <th className="pb-2 font-medium">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(([name, value]) => (
-              <tr key={name} className="border-b border-gray-700">
-                <td className="py-2 pr-4 font-mono text-xs text-gray-300">
-                  {name}
-                </td>
-                <td className="py-2">
-                  {value === true ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-medium text-emerald-200">
-                      Enabled
-                    </span>
-                  ) : value === false ? (
-                    <span className="inline-flex items-center rounded-full bg-gray-600 px-2.5 py-0.5 text-xs font-medium text-gray-300">
-                      Disabled
-                    </span>
-                  ) : (
-                    <span className="font-mono text-xs text-gray-400">
-                      {value}
-                    </span>
-                  )}
-                </td>
-              </tr>
+      <Heading className={headingClass}>PostHog</Heading>
+
+      {propEntries.length > 0 && (
+        <div>
+          <SubHeading className={subHeadingClass}>Group Properties</SubHeading>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+            {propEntries.map(([key, value]) => (
+              <div key={key}>
+                <dt className="text-gray-500">{key}</dt>
+                <dd className="text-gray-300">{String(value)}</dd>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </dl>
+        </div>
       )}
+
+      <div>
+        <SubHeading className={subHeadingClass}>Feature Flags</SubHeading>
+        {flagEntries.length === 0 ? (
+          <p className="text-sm text-gray-500">No feature flags evaluated</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {flagEntries.map(([name, value]) => (
+              <span
+                key={name}
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-xs font-medium ${
+                  value === true
+                    ? "bg-emerald-800 text-emerald-200"
+                    : value === false
+                      ? "bg-gray-600 text-gray-300"
+                      : "bg-indigo-800 text-indigo-200"
+                }`}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -194,6 +221,7 @@ export default function AdminGuildDetail({
     stripeCustomerUrl,
     stripeSubscriptionUrl,
     featureFlags,
+    groupProperties,
   },
 }: Route.ComponentProps) {
   const tier = subscription?.product_tier ?? "free";
@@ -434,7 +462,10 @@ export default function AdminGuildDetail({
         </section>
 
         {/* Feature Flags */}
-        <FeatureFlagsSection featureFlags={featureFlags} />
+        <PostHogSection
+          featureFlags={featureFlags}
+          groupProperties={groupProperties}
+        />
       </div>
     </Page>
   );
