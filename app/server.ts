@@ -34,6 +34,7 @@ import { checkpointWal, runIntegrityCheck } from "./Database";
 import { startHoneypotTracking } from "./discord/honeypotTracker";
 import { DiscordApiError } from "./effects/errors";
 import { logEffect } from "./effects/observability";
+import { initializeGroups } from "./effects/posthog";
 import { botStats } from "./helpers/metrics";
 
 export const app = express();
@@ -119,6 +120,9 @@ const startup = Effect.gen(function* () {
     discordClient.users.cache.size,
   );
 
+  // Initialize PostHog group analytics for guilds
+  yield* initializeGroups(discordClient.guilds.cache);
+
   yield* logEffect("debug", "Server", "scheduling integrity check");
   yield* runtime.runFork(runIntegrityCheck);
 
@@ -129,14 +133,8 @@ const startup = Effect.gen(function* () {
       .runPromise(
         Effect.gen(function* () {
           yield* logEffect("info", "Server", `Received ${signal}`);
-          try {
-            yield* checkpointWal();
-            yield* logEffect("info", "Server", "Database WAL checkpointed");
-          } catch (e) {
-            yield* logEffect("error", "Server", "Error checkpointing WAL", {
-              error: String(e),
-            });
-          }
+          yield* checkpointWal();
+          yield* logEffect("info", "Server", "Database WAL checkpointed");
           process.exit(0);
         }),
       )

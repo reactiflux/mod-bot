@@ -1,8 +1,10 @@
+import type { Collection, Guild } from "discord.js";
 import { Context, Effect, Layer } from "effect";
 import { PostHog } from "posthog-node";
 
 import { posthogApiKey, posthogHost } from "#~/helpers/env.server";
 import { log } from "#~/helpers/observability";
+import { SubscriptionService } from "#~/models/subscriptions.server";
 
 export class PostHogService extends Context.Tag("PostHogService")<
   PostHogService,
@@ -38,3 +40,34 @@ export const PostHogServiceLive = Layer.scoped(
       }),
   ),
 );
+
+export const initializeGroups = (guilds: Collection<string, Guild>) =>
+  Effect.gen(function* () {
+    const posthog = yield* PostHogService;
+    if (!posthog) return;
+
+    const subscriptions = yield* Effect.tryPromise(() =>
+      SubscriptionService.getAllSubscriptions(),
+    );
+    const subByGuild = new Map(subscriptions.map((s) => [s.guild_id, s]));
+
+    for (const [guildId, guild] of guilds) {
+      const sub = subByGuild.get(guildId);
+      posthog.groupIdentify({
+        groupType: "guild",
+        groupKey: guildId,
+        properties: {
+          name: guild.name,
+          member_count: guild.memberCount,
+          subscription_tier: sub?.product_tier ?? "free",
+          subscription_status: sub?.status ?? "none",
+        },
+      });
+    }
+
+    log(
+      "info",
+      "PostHogService",
+      `Initialized ${guilds.size} guild groups in PostHog`,
+    );
+  });
