@@ -387,6 +387,26 @@ export const SubscriptionService = {
     );
   },
 
+  async getAllSubscriptions() {
+    return trackPerformance(
+      "getAllSubscriptions",
+      async () => {
+        log("debug", "Subscription", "Fetching all guild subscriptions");
+
+        const results = await run(
+          db.selectFrom("guild_subscriptions").selectAll(),
+        );
+
+        log("debug", "Subscription", "Fetched all subscriptions", {
+          count: results.length,
+        });
+
+        return results;
+      },
+      {},
+    );
+  },
+
   async auditSubscriptionChanges(
     guildId: string,
     action: string,
