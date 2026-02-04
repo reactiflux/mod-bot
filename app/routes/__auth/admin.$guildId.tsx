@@ -1,6 +1,7 @@
 import { Routes, type APIGuild } from "discord-api-types/v10";
 import { data, Link } from "react-router";
 
+import { posthogClient } from "#~/AppRuntime";
 import { Page } from "#~/basics/page.js";
 import { ssrDiscordSdk } from "#~/discord/api.js";
 import { log } from "#~/helpers/observability";
@@ -39,6 +40,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     });
   }
 
+  const featureFlags: Record<string, string | boolean> | null = posthogClient
+    ? ((await posthogClient.getAllFlags(guildId, {
+        onlyEvaluateLocally: true,
+      })) as Record<string, string | boolean>)
+    : null;
+
   let paymentMethods: Awaited<
     ReturnType<typeof StripeService.listPaymentMethods>
   > = [];
@@ -72,6 +79,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     invoices,
     stripeCustomerUrl,
     stripeSubscriptionUrl,
+    featureFlags,
   };
 }
 
@@ -107,6 +115,75 @@ function ExternalLink({
   );
 }
 
+export function FeatureFlagsSection({
+  featureFlags,
+  compact,
+}: {
+  featureFlags: Record<string, string | boolean> | null;
+  compact?: boolean;
+}) {
+  const Heading = compact ? "h4" : "h2";
+  const headingClass = compact
+    ? "mb-2 text-sm font-medium text-gray-300"
+    : "text-lg font-semibold text-gray-200";
+  const wrapperClass = compact
+    ? ""
+    : "space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4";
+
+  if (featureFlags === null) {
+    return (
+      <div className={wrapperClass}>
+        <Heading className={headingClass}>Feature Flags</Heading>
+        <p className="text-sm text-gray-500">PostHog not configured</p>
+      </div>
+    );
+  }
+
+  const entries = Object.entries(featureFlags);
+
+  return (
+    <div className={wrapperClass}>
+      <Heading className={headingClass}>Feature Flags</Heading>
+      {entries.length === 0 ? (
+        <p className="text-sm text-gray-500">No feature flags evaluated</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-600 text-left text-gray-400">
+              <th className="pb-2 pr-4 font-medium">Flag</th>
+              <th className="pb-2 font-medium">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(([name, value]) => (
+              <tr key={name} className="border-b border-gray-700">
+                <td className="py-2 pr-4 font-mono text-xs text-gray-300">
+                  {name}
+                </td>
+                <td className="py-2">
+                  {value === true ? (
+                    <span className="inline-flex items-center rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-medium text-emerald-200">
+                      Enabled
+                    </span>
+                  ) : value === false ? (
+                    <span className="inline-flex items-center rounded-full bg-gray-600 px-2.5 py-0.5 text-xs font-medium text-gray-300">
+                      Disabled
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs text-gray-400">
+                      {value}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default function AdminGuildDetail({
   loaderData: {
     guildId,
@@ -116,6 +193,7 @@ export default function AdminGuildDetail({
     invoices,
     stripeCustomerUrl,
     stripeSubscriptionUrl,
+    featureFlags,
   },
 }: Route.ComponentProps) {
   const tier = subscription?.product_tier ?? "free";
@@ -354,6 +432,9 @@ export default function AdminGuildDetail({
             </table>
           )}
         </section>
+
+        {/* Feature Flags */}
+        <FeatureFlagsSection featureFlags={featureFlags} />
       </div>
     </Page>
   );
