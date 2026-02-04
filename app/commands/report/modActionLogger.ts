@@ -13,10 +13,10 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { runEffect } from "#~/AppRuntime";
 import { logAutomod } from "#~/commands/report/automodLog.ts";
 import { fetchUser } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
-import { runEffect } from "#~/effects/runtime.ts";
 
 import { logModAction } from "./modActionLog";
 

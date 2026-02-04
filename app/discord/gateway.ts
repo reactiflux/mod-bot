@@ -1,10 +1,10 @@
 import { Events, InteractionType, type Client } from "discord.js";
 import { Effect } from "effect";
 
+import { runEffect } from "#~/AppRuntime";
 import { client, login } from "#~/discord/client.server";
 import { matchCommand } from "#~/discord/deployCommands.server";
 import { logEffect } from "#~/effects/observability.ts";
-import { runEffect } from "#~/effects/runtime";
 import { type AnyCommand } from "#~/helpers/discord.ts";
 import { botStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";

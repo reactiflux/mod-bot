@@ -1,13 +1,23 @@
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, Logger, LogLevel, ManagedRuntime } from "effect";
 import type { PostHog } from "posthog-node";
 
 import { DatabaseLayer, DatabaseService, type EffectKysely } from "#~/Database";
 import { NotFoundError } from "#~/effects/errors";
 import { FeatureFlagServiceLive } from "#~/effects/featureFlags";
 import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
+import { TracingLive } from "#~/effects/tracing.js";
+import { isProd } from "#~/helpers/env.server.js";
 
-// App layer: database + PostHog + feature flags
-// FeatureFlagServiceLive depends on both DatabaseService and PostHogService
+// Infrastructure layer: tracing + structured logging + prod log level
+const InfraLayer = isProd()
+  ? Layer.mergeAll(
+      TracingLive,
+      Logger.json,
+      Logger.minimumLogLevel(LogLevel.Info),
+    )
+  : Layer.mergeAll(TracingLive, Logger.json);
+
+// App layer: database + PostHog + feature flags + infrastructure
 const AppLayer = Layer.mergeAll(
   DatabaseLayer,
   PostHogServiceLive,
@@ -15,6 +25,7 @@ const AppLayer = Layer.mergeAll(
     FeatureFlagServiceLive,
     Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
   ),
+  InfraLayer,
 );
 
 // ManagedRuntime keeps the AppLayer scope alive for the process lifetime.
@@ -57,3 +68,13 @@ export const runTakeFirstOrThrow = <A>(
         : Effect.fail(new NotFoundError({ resource: "db record", id: "" })),
     ),
   );
+
+// Run an Effect through the ManagedRuntime, returning a Promise.
+export const runEffect = <A, E>(
+  effect: Effect.Effect<A, E, RuntimeContext>,
+): Promise<A> => runtime.runPromise(effect);
+
+// Run an Effect through the ManagedRuntime, returning a Promise<Exit>.
+export const runEffectExit = <A, E>(
+  effect: Effect.Effect<A, E, RuntimeContext>,
+) => runtime.runPromiseExit(effect);

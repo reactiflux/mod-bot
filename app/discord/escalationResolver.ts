@@ -1,10 +1,10 @@
 import type { Client } from "discord.js";
 import { Effect, Layer } from "effect";
 
+import { runEffectExit } from "#~/AppRuntime";
 import { checkPendingEscalationsEffect } from "#~/commands/escalate/escalationResolver";
 import { getFailure } from "#~/commands/escalate/index";
 import { EscalationServiceLive } from "#~/commands/escalate/service.ts";
-import { runEffectExit } from "#~/effects/runtime.ts";
 import { log } from "#~/helpers/observability";
 import { scheduleTask } from "#~/helpers/schedule";
 

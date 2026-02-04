@@ -6,11 +6,11 @@ import {
 } from "discord.js";
 import { Effect } from "effect";
 
+import { runEffect } from "#~/AppRuntime";
 import { type DatabaseService, type SqlError } from "#~/Database";
 import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk.ts";
 import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import { runEffect } from "#~/effects/runtime";
 import {
   describeAttachments,
   describeReactions,
