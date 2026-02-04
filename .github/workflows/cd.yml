@@ -55,8 +55,6 @@ jobs:
     environment: ${{ github.ref == 'refs/heads/main' && 'Main branch' || 'CI' }}
     outputs:
       pr_number: ${{ steps.get-pr.outputs.result }}
-      preview_url: ${{ steps.set-outputs.outputs.preview_url }}
-      is_production: ${{ steps.set-outputs.outputs.is_production }}
 
     steps:
       - name: Checkout
@@ -158,13 +156,13 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"version": "${{github.sha}}"}'
 
-      # --- Preview deployment (PR branches only) ---
-      - name: Deploy preview
-        if: false
-        # if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+      # --- Smoke test (PR branches only) ---
+      - name: Smoke test
+        id: smoke-test
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         run: |
           PR_NUMBER=${{ steps.get-pr.outputs.result }}
-          echo "Deploying preview for PR #${PR_NUMBER}"
+          echo "Running smoke test for PR #${PR_NUMBER}"
 
           kubectl config set-context --current --namespace=staging
 
@@ -198,32 +196,46 @@ jobs:
 
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
 
+          # Measure startup time
+          SECONDS=0
           kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
+          kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
+          STARTUP_TIME=${SECONDS}
+          echo "startup_time=${STARTUP_TIME}s" >> $GITHUB_OUTPUT
 
-          echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
-
-      - name: Set deployment outputs
-        id: set-outputs
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "is_production=true" >> $GITHUB_OUTPUT
-            echo "preview_url=" >> $GITHUB_OUTPUT
-          elif [[ -n "${{ steps.get-pr.outputs.result }}" ]]; then
-            echo "is_production=false" >> $GITHUB_OUTPUT
-            echo "preview_url=https://${{ steps.get-pr.outputs.result }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
+          # Get image size from GHCR
+          IMAGE_TAG="sha-${{ github.sha }}"
+          IMAGE_SIZE=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].image}' 2>/dev/null || echo "")
+          # Query GHCR API for the image size
+          IMAGE_SIZE_BYTES=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://ghcr.io/v2/${{ github.repository }}/manifests/${IMAGE_TAG}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            | jq '[.manifests[]?.size // 0] | add // 0' 2>/dev/null || echo "0")
+          if [ "$IMAGE_SIZE_BYTES" -gt 0 ] 2>/dev/null; then
+            IMAGE_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", ${IMAGE_SIZE_BYTES}/1048576}")
+            echo "image_size=${IMAGE_SIZE_MB} MB" >> $GITHUB_OUTPUT
           else
-            echo "is_production=false" >> $GITHUB_OUTPUT
-            echo "preview_url=" >> $GITHUB_OUTPUT
+            # Fallback: get compressed size from the image manifest config
+            IMAGE_SIZE_MB=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null | head -c 20 || echo "")
+            echo "image_size=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment preview URL on PR
+          # Tear down the preview deployment
+          echo "Tearing down smoke test deployment..."
+          envsubst < cluster/preview/deployment.yaml | kubectl delete -f - --ignore-not-found
+          kubectl delete pvc -l app=mod-bot-pr-${PR_NUMBER} --ignore-not-found
+
+          echo "Smoke test complete"
+
+      - name: Comment smoke test results on PR
         if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         uses: actions/github-script@v7
         with:
           script: |
             const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
-            const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
             const commitSha = '${{ github.sha }}';
+            const startupTime = '${{ steps.smoke-test.outputs.startup_time }}';
+            const imageSize = '${{ steps.smoke-test.outputs.image_size }}';
 
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -232,20 +244,17 @@ jobs:
             });
 
             const botComment = comments.data.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+              c.user.type === 'Bot' && c.body.includes('Smoke Test Results')
             );
 
-            const body = `### Preview deployed
+            const body = `### Smoke Test Results
 
-            It may take a few minutes before the service becomes available.
+            | Metric | Value |
+            |--------|-------|
+            | Image Size | ${imageSize} |
+            | Startup Time | ${startupTime} |
 
-            | Environment | URL |
-            |-------------|-----|
-            | Preview | ${previewUrl} |
-
-            Deployed commit: \`${commitSha.substring(0, 7)}\`
-
-            This preview will be updated on each push and deleted when the PR is closed.`;
+            Tested commit: \`${commitSha.substring(0, 7)}\``;
 
             if (botComment) {
               await github.rest.issues.updateComment({
