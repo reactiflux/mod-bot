@@ -165,10 +165,15 @@ function GuildIcon({
 
 function StripeDetails({
   guildId,
+  subscription,
   serverData,
   fetcherData,
 }: {
   guildId: string;
+  subscription: {
+    stripe_customer_id: string | null;
+    stripe_subscription_id: string | null;
+  } | null;
   serverData?: {
     paymentMethods: Awaited<
       ReturnType<typeof StripeService.listPaymentMethods>
@@ -180,8 +185,12 @@ function StripeDetails({
   const paymentMethods =
     serverData?.paymentMethods ?? fetcherData?.paymentMethods ?? [];
   const invoices = serverData?.invoices ?? fetcherData?.invoices ?? [];
-  const stripeCustomerUrl = fetcherData?.stripeCustomerUrl ?? null;
-  const stripeSubscriptionUrl = fetcherData?.stripeSubscriptionUrl ?? null;
+  const stripeCustomerUrl = subscription?.stripe_customer_id
+    ? `https://dashboard.stripe.com/customers/${subscription.stripe_customer_id}`
+    : null;
+  const stripeSubscriptionUrl = subscription?.stripe_subscription_id
+    ? `https://dashboard.stripe.com/subscriptions/${subscription.stripe_subscription_id}`
+    : null;
 
   return (
     <div className="space-y-4 border-t border-gray-600 pt-4">
@@ -408,9 +417,17 @@ function GuildRow({
 
       <div className="px-4 pb-4">
         {expandedDetail ? (
-          <StripeDetails guildId={guild.id} serverData={expandedDetail} />
+          <StripeDetails
+            guildId={guild.id}
+            subscription={sub}
+            serverData={expandedDetail}
+          />
         ) : fetcher.data ? (
-          <StripeDetails guildId={guild.id} fetcherData={fetcher.data} />
+          <StripeDetails
+            guildId={guild.id}
+            subscription={sub}
+            fetcherData={fetcher.data}
+          />
         ) : fetcher.state === "loading" ? (
           <p className="py-2 text-sm text-gray-500">Loading details...</p>
         ) : sub?.stripe_customer_id ? (
