@@ -32,7 +32,7 @@ async function loadServerModule() {
 }
 
 // Initial load
-await loadServerModule();
+void loadServerModule();
 
 // Add Vite middleware first
 app.use(viteDevServer.middlewares);
