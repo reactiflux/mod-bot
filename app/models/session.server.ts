@@ -7,13 +7,8 @@ import {
 } from "react-router";
 import { AuthorizationCode } from "simple-oauth2";
 
-import {
-  db,
-  run,
-  runTakeFirst,
-  runTakeFirstOrThrow,
-  type DB,
-} from "#~/Database";
+import { db, run, runTakeFirst, runTakeFirstOrThrow } from "#~/AppRuntime";
+import { type DB } from "#~/Database";
 import {
   applicationId,
   discordSecret,

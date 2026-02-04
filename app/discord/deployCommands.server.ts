@@ -6,6 +6,7 @@ import {
   type OAuth2Guild,
   type SlashCommandBuilder,
 } from "discord.js";
+import { Effect } from "effect";
 
 import { ssrDiscordSdk } from "#~/discord/api";
 import {
@@ -178,15 +179,26 @@ export const deployTestCommands = async (
 };
 
 const commands = new Map<string, AnyCommand>();
-export const registerCommand = (config: AnyCommand | AnyCommand[]) => {
-  if (Array.isArray(config)) {
-    config.forEach((c) => {
-      commands.set(c.command.name, c);
-    });
-    return;
-  }
-  commands.set(config.command.name, config);
-};
+export const registerCommand = (
+  config: AnyCommand | AnyCommand[],
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    if (Array.isArray(config)) {
+      config.forEach((c) => {
+        commands.set(c.command.name, c);
+      });
+      return;
+    }
+    commands.set(config.command.name, config);
+  }).pipe(
+    Effect.withSpan("registerCommand", {
+      attributes: {
+        name: Array.isArray(config)
+          ? config.map((c) => c.command.name)
+          : config.command.name,
+      },
+    }),
+  );
 export const matchCommand = (customId: string) => {
   const config = commands.get(customId);
   if (config) {

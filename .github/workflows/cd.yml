@@ -55,8 +55,6 @@ jobs:
     environment: ${{ github.ref == 'refs/heads/main' && 'Main branch' || 'CI' }}
     outputs:
       pr_number: ${{ steps.get-pr.outputs.result }}
-      preview_url: ${{ steps.set-outputs.outputs.preview_url }}
-      is_production: ${{ steps.set-outputs.outputs.is_production }}
 
     steps:
       - name: Checkout
@@ -158,13 +156,13 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"version": "${{github.sha}}"}'
 
-      # --- Preview deployment (PR branches only) ---
-      - name: Deploy preview
-        if: false
-        # if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+      # --- Smoke test (PR branches only) ---
+      - name: Smoke test
+        id: smoke-test
+        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         run: |
           PR_NUMBER=${{ steps.get-pr.outputs.result }}
-          echo "Deploying preview for PR #${PR_NUMBER}"
+          echo "Running smoke test for PR #${PR_NUMBER}"
 
           kubectl config set-context --current --namespace=staging
 
@@ -198,32 +196,46 @@ jobs:
 
           envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
 
+          # Measure startup time
+          SECONDS=0
           kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
+          kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
+          STARTUP_TIME=${SECONDS}
+          echo "startup_time=${STARTUP_TIME}s" >> $GITHUB_OUTPUT
 
-          echo "Preview deployed at https://${PR_NUMBER}.euno-staging.reactiflux.com"
-
-      - name: Set deployment outputs
-        id: set-outputs
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "is_production=true" >> $GITHUB_OUTPUT
-            echo "preview_url=" >> $GITHUB_OUTPUT
-          elif [[ -n "${{ steps.get-pr.outputs.result }}" ]]; then
-            echo "is_production=false" >> $GITHUB_OUTPUT
-            echo "preview_url=https://${{ steps.get-pr.outputs.result }}.euno-staging.reactiflux.com" >> $GITHUB_OUTPUT
+          # Get image size from GHCR
+          IMAGE_TAG="sha-${{ github.sha }}"
+          IMAGE_SIZE=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].image}' 2>/dev/null || echo "")
+          # Query GHCR API for the image size
+          IMAGE_SIZE_BYTES=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://ghcr.io/v2/${{ github.repository }}/manifests/${IMAGE_TAG}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            | jq '[.manifests[]?.size // 0] | add // 0' 2>/dev/null || echo "0")
+          if [ "$IMAGE_SIZE_BYTES" -gt 0 ] 2>/dev/null; then
+            IMAGE_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", ${IMAGE_SIZE_BYTES}/1048576}")
+            echo "image_size=${IMAGE_SIZE_MB} MB" >> $GITHUB_OUTPUT
           else
-            echo "is_production=false" >> $GITHUB_OUTPUT
-            echo "preview_url=" >> $GITHUB_OUTPUT
+            # Fallback: get compressed size from the image manifest config
+            IMAGE_SIZE_MB=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null | head -c 20 || echo "")
+            echo "image_size=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment preview URL on PR
+          # Tear down the preview deployment
+          echo "Tearing down smoke test deployment..."
+          envsubst < cluster/preview/deployment.yaml | kubectl delete -f - --ignore-not-found
+          kubectl delete pvc -l app=mod-bot-pr-${PR_NUMBER} --ignore-not-found
+
+          echo "Smoke test complete"
+
+      - name: Comment smoke test results on PR
         if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
         uses: actions/github-script@v7
         with:
           script: |
             const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
-            const previewUrl = `https://${prNumber}.euno-staging.reactiflux.com`;
             const commitSha = '${{ github.sha }}';
+            const startupTime = '${{ steps.smoke-test.outputs.startup_time }}';
+            const imageSize = '${{ steps.smoke-test.outputs.image_size }}';
 
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -232,20 +244,17 @@ jobs:
             });
 
             const botComment = comments.data.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Preview deployed')
+              c.user.type === 'Bot' && c.body.includes('Smoke Test Results')
             );
 
-            const body = `### Preview deployed
+            const body = `### Smoke Test Results
 
-            It may take a few minutes before the service becomes available.
+            | Metric | Value |
+            |--------|-------|
+            | Image Size | ${imageSize} |
+            | Startup Time | ${startupTime} |
 
-            | Environment | URL |
-            |-------------|-----|
-            | Preview | ${previewUrl} |
-
-            Deployed commit: \`${commitSha.substring(0, 7)}\`
-
-            This preview will be updated on each push and deleted when the PR is closed.`;
+            Tested commit: \`${commitSha.substring(0, 7)}\``;
 
             if (botComment) {
               await github.rest.issues.updateComment({
@@ -262,146 +271,3 @@ jobs:
                 body
               });
             }
-
-  # --- E2E Tests after deployment ---
-  # e2e:
-  #   needs: deployment
-  #   if: needs.deployment.outputs.preview_url != '' || needs.deployment.outputs.is_production == 'true'
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 10
-  #   env:
-  #     TARGET_URL: ${{ needs.deployment.outputs.preview_url || 'https://euno.reactiflux.com' }}
-  #     PR_NUMBER: ${{ needs.deployment.outputs.pr_number }}
-  #   steps:
-  #     - name: Checkout repo
-  #       uses: actions/checkout@v4
-
-  #     - name: Setup node
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 24
-
-  #     - run: npm ci
-
-  #     - name: Cache Playwright browsers
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.cache/ms-playwright
-  #         key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-  #     - name: Install Playwright browsers
-  #       run: npx playwright install chromium
-
-  #     - name: Wait for service to be ready
-  #       run: |
-  #         for i in {1..30}; do
-  #           if curl -sf "$TARGET_URL" > /dev/null; then
-  #             echo "Service is ready"
-  #             exit 0
-  #           fi
-  #           echo "Waiting for service... ($i/30)"
-  #           sleep 10
-  #         done
-  #         echo "Service did not become ready in time"
-  #         exit 1
-
-  #     - name: Run Playwright tests
-  #       run: npm run test:e2e
-  #       env:
-  #         E2E_PREVIEW_URL: ${{ env.TARGET_URL }}
-
-  #     - name: Upload test artifacts
-  #       if: always()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-report-${{ github.run_id }}
-  #         path: |
-  #           playwright-report/
-  #           test-results/
-  #         retention-days: 30
-
-  #     - name: Deploy test report to GitHub Pages
-  #       if: always()
-  #       uses: peaceiris/actions-gh-pages@v4
-  #       with:
-  #         github_token: ${{ secrets.GITHUB_TOKEN }}
-  #         publish_dir: ./playwright-report
-  #         destination_dir: reports/${{ github.run_number }}
-  #         keep_files: true
-
-  #     - name: Comment PR with test results
-  #       if: ${{ always() && env.PR_NUMBER != '' }}
-  #       uses: actions/github-script@v7
-  #       with:
-  #         script: |
-  #           const fs = require('fs');
-  #           const prNumber = parseInt('${{ env.PR_NUMBER }}');
-  #           const targetUrl = '${{ env.TARGET_URL }}';
-  #           const reportUrl = `https://reactiflux.github.io/mod-bot/reports/${{ github.run_number }}`;
-  #           const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-
-  #           // Parse test results
-  #           let stats = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
-  #           try {
-  #             const results = JSON.parse(fs.readFileSync('test-results/results.json', 'utf8'));
-  #             const countTests = (suites) => {
-  #               for (const suite of suites) {
-  #                 for (const spec of suite.specs || []) {
-  #                   for (const test of spec.tests || []) {
-  #                     if (test.status === 'expected') stats.passed++;
-  #                     else if (test.status === 'unexpected') stats.failed++;
-  #                     else if (test.status === 'flaky') stats.flaky++;
-  #                     else if (test.status === 'skipped') stats.skipped++;
-  #                   }
-  #                 }
-  #                 if (suite.suites) countTests(suite.suites);
-  #               }
-  #             };
-  #             countTests(results.suites || []);
-  #           } catch (e) {
-  #             console.log('Could not parse test results:', e.message);
-  #           }
-
-  #           const emoji = stats.failed > 0 ? '❌' : stats.flaky > 0 ? '⚠️' : '✅';
-  #           const status = stats.failed > 0 ? 'Failed' : stats.flaky > 0 ? 'Flaky' : 'Passed';
-  #           const statsParts = [
-  #             stats.passed > 0 && `**${stats.passed}** passed`,
-  #             stats.flaky > 0 && `**${stats.flaky}** flaky`,
-  #             stats.failed > 0 && `**${stats.failed}** failed`,
-  #             stats.skipped > 0 && `**${stats.skipped}** skipped`,
-  #           ].filter(Boolean).join(' · ');
-
-  #           const body = `## ${emoji} E2E Tests ${status}
-
-  #           ${statsParts}
-
-  #           [View Report](${reportUrl}) · [View Run](${runUrl})
-
-  #           Tested against: ${targetUrl}`;
-
-  #           // Find existing E2E comment to update
-  #           const { data: comments } = await github.rest.issues.listComments({
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo,
-  #             issue_number: prNumber
-  #           });
-
-  #           const existingComment = comments.find(c =>
-  #             c.user.type === 'Bot' && c.body.includes('E2E Tests')
-  #           );
-
-  #           if (existingComment) {
-  #             await github.rest.issues.updateComment({
-  #               owner: context.repo.owner,
-  #               repo: context.repo.repo,
-  #               comment_id: existingComment.id,
-  #               body
-  #             });
-  #           } else {
-  #             await github.rest.issues.createComment({
-  #               owner: context.repo.owner,
-  #               repo: context.repo.repo,
-  #               issue_number: prNumber,
-  #               body
-  #             });
-  #           }

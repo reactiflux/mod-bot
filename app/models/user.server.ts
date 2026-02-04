@@ -1,12 +1,7 @@
 import { randomUUID } from "crypto";
 
-import {
-  db,
-  run,
-  runTakeFirst,
-  runTakeFirstOrThrow,
-  type DB,
-} from "#~/Database";
+import { db, run, runTakeFirst, runTakeFirstOrThrow } from "#~/AppRuntime";
+import { type DB } from "#~/Database";
 import { log, trackPerformance } from "#~/helpers/observability";
 
 export type User = DB["users"];

@@ -1,6 +1,6 @@
 import type { Message, TextChannel } from "discord.js";
 
-import { db, run, runTakeFirst } from "#~/Database";
+import { db, run, runTakeFirst } from "#~/AppRuntime";
 import { log } from "#~/helpers/observability";
 
 export async function getOrFetchChannel(msg: Message) {

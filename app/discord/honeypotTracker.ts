@@ -1,7 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 
+import { db, run } from "#~/AppRuntime";
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { db, run } from "#~/Database";
 import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.js";

@@ -1,21 +1,14 @@
-import { Events, InteractionType } from "discord.js";
+import { Events, InteractionType, type Client } from "discord.js";
+import { Effect } from "effect";
 
-import modActionLogger from "#~/commands/report/modActionLogger";
-import { shutdownDatabase, startIntegrityCheck } from "#~/Database";
-import { startActivityTracking } from "#~/discord/activityTracker";
-import automod from "#~/discord/automod";
 import { client, login } from "#~/discord/client.server";
-import { deployCommands, matchCommand } from "#~/discord/deployCommands.server";
-import { startEscalationResolver } from "#~/discord/escalationResolver";
-import onboardGuild from "#~/discord/onboardGuild";
-import { startReactjiChanneler } from "#~/discord/reactjiChanneler";
+import { matchCommand } from "#~/discord/deployCommands.server";
+import { logEffect } from "#~/effects/observability.ts";
 import { runEffect } from "#~/effects/runtime";
 import { type AnyCommand } from "#~/helpers/discord.ts";
-import { botStats, shutdownMetrics } from "#~/helpers/metrics";
-import { log, trackPerformance } from "#~/helpers/observability";
+import { botStats } from "#~/helpers/metrics";
+import { log } from "#~/helpers/observability";
 import Sentry from "#~/helpers/sentry.server";
-
-import { startHoneypotTracking } from "./honeypotTracker";
 
 // Track if gateway is already initialized to prevent duplicate logins during HMR
 // Use globalThis so the flag persists across module reloads
@@ -23,17 +16,17 @@ declare global {
   var __discordGatewayInitialized: boolean | undefined;
 }
 
-export default function init() {
+export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
   if (globalThis.__discordGatewayInitialized) {
-    log(
+    yield* logEffect(
       "info",
       "Gateway",
       "Gateway already initialized, skipping duplicate init",
     );
-    return;
+    return client;
   }
 
-  log("info", "Gateway", "Initializing Discord gateway");
+  yield* logEffect("info", "Gateway", "Initializing Discord gateway");
   globalThis.__discordGatewayInitialized = true;
 
   void login();
@@ -50,48 +43,6 @@ export default function init() {
       });
     },
   );
-
-  client.on(Events.ClientReady, async () => {
-    await trackPerformance(
-      "gateway_startup",
-      async () => {
-        log("info", "Gateway", "Bot ready event triggered", {
-          guildCount: client.guilds.cache.size,
-          userCount: client.users.cache.size,
-        });
-
-        await Promise.all([
-          onboardGuild(client),
-          automod(client),
-          modActionLogger(client),
-          deployCommands(client),
-          startActivityTracking(client),
-          startHoneypotTracking(client),
-          startReactjiChanneler(client),
-        ]);
-
-        // Start escalation resolver scheduler (must be after client is ready)
-        startEscalationResolver(client);
-
-        // Start twice-daily database integrity check
-        startIntegrityCheck();
-
-        log("info", "Gateway", "Gateway initialization completed", {
-          guildCount: client.guilds.cache.size,
-          userCount: client.users.cache.size,
-        });
-
-        // Track bot startup in business analytics
-        botStats.botStarted(client.guilds.cache.size, client.users.cache.size);
-      },
-      {
-        guildCount: client.guilds.cache.size,
-        userCount: client.users.cache.size,
-      },
-    );
-  });
-
-  // client.on(Events.messageReactionAdd, () => {});
 
   client.on(Events.ThreadCreate, (thread) => {
     log("info", "Gateway", "Thread created", {
@@ -182,19 +133,14 @@ export default function init() {
     botStats.reconnection(client.guilds.cache.size, client.users.cache.size);
   });
 
-  // Graceful shutdown handler to flush metrics and close database
-  const handleShutdown = async (signal: string) => {
-    log("info", "Gateway", `Received ${signal}, shutting down gracefully`, {});
-    await shutdownMetrics();
-    try {
-      shutdownDatabase();
-      log("info", "Gateway", "Database closed cleanly", {});
-    } catch (e) {
-      log("error", "Gateway", "Error closing database", { error: String(e) });
-    }
-    process.exit(0);
-  };
+  // Wait for the client to be ready before continuing
+  const waitForReady = Effect.async<Client>((resume) => {
+    client.once(Events.ClientReady, () => {
+      resume(Effect.succeed(client));
+    });
+  });
 
-  process.on("SIGTERM", () => void handleShutdown("SIGTERM"));
-  process.on("SIGINT", () => void handleShutdown("SIGINT"));
-}
+  yield* waitForReady;
+
+  return client;
+});

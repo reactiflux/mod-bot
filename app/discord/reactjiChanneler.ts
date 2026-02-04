@@ -1,6 +1,6 @@
 import { Events, type Client } from "discord.js";
 
-import { db, runTakeFirst } from "#~/Database";
+import { db, runTakeFirst } from "#~/AppRuntime";
 import { featureStats } from "#~/helpers/metrics";
 import { log } from "#~/helpers/observability";
 

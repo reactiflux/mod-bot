@@ -1,5 +1,5 @@
 // learn more: https://fly.io/docs/reference/configuration/#services-http_checks
-import { db, run } from "#~/Database";
+import { db, run } from "#~/AppRuntime";
 
 import type { Route } from "./+types/healthcheck";
 
