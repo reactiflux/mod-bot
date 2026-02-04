@@ -151,5 +151,4 @@ const startup = Effect.gen(function* () {
 });
 
 console.log("running program");
-const exit = await Effect.runPromiseExit(startup);
-console.log({ exit });
+runtime.runCallback(startup);
