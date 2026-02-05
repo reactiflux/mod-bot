@@ -48,10 +48,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   const featureFlags: Record<string, string | boolean> | null = posthogClient
-    ? ((await posthogClient.getAllFlags(guildId)) as Record<
-        string,
-        string | boolean
-      >)
+    ? ((await posthogClient.getAllFlags(guildId, {
+        groups: { guild: guildId },
+      })) as Record<string, string | boolean>)
     : null;
 
   let paymentMethods: Awaited<

@@ -71,10 +71,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     const sub = subscriptionsByGuildId.get(guildId);
     const guild = guilds.find((g) => g.id === guildId);
     const featureFlags: Record<string, string | boolean> | null = posthogClient
-      ? ((await posthogClient.getAllFlags(guildId)) as Record<
-          string,
-          string | boolean
-        >)
+      ? ((await posthogClient.getAllFlags(guildId, {
+          groups: { guild: guildId },
+        })) as Record<string, string | boolean>)
       : null;
     const groupProperties = {
       name: guild?.name ?? guildId,

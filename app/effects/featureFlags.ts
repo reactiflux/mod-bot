@@ -114,6 +114,7 @@ export const FeatureFlagServiceLive = Layer.scoped(
         if (!posthog) return Effect.succeed(false as boolean);
         return Effect.tryPromise(() =>
           posthog.isFeatureEnabled(flag, guildId, {
+            groups: { guild: guildId },
             onlyEvaluateLocally: true,
             sendFeatureFlagEvents: false,
           }),
@@ -132,6 +133,7 @@ export const FeatureFlagServiceLive = Layer.scoped(
           if (posthog) {
             const result = yield* Effect.tryPromise(() =>
               posthog.getFeatureFlag(flag, guildId, {
+                groups: { guild: guildId },
                 onlyEvaluateLocally: true,
                 sendFeatureFlagEvents: false,
               }),
