@@ -59,46 +59,34 @@ export async function loader({ request }: Route.LoaderArgs) {
     return a.name.localeCompare(b.name);
   });
 
-  // For expanded guilds, fetch Stripe details and feature flags
-  const expandedDetails: Record<
-    string,
-    {
-      paymentMethods: PaymentMethods;
-      invoices: Invoices;
-      featureFlags: Record<string, string | boolean> | null;
-      groupProperties: Record<string, string | number>;
-    }
-  > = {};
-
-  for (const guildId of expandedGuildIds) {
-    const sub = subscriptionsByGuildId.get(guildId);
-    const guild = guilds.find((g) => g.id === guildId);
-    const featureFlags = await fetchFeatureFlags(guildId);
-    const groupProperties = {
-      name: guild?.name ?? guildId,
-      subscription_tier: sub?.product_tier ?? "free",
-      subscription_status: sub?.status ?? "none",
-    };
-
-    if (sub?.stripe_customer_id) {
-      const { paymentMethods, invoices } = await fetchStripeDetails(
-        sub.stripe_customer_id,
-      );
-      expandedDetails[guildId] = {
-        paymentMethods,
-        invoices,
-        featureFlags,
-        groupProperties,
+  // For expanded guilds, fetch Stripe details and feature flags concurrently
+  const expandedEntries = await Promise.all(
+    expandedGuildIds.map(async (guildId) => {
+      const sub = subscriptionsByGuildId.get(guildId);
+      const guild = guilds.find((g) => g.id === guildId);
+      const groupProperties = {
+        name: guild?.name ?? guildId,
+        subscription_tier: sub?.product_tier ?? "free",
+        subscription_status: sub?.status ?? "none",
       };
-    } else {
-      expandedDetails[guildId] = {
-        paymentMethods: [],
-        invoices: [],
-        featureFlags,
-        groupProperties,
-      };
-    }
-  }
+
+      const [featureFlags, stripeData] = await Promise.all([
+        fetchFeatureFlags(guildId),
+        sub?.stripe_customer_id
+          ? fetchStripeDetails(sub.stripe_customer_id)
+          : Promise.resolve({
+              paymentMethods: [] as PaymentMethods,
+              invoices: [] as Invoices,
+            }),
+      ]);
+
+      return [
+        guildId,
+        { ...stripeData, featureFlags, groupProperties },
+      ] as const;
+    }),
+  );
+  const expandedDetails = Object.fromEntries(expandedEntries);
 
   log("info", "admin", "Admin page accessed", {
     guildCount: guilds.length,

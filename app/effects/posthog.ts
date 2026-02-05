@@ -57,6 +57,7 @@ export const initializeGroups = (guilds: Collection<string, Guild>) =>
         groupType: "guild",
         groupKey: guildId,
         properties: {
+          id: guild.id,
           name: guild.name,
           member_count: guild.memberCount,
           subscription_tier: sub?.product_tier ?? "free",
