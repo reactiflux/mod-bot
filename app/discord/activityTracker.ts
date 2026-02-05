@@ -1,10 +1,11 @@
 import { ChannelType, Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
-import { db, run } from "#~/AppRuntime";
+import { db, runGatedFeature } from "#~/AppRuntime";
+import { logEffect } from "#~/effects/observability";
 import { getMessageStats } from "#~/helpers/discord.js";
 import { threadStats } from "#~/helpers/metrics";
-import { log, trackPerformance } from "#~/helpers/observability";
+import { log } from "#~/helpers/observability";
 
 import { getOrFetchChannel } from "./utils";
 
@@ -23,176 +24,208 @@ export async function startActivityTracking(client: Client) {
     guildCount: client.guilds.cache.size,
   });
 
-  client.on(Events.MessageCreate, async (msg) => {
+  client.on(Events.MessageCreate, (msg) => {
     // Filter non-human messages
     if (
       msg.author.system ||
       msg.author.bot ||
       msg.webhookId ||
-      !msg.guildId ||
+      !msg.inGuild() ||
       !TRACKABLE_CHANNEL_TYPES.has(msg.channel.type)
     ) {
       return;
     }
 
-    const info = await Effect.runPromise(getMessageStats(msg));
+    void runGatedFeature(
+      "analytics",
+      msg.guildId,
+      Effect.gen(function* () {
+        const info = yield* getMessageStats(msg);
+        const channelInfo = yield* Effect.promise(() => getOrFetchChannel(msg));
 
-    const channelInfo = await trackPerformance(
-      "startActivityTracking: getOrFetchChannel",
-      async () => getOrFetchChannel(msg),
+        yield* db.insertInto("message_stats").values({
+          ...info,
+          code_stats: JSON.stringify(info.code_stats),
+          link_stats: JSON.stringify(info.link_stats),
+          message_id: msg.id,
+          author_id: msg.author.id,
+          guild_id: msg.guildId,
+          channel_id: msg.channelId,
+          recipient_id: msg.mentions.repliedUser?.id ?? null,
+          channel_category: channelInfo.category,
+        });
+
+        yield* logEffect("debug", "ActivityTracker", "Message stats stored", {
+          messageId: msg.id,
+          authorId: msg.author.id,
+          guildId: msg.guildId,
+          channelId: msg.channelId,
+          charCount: info.char_count,
+          wordCount: info.word_count,
+          hasCode: info.code_stats.length > 0,
+          hasLinks: info.link_stats.length > 0,
+        });
+
+        // Track message in business analytics
+        threadStats.messageTracked(msg);
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect("warn", "ActivityTracker", "Failed to track message", {
+            messageId: msg.id,
+            error: String(e),
+          }),
+        ),
+        Effect.withSpan("ActivityTracker.trackMessage", {
+          attributes: { messageId: msg.id, guildId: msg.guildId },
+        }),
+      ),
     );
-
-    await run(
-      db.insertInto("message_stats").values({
-        ...info,
-        code_stats: JSON.stringify(info.code_stats),
-        link_stats: JSON.stringify(info.link_stats),
-        message_id: msg.id,
-        author_id: msg.author.id,
-        guild_id: msg.guildId,
-        channel_id: msg.channelId,
-        recipient_id: msg.mentions.repliedUser?.id ?? null,
-        channel_category: channelInfo.category,
-      }),
-    );
-
-    log("debug", "ActivityTracker", "Message stats stored", {
-      messageId: msg.id,
-      authorId: msg.author.id,
-      guildId: msg.guildId,
-      channelId: msg.channelId,
-      charCount: info.char_count,
-      wordCount: info.word_count,
-      hasCode: info.code_stats.length > 0,
-      hasLinks: info.link_stats.length > 0,
-    });
-
-    // Track message in business analytics
-    threadStats.messageTracked(msg);
   });
 
-  client.on(Events.MessageUpdate, async (msg) => {
-    await trackPerformance(
-      "processMessageUpdate",
-      async () => {
-        const info = await Effect.runPromise(getMessageStats(msg));
+  client.on(Events.MessageUpdate, (msg) => {
+    if (!msg.guildId) return;
 
-        await run(
-          updateStatsById(msg.id).set({
+    void runGatedFeature(
+      "analytics",
+      msg.guildId,
+      Effect.gen(function* () {
+        const info = yield* getMessageStats(msg);
+
+        yield* db
+          .updateTable("message_stats")
+          .where("message_id", "=", msg.id)
+          .set({
             ...info,
             code_stats: JSON.stringify(info.code_stats),
             link_stats: JSON.stringify(info.link_stats),
-          }),
-        );
+          });
 
-        log("debug", "ActivityTracker", "Message stats updated", {
+        yield* logEffect("debug", "ActivityTracker", "Message stats updated", {
           messageId: msg.id,
           charCount: info.char_count,
           wordCount: info.word_count,
         });
-      },
-      { messageId: msg.id },
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect(
+            "warn",
+            "ActivityTracker",
+            "Failed to update message stats",
+            {
+              messageId: msg.id,
+              error: String(e),
+            },
+          ),
+        ),
+        Effect.withSpan("ActivityTracker.updateMessage", {
+          attributes: { messageId: msg.id },
+        }),
+      ),
     );
   });
 
-  client.on(Events.MessageDelete, async (msg) => {
-    if (msg.system || msg.author?.bot) {
-      return;
-    }
-    await trackPerformance(
-      "processMessageDelete",
-      async () => {
-        await run(
-          db.deleteFrom("message_stats").where("message_id", "=", msg.id),
-        );
+  client.on(Events.MessageDelete, (msg) => {
+    if (msg.system || msg.author?.bot || !msg.guildId) return;
 
-        log("debug", "ActivityTracker", "Message stats deleted", {
+    void runGatedFeature(
+      "analytics",
+      msg.guildId,
+      Effect.gen(function* () {
+        yield* db.deleteFrom("message_stats").where("message_id", "=", msg.id);
+
+        yield* logEffect("debug", "ActivityTracker", "Message stats deleted", {
           messageId: msg.id,
         });
-      },
-      { messageId: msg.id },
-    );
-  });
-
-  client.on(Events.MessageReactionAdd, async (msg) => {
-    await trackPerformance(
-      "processReactionAdd",
-      async () => {
-        await run(
-          updateStatsById(msg.message.id).set({
-            react_count: (eb) => eb(eb.ref("react_count"), "+", 1),
-          }),
-        );
-
-        log("debug", "ActivityTracker", "Reaction added to message", {
-          messageId: msg.message.id,
-          userId: msg.users.cache.last()?.id,
-          emoji: msg.emoji.name,
-        });
-      },
-      { messageId: msg.message.id },
-    );
-  });
-
-  client.on(Events.MessageReactionRemove, async (msg) => {
-    await trackPerformance(
-      "processReactionRemove",
-      async () => {
-        await run(
-          updateStatsById(msg.message.id).set({
-            react_count: (eb) => eb(eb.ref("react_count"), "-", 1),
-          }),
-        );
-
-        log("debug", "ActivityTracker", "Reaction removed from message", {
-          messageId: msg.message.id,
-          emoji: msg.emoji.name,
-        });
-      },
-      { messageId: msg.message.id },
-    );
-  });
-}
-
-function updateStatsById(id: string) {
-  return db.updateTable("message_stats").where("message_id", "=", id);
-}
-
-export async function reportByGuild(guildId: string) {
-  return trackPerformance(
-    "reportByGuild",
-    async () => {
-      log("info", "ActivityTracker", "Generating guild report", {
-        guildId,
-      });
-
-      const result = await run(
-        db
-          .selectFrom("message_stats")
-          .select((eb) => [
-            eb.fn.countAll().as("message_count"),
-            eb.fn.sum("char_count").as("char_total"),
-            eb.fn.sum("word_count").as("word_total"),
-            eb.fn.sum("react_count").as("react_total"),
-            eb.fn.avg("char_count").as("avg_chars"),
-            eb.fn.avg("word_count").as("avg_words"),
-            eb.fn.avg("react_count").as("avg_reacts"),
-          ])
-          .where("guild_id", "=", guildId)
-          .groupBy("author_id"),
-      );
-
-      log("info", "ActivityTracker", "Guild report generated", {
-        guildId,
-        authorCount: result.length,
-        totalMessages: result.reduce(
-          (sum, r) => sum + Number(r.message_count),
-          0,
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect(
+            "warn",
+            "ActivityTracker",
+            "Failed to delete message stats",
+            {
+              messageId: msg.id,
+              error: String(e),
+            },
+          ),
         ),
-      });
+        Effect.withSpan("ActivityTracker.deleteMessage", {
+          attributes: { messageId: msg.id },
+        }),
+      ),
+    );
+  });
 
-      return result;
-    },
-    { guildId },
-  );
+  client.on(Events.MessageReactionAdd, (reaction) => {
+    const guildId = reaction.message.guildId;
+    if (!guildId) return;
+
+    void runGatedFeature(
+      "analytics",
+      guildId,
+      Effect.gen(function* () {
+        yield* db
+          .updateTable("message_stats")
+          .where("message_id", "=", reaction.message.id)
+          .set({ react_count: (eb) => eb(eb.ref("react_count"), "+", 1) });
+
+        yield* logEffect("debug", "ActivityTracker", "Reaction added");
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect("warn", "ActivityTracker", "Failed to track reaction add", {
+            messageId: reaction.message.id,
+            error: String(e),
+          }),
+        ),
+        Effect.withSpan("ActivityTracker.reactionAdd", {
+          attributes: {
+            messageId: reaction.message.id,
+            emoji: reaction.emoji.name,
+          },
+        }),
+      ),
+    );
+  });
+
+  client.on(Events.MessageReactionRemove, (reaction) => {
+    const guildId = reaction.message.guildId;
+    if (!guildId) return;
+
+    void runGatedFeature(
+      "analytics",
+      guildId,
+      Effect.gen(function* () {
+        yield* db
+          .updateTable("message_stats")
+          .where("message_id", "=", reaction.message.id)
+          .set({
+            react_count: (eb) => eb(eb.ref("react_count"), "-", 1),
+          });
+
+        yield* logEffect(
+          "debug",
+          "ActivityTracker",
+          "Reaction removed from message",
+          {
+            messageId: reaction.message.id,
+            emoji: reaction.emoji.name,
+          },
+        );
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect(
+            "warn",
+            "ActivityTracker",
+            "Failed to track reaction remove",
+            {
+              messageId: reaction.message.id,
+              error: String(e),
+            },
+          ),
+        ),
+        Effect.withSpan("ActivityTracker.reactionRemove", {
+          attributes: { messageId: reaction.message.id },
+        }),
+      ),
+    );
+  });
 }

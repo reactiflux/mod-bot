@@ -3,7 +3,11 @@ import type { PostHog } from "posthog-node";
 
 import { DatabaseLayer, DatabaseService, type EffectKysely } from "#~/Database";
 import { NotFoundError } from "#~/effects/errors";
-import { FeatureFlagServiceLive } from "#~/effects/featureFlags";
+import {
+  FeatureFlagService,
+  FeatureFlagServiceLive,
+  type BooleanFlag,
+} from "#~/effects/featureFlags";
 import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
 import { TracingLive } from "#~/effects/tracing.js";
 import { isProd } from "#~/helpers/env.server.js";
@@ -48,16 +52,27 @@ export const [posthogClient, db]: [PostHog | null, EffectKysely] =
 
 // --- Bridge functions for legacy async/await code ---
 
-// Convenience helpers for legacy async/await code that needs to run
-// EffectKysely query builders as Promises.
+/**
+ * Convenience helpers for legacy async/await code that needs to run
+ * EffectKysely query builders as Promises.
+ *
+ * @deprecated
+ * @param effect
+ */
 export const run = <A>(effect: Effect.Effect<A, unknown, never>): Promise<A> =>
   Effect.runPromise(effect);
 
+/**
+ * @deprecated
+ */
 export const runTakeFirst = <A>(
   effect: Effect.Effect<A[], unknown, never>,
 ): Promise<A | undefined> =>
   Effect.runPromise(Effect.map(effect, (rows) => rows[0]));
 
+/**
+ * @deprecated
+ */
 export const runTakeFirstOrThrow = <A>(
   effect: Effect.Effect<A[], unknown, never>,
 ): Promise<A> =>
@@ -78,3 +93,28 @@ export const runEffect = <A, E>(
 export const runEffectExit = <A, E>(
   effect: Effect.Effect<A, E, RuntimeContext>,
 ) => runtime.runPromiseExit(effect);
+
+/**
+ * Run an effect only if the specified feature flag is enabled for the guild.
+ * Returns void if the flag is disabled, otherwise returns the effect result.
+ */
+export const runGatedFeature = <A>(
+  flag: BooleanFlag,
+  guildId: string,
+  effect: Effect.Effect<A, unknown, RuntimeContext>,
+): Promise<A | void> =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const flags = yield* FeatureFlagService;
+      const enabled = yield* flags.isPostHogEnabled(flag, guildId);
+      if (!enabled) {
+        posthogClient?.capture({
+          distinctId: guildId,
+          event: "premium gate hit",
+          properties: { flag, $groups: { guild: guildId } },
+        });
+        return;
+      }
+      return yield* effect;
+    }),
+  );

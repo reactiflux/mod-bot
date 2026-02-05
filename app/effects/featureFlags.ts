@@ -11,12 +11,21 @@ export const TierFlag = Schema.Literal(
 );
 export type TierFlag = typeof TierFlag.Type;
 
+export const BooleanFlag = Schema.Literal(
+  "mod-log",
+  "anon-report",
+  "escalate",
+  "ticketing",
+  "analytics",
+);
+export type BooleanFlag = typeof BooleanFlag.Type;
+
 const PAID_FEATURES: ReadonlySet<TierFlag> = new Set(TierFlag.literals);
 
 export interface IFeatureFlagService {
   /** Check any PostHog flag by name. Never fails — returns false on error. */
   readonly isPostHogEnabled: (
-    flag: string,
+    flag: BooleanFlag,
     guildId: string,
   ) => Effect.Effect<boolean>;
 
@@ -170,3 +179,36 @@ export const FeatureFlagServiceLive = Layer.scoped(
     };
   }),
 );
+
+/**
+ * Soft gate for conditional behavior based on a boolean check.
+ * Runs onEnabled if check is true, onDisabled otherwise.
+ */
+export const withFeatureFlag = <A, E, R, A2, E2, R2>(
+  check: Effect.Effect<boolean>,
+  onEnabled: Effect.Effect<A, E, R>,
+  onDisabled: Effect.Effect<A2, E2, R2>,
+): Effect.Effect<A | A2, E | E2, R | R2> =>
+  Effect.flatMap(check, (enabled) =>
+    Effect.if(enabled, { onTrue: () => onEnabled, onFalse: () => onDisabled }),
+  );
+
+/**
+ * Hard gate that fails with FeatureDisabledError if the flag is not enabled.
+ */
+export const guardFeature = (
+  flags: IFeatureFlagService,
+  flag: BooleanFlag,
+  guildId: string,
+): Effect.Effect<void, FeatureDisabledError> =>
+  Effect.flatMap(flags.isPostHogEnabled(flag, guildId), (enabled) =>
+    enabled
+      ? Effect.void
+      : Effect.fail(
+          new FeatureDisabledError({
+            feature: flag,
+            guildId,
+            reason: "not_in_rollout",
+          }),
+        ),
+  );
