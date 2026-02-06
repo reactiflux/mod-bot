@@ -1,5 +1,7 @@
 import { ChannelType, Events, type Client } from "discord.js";
 
+import TTLCache from "@isaacs/ttlcache";
+
 import { db, run } from "#~/AppRuntime";
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
 import { featureStats } from "#~/helpers/metrics";
@@ -12,13 +14,12 @@ interface HoneypotConfig {
   channel_id: string;
 }
 
-const CACHE_TTL_IN_MS = 1000 * 60 * 10; // reload cache entries every 10 minutes
-
 export async function startHoneypotTracking(client: Client) {
-  const configCache = {} as Record<
-    string,
-    { config: HoneypotConfig[]; cachedAt: number }
-  >;
+  // TTL cache for honeypot configs - 10 minute TTL, max 1000 guilds
+  const configCache = new TTLCache<string, HoneypotConfig[]>({
+    ttl: 10 * 60 * 1000, // 10 minutes
+    max: 1000, // max 1000 guilds cached
+  });
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.system) return;
     if (msg.channel.type !== ChannelType.GuildText || msg.author.bot) {
@@ -37,10 +38,9 @@ export async function startHoneypotTracking(client: Client) {
       );
       throw Error("Missing guild info when tracking honeypot messages");
     }
-    let config: HoneypotConfig[];
     const { guild } = msg;
-    const cacheEntry = configCache[msg.guildId];
-    if (!cacheEntry || cacheEntry.cachedAt + CACHE_TTL_IN_MS < Date.now()) {
+    let config = configCache.get(msg.guildId);
+    if (!config) {
       config = await run(
         db
           .selectFrom("honeypot_config")
@@ -48,14 +48,12 @@ export async function startHoneypotTracking(client: Client) {
           .where("guild_id", "=", msg.guildId),
       );
 
-      configCache[msg.guildId] = { config, cachedAt: Date.now() };
+      configCache.set(msg.guildId, config);
       log(
         "debug",
         "HoneypotTracking",
         `Added config to in-memory cache for guildId ${msg.guildId}`,
       );
-    } else {
-      config = cacheEntry.config;
     }
 
     if (!config.some((c) => c.channel_id === msg.channelId)) {
