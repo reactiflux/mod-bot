@@ -68,6 +68,37 @@ describe("tallyVotes", () => {
     expect(result.tiedResolutions).toHaveLength(3);
   });
 
+  it("provides tied resolutions with different severities for tiebreaker", () => {
+    const tally = tallyVotes([
+      { vote: resolutions.timeout, voter_id: "user1" },
+      { vote: resolutions.restrict, voter_id: "user2" },
+      { vote: resolutions.timeout, voter_id: "user3" },
+      { vote: resolutions.restrict, voter_id: "user4" },
+    ]);
+
+    expect(tally.isTied).toBe(true);
+    expect(tally.tiedResolutions).toHaveLength(2);
+    expect(tally.tiedResolutions).toContain(resolutions.timeout);
+    expect(tally.tiedResolutions).toContain(resolutions.restrict);
+  });
+
+  it("provides all tied resolutions in three-way tie for tiebreaker", () => {
+    const tally = tallyVotes([
+      { vote: resolutions.track, voter_id: "user1" },
+      { vote: resolutions.kick, voter_id: "user2" },
+      { vote: resolutions.ban, voter_id: "user3" },
+      { vote: resolutions.track, voter_id: "user4" },
+      { vote: resolutions.kick, voter_id: "user5" },
+      { vote: resolutions.ban, voter_id: "user6" },
+    ]);
+
+    expect(tally.isTied).toBe(true);
+    expect(tally.tiedResolutions).toHaveLength(3);
+    expect(tally.tiedResolutions).toContain(resolutions.track);
+    expect(tally.tiedResolutions).toContain(resolutions.kick);
+    expect(tally.tiedResolutions).toContain(resolutions.ban);
+  });
+
   it("breaks tie when one option gets more votes", () => {
     const votes = [
       { vote: resolutions.ban, voter_id: "user1" },
