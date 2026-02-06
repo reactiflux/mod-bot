@@ -1,7 +1,7 @@
 import { Events, type Client } from "discord.js";
 
+import { runEffect } from "#~/AppRuntime";
 import { logUserMessageLegacy } from "#~/commands/report/userLog.ts";
-import { runEffect } from "#~/effects/runtime.js";
 import { isStaff } from "#~/helpers/discord";
 import { isSpam } from "#~/helpers/isSpam";
 import { featureStats } from "#~/helpers/metrics";

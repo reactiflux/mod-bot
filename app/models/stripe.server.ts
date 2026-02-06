@@ -229,6 +229,51 @@ export const StripeService = {
     );
   },
 
+  async listInvoices(customerId: string) {
+    return trackPerformance(
+      "listInvoices",
+      async () => {
+        log("debug", "Stripe", "Listing invoices", { customerId });
+        try {
+          const invoices = await stripe.invoices.list({
+            customer: customerId,
+            limit: 20,
+          });
+          return invoices.data;
+        } catch (error) {
+          log("error", "Stripe", "Failed to list invoices", {
+            customerId,
+            error,
+          });
+          Sentry.captureException(error);
+          return [];
+        }
+      },
+      { customerId },
+    );
+  },
+
+  async listPaymentMethods(customerId: string) {
+    return trackPerformance(
+      "listPaymentMethods",
+      async () => {
+        log("debug", "Stripe", "Listing payment methods", { customerId });
+        try {
+          const methods = await stripe.customers.listPaymentMethods(customerId);
+          return methods.data;
+        } catch (error) {
+          log("error", "Stripe", "Failed to list payment methods", {
+            customerId,
+            error,
+          });
+          Sentry.captureException(error);
+          return [];
+        }
+      },
+      { customerId },
+    );
+  },
+
   /**
    * Construct webhook event from raw body and signature
    */

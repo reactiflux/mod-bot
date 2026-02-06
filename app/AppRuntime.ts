@@ -1,11 +1,36 @@
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, Logger, LogLevel, ManagedRuntime } from "effect";
+import type { PostHog } from "posthog-node";
 
 import { DatabaseLayer, DatabaseService, type EffectKysely } from "#~/Database";
 import { NotFoundError } from "#~/effects/errors";
+import {
+  FeatureFlagService,
+  FeatureFlagServiceLive,
+  type BooleanFlag,
+} from "#~/effects/featureFlags";
+import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
+import { TracingLive } from "#~/effects/tracing.js";
+import { isProd } from "#~/helpers/env.server.js";
 
-// App layer: database + PostHog + feature flags
-// FeatureFlagServiceLive depends on both DatabaseService and PostHogService
-const AppLayer = Layer.mergeAll(DatabaseLayer);
+// Infrastructure layer: tracing + structured logging + prod log level
+const InfraLayer = isProd()
+  ? Layer.mergeAll(
+      TracingLive,
+      Logger.json,
+      Logger.minimumLogLevel(LogLevel.Info),
+    )
+  : Layer.mergeAll(TracingLive, Logger.json);
+
+// App layer: database + PostHog + feature flags + infrastructure
+const AppLayer = Layer.mergeAll(
+  DatabaseLayer,
+  PostHogServiceLive,
+  Layer.provide(
+    FeatureFlagServiceLive,
+    Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
+  ),
+  InfraLayer,
+);
 
 // ManagedRuntime keeps the AppLayer scope alive for the process lifetime.
 // Unlike Effect.runSync which closes the scope (and thus the SQLite connection)
@@ -19,20 +44,35 @@ export type RuntimeContext = ManagedRuntime.ManagedRuntime.Context<
 >;
 
 // Extract the PostHog client for use by metrics.ts (null when no API key configured).
-export const db: EffectKysely = await runtime.runPromise(DatabaseService);
+export const [posthogClient, db]: [PostHog | null, EffectKysely] =
+  await Promise.all([
+    runtime.runPromise(PostHogService),
+    runtime.runPromise(DatabaseService),
+  ]);
 
 // --- Bridge functions for legacy async/await code ---
 
-// Convenience helpers for legacy async/await code that needs to run
-// EffectKysely query builders as Promises.
+/**
+ * Convenience helpers for legacy async/await code that needs to run
+ * EffectKysely query builders as Promises.
+ *
+ * @deprecated
+ * @param effect
+ */
 export const run = <A>(effect: Effect.Effect<A, unknown, never>): Promise<A> =>
   Effect.runPromise(effect);
 
+/**
+ * @deprecated
+ */
 export const runTakeFirst = <A>(
   effect: Effect.Effect<A[], unknown, never>,
 ): Promise<A | undefined> =>
   Effect.runPromise(Effect.map(effect, (rows) => rows[0]));
 
+/**
+ * @deprecated
+ */
 export const runTakeFirstOrThrow = <A>(
   effect: Effect.Effect<A[], unknown, never>,
 ): Promise<A> =>
@@ -42,4 +82,39 @@ export const runTakeFirstOrThrow = <A>(
         ? Effect.succeed(rows[0])
         : Effect.fail(new NotFoundError({ resource: "db record", id: "" })),
     ),
+  );
+
+// Run an Effect through the ManagedRuntime, returning a Promise.
+export const runEffect = <A, E>(
+  effect: Effect.Effect<A, E, RuntimeContext>,
+): Promise<A> => runtime.runPromise(effect);
+
+// Run an Effect through the ManagedRuntime, returning a Promise<Exit>.
+export const runEffectExit = <A, E>(
+  effect: Effect.Effect<A, E, RuntimeContext>,
+) => runtime.runPromiseExit(effect);
+
+/**
+ * Run an effect only if the specified feature flag is enabled for the guild.
+ * Returns void if the flag is disabled, otherwise returns the effect result.
+ */
+export const runGatedFeature = <A>(
+  flag: BooleanFlag,
+  guildId: string,
+  effect: Effect.Effect<A, unknown, RuntimeContext>,
+): Promise<A | void> =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const flags = yield* FeatureFlagService;
+      const enabled = yield* flags.isPostHogEnabled(flag, guildId);
+      if (!enabled) {
+        posthogClient?.capture({
+          distinctId: guildId,
+          event: "premium gate hit",
+          properties: { flag, $groups: { guild: guildId } },
+        });
+        return;
+      }
+      return yield* effect;
+    }),
   );

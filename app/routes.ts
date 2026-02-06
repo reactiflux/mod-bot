@@ -5,6 +5,9 @@ export default [
     route("login", "routes/__auth/login.tsx"),
     route("app/", "routes/__auth/app.tsx"),
 
+    route("app/admin", "routes/__auth/admin.tsx"),
+    route("app/admin/:guildId", "routes/__auth/admin.$guildId.tsx"),
+
     route("app/:guildId/onboard", "routes/onboard.tsx"),
     route("app/:guildId/sh", "routes/__auth/dashboard.tsx"),
     route("app/:guildId/sh/:userId", "routes/__auth/sh-user.tsx"),

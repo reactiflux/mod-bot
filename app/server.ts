@@ -34,7 +34,8 @@ import { checkpointWal, runIntegrityCheck } from "./Database";
 import { startHoneypotTracking } from "./discord/honeypotTracker";
 import { DiscordApiError } from "./effects/errors";
 import { logEffect } from "./effects/observability";
-import { botStats, shutdownMetrics } from "./helpers/metrics";
+import { initializeGroups } from "./effects/posthog";
+import { botStats } from "./helpers/metrics";
 
 export const app = express();
 
@@ -119,31 +120,25 @@ const startup = Effect.gen(function* () {
     discordClient.users.cache.size,
   );
 
+  // Initialize PostHog group analytics for guilds
+  yield* initializeGroups(discordClient.guilds.cache);
+
   yield* logEffect("debug", "Server", "scheduling integrity check");
   yield* runtime.runFork(runIntegrityCheck);
 
   // Graceful shutdown handler to checkpoint WAL and dispose the runtime
   // (tears down PostHog finalizer, feature flag interval, and SQLite connection)
   const handleShutdown = (signal: string) =>
-    Promise.all([
-      shutdownMetrics(),
-      runtime
-        .runPromise(
-          Effect.gen(function* () {
-            yield* logEffect("info", "Server", `Received ${signal}`);
-            try {
-              yield* checkpointWal();
-              yield* logEffect("info", "Server", "Database WAL checkpointed");
-            } catch (e) {
-              yield* logEffect("error", "Server", "Error checkpointing WAL", {
-                error: String(e),
-              });
-            }
-            process.exit(0);
-          }),
-        )
-        .then(() => runtime.dispose().then(() => console.log("ok"))),
-    ]);
+    runtime
+      .runPromise(
+        Effect.gen(function* () {
+          yield* logEffect("info", "Server", `Received ${signal}`);
+          yield* checkpointWal();
+          yield* logEffect("info", "Server", "Database WAL checkpointed");
+          process.exit(0);
+        }),
+      )
+      .then(() => runtime.dispose().then(() => console.log("ok")));
 
   yield* logEffect("debug", "Server", "setting signal handlers");
   process.on("SIGTERM", () => void handleShutdown("SIGTERM"));

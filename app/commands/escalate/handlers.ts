@@ -215,6 +215,11 @@ const escalate = (interaction: MessageComponentInteraction) =>
       attributes: { guildId: interaction.guildId, userId: interaction.user.id },
     }),
     Effect.provide(EscalationServiceLive),
+    Effect.catchTag("FeatureDisabledError", () =>
+      interactionEditReply(interaction, {
+        content: "This is a paid feature. Upgrade with `/upgrade`",
+      }).pipe(Effect.catchAll(() => Effect.void)),
+    ),
     Effect.catchTag("NotFoundError", () =>
       interactionEditReply(interaction, {
         content: "Failed to re-escalate, couldn't find escalation",

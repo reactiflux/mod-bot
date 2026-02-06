@@ -6,11 +6,9 @@ import type {
   ThreadChannel,
   UserContextMenuCommandInteraction,
 } from "discord.js";
-import { PostHog } from "posthog-node";
 
+import { posthogClient } from "#~/AppRuntime.ts";
 import { log } from "#~/helpers/observability";
-
-import { posthogApiKey, posthogHost } from "./env.server";
 
 type EventValue = string | number | boolean;
 type EmitEventData = Record<string, EventValue | EventValue[]>;
@@ -40,23 +38,6 @@ const events = {
   spamDetected: "spam detected",
   spamKicked: "spam kicked",
 };
-
-// PostHog client singleton
-let posthogClient: PostHog | null = null;
-
-function getPostHog(): PostHog | null {
-  if (!posthogApiKey) return null;
-  posthogClient ??= new PostHog(posthogApiKey, {
-    host: posthogHost ?? "https://us.i.posthog.com",
-    flushAt: 20,
-    flushInterval: 10000,
-  });
-  return posthogClient;
-}
-
-export async function shutdownMetrics() {
-  await posthogClient?.shutdown();
-}
 
 export const threadStats = {
   messageTracked: (message: Message) =>
@@ -290,16 +271,14 @@ const emitEvent = (
     guildId,
   }: { data?: EmitEventData; userId?: string; guildId?: string } = {},
 ) => {
-  const client = getPostHog();
-
   log("info", "Metrics", "event emitted", {
     user_id: userId,
     event_type: eventName,
     event_properties: data,
-    client: Boolean(client),
+    client: Boolean(posthogClient),
   });
 
-  client?.capture({
+  posthogClient?.capture({
     distinctId: userId ?? "system",
     event: eventName,
     properties: {

@@ -10,6 +10,7 @@ import {
   sendMessage,
 } from "#~/effects/discordSdk";
 import { DiscordApiError } from "#~/effects/errors";
+import { FeatureFlagService, guardFeature } from "#~/effects/featureFlags";
 import { logEffect } from "#~/effects/observability";
 import { calculateScheduledFor } from "#~/helpers/escalationVotes";
 import type { Features } from "#~/helpers/featuresFlags";
@@ -41,6 +42,10 @@ export const createEscalationEffect = (
   Effect.gen(function* () {
     const escalationService = yield* EscalationService;
     const guildId = interaction.guildId!;
+
+    // Check if escalation feature is enabled for this guild
+    const flags = yield* FeatureFlagService;
+    yield* guardFeature(flags, "escalate", guildId);
     const threadId = interaction.channelId;
     const features: Features[] = [];
 
