@@ -19,6 +19,7 @@ import {
 } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import {
+  getMostSevereResolution,
   humanReadableResolutions,
   resolutions,
   type Resolution,
@@ -78,13 +79,17 @@ export const processEscalationEffect = (
     if (tally.totalVotes === 0) {
       resolution = resolutions.track;
     } else if (tally.isTied) {
+      resolution = getMostSevereResolution(tally.tiedResolutions);
       yield* logEffect(
         "warn",
         "EscalationResolver",
-        "Auto-resolve defaulting to track due to tie",
-        { tiedResolutions: tally.tiedResolutions, votingStrategy },
+        "Auto-resolve tie broken by severity",
+        {
+          tiedResolutions: tally.tiedResolutions,
+          selectedResolution: resolution,
+          votingStrategy,
+        },
       );
-      resolution = resolutions.track;
     } else if (tally.leader) {
       resolution = tally.leader;
     } else {
