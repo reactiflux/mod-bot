@@ -50,6 +50,11 @@ export class AlreadyResolvedError extends Data.TaggedError(
   resolvedAt: string;
 }> {}
 
+export class SpamDetectionError extends Data.TaggedError("SpamDetectionError")<{
+  operation: string;
+  cause: unknown;
+}> {}
+
 export class NoLeaderError extends Data.TaggedError("NoLeaderError")<{
   escalationId: string;
   reason: "no_votes" | "tied";

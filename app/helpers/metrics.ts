@@ -36,6 +36,9 @@ const events = {
   reactjiChannelSetup: "reactji channel setup",
   reactjiTriggered: "reactji triggered",
   spamDetected: "spam detected",
+  spamFlaggedForReview: "spam flagged for review",
+  spamRestricted: "spam restricted",
+  spamTimedOut: "spam timed out",
   spamKicked: "spam kicked",
 };
 
@@ -249,8 +252,45 @@ export const featureStats = {
       guildId,
     }),
 
-  spamDetected: (guildId: string, spammerUserId: string, channelId: string) =>
+  spamDetected: (
+    guildId: string,
+    spammerUserId: string,
+    channelId: string,
+    tier?: string,
+    score?: number,
+  ) =>
     emitEvent(events.spamDetected, {
+      data: {
+        guildId,
+        channelId,
+        spammerUserId,
+        tier: tier ?? "unknown",
+        score: score ?? 0,
+      },
+      userId: spammerUserId,
+      guildId,
+    }),
+
+  spamFlaggedForReview: (
+    guildId: string,
+    spammerUserId: string,
+    channelId: string,
+  ) =>
+    emitEvent(events.spamFlaggedForReview, {
+      data: { guildId, channelId, spammerUserId },
+      userId: spammerUserId,
+      guildId,
+    }),
+
+  spamRestricted: (guildId: string, spammerUserId: string, channelId: string) =>
+    emitEvent(events.spamRestricted, {
+      data: { guildId, channelId, spammerUserId },
+      userId: spammerUserId,
+      guildId,
+    }),
+
+  spamTimedOut: (guildId: string, spammerUserId: string, channelId: string) =>
+    emitEvent(events.spamTimedOut, {
       data: { guildId, channelId, spammerUserId },
       userId: spammerUserId,
       guildId,
