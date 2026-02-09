@@ -7,10 +7,8 @@ import type { GuildMember, Message } from "discord.js";
 import { Effect } from "effect";
 
 import { logUserMessage } from "#~/commands/report/userLog.ts";
-import { DatabaseLayer } from "#~/Database.ts";
 import { client } from "#~/discord/client.server.ts";
 import { deleteMessage } from "#~/effects/discordSdk.ts";
-import { SpamDetectionError } from "#~/effects/errors.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { featureStats } from "#~/helpers/metrics.ts";
 import { applyRestriction, timeout } from "#~/models/discord.server.ts";
@@ -21,10 +19,7 @@ import {
 
 import { AUTO_KICK_THRESHOLD, type SpamVerdict } from "./spamScorer.ts";
 
-/**
- * Execute the graduated response for a spam verdict.
- * Should be called within a context that has DatabaseLayer provided.
- */
+/** Execute the graduated response for a spam verdict. */
 export const executeResponse = (
   verdict: SpamVerdict,
   message: Message,
@@ -59,12 +54,7 @@ export const executeResponse = (
 
     // Medium and high: delete the message first
     yield* deleteMessage(message).pipe(
-      Effect.tap(() =>
-        Effect.provide(
-          markMessageAsDeleted(message.id, guildId),
-          DatabaseLayer,
-        ),
-      ),
+      Effect.tap(() => markMessageAsDeleted(message.id, guildId)),
       Effect.catchTag("DiscordApiError", (e) =>
         logEffect("warn", "SpamResponse", "Failed to delete spam message", {
           error: String(e.cause),
@@ -74,17 +64,10 @@ export const executeResponse = (
 
     if (verdict.tier === "medium") {
       // Apply restricted role
-      yield* Effect.tryPromise({
-        try: () => applyRestriction(member),
-        catch: (error) =>
-          new SpamDetectionError({
-            operation: "applyRestriction",
-            cause: error,
-          }),
-      }).pipe(
-        Effect.catchTag("SpamDetectionError", (e) =>
+      yield* Effect.tryPromise(() => applyRestriction(member)).pipe(
+        Effect.catchAll((error) =>
           logEffect("warn", "SpamResponse", "Failed to apply restriction", {
-            error: String(e.cause),
+            error: String(error),
           }),
         ),
       );
@@ -93,14 +76,12 @@ export const executeResponse = (
 
     if (verdict.tier === "high") {
       // Timeout user
-      yield* Effect.tryPromise({
-        try: () => timeout(member, "Automated spam detection"),
-        catch: (error) =>
-          new SpamDetectionError({ operation: "timeout", cause: error }),
-      }).pipe(
-        Effect.catchTag("SpamDetectionError", (e) =>
+      yield* Effect.tryPromise(() =>
+        timeout(member, "Automated spam detection"),
+      ).pipe(
+        Effect.catchAll((error) =>
           logEffect("warn", "SpamResponse", "Failed to timeout user", {
-            error: String(e.cause),
+            error: String(error),
           }),
         ),
       );
@@ -114,27 +95,22 @@ export const executeResponse = (
     if (verdict.tier === "high" && logResult) {
       const { warnings, message: logMessage } = logResult;
       if (warnings >= AUTO_KICK_THRESHOLD) {
-        yield* Effect.tryPromise({
-          try: () => member.kick("Autokicked for repeated spam"),
-          catch: (error) =>
-            new SpamDetectionError({ operation: "kick", cause: error }),
-        }).pipe(
-          Effect.catchTag("SpamDetectionError", (e) =>
+        yield* Effect.tryPromise(() =>
+          member.kick("Autokicked for repeated spam"),
+        ).pipe(
+          Effect.catchAll((error) =>
             logEffect("warn", "SpamResponse", "Failed to kick spammer", {
-              error: String(e.cause),
+              error: String(error),
             }),
           ),
         );
 
-        yield* Effect.tryPromise({
-          try: () =>
-            logMessage.reply({
-              content: `Automatically kicked <@${userId}> for spam`,
-              allowedMentions: {},
-            }),
-          catch: (error) =>
-            new SpamDetectionError({ operation: "kickReply", cause: error }),
-        }).pipe(Effect.catchAll(() => Effect.void));
+        yield* Effect.tryPromise(() =>
+          logMessage.reply({
+            content: `Automatically kicked <@${userId}> for spam`,
+            allowedMentions: {},
+          }),
+        ).pipe(Effect.catchAll(() => Effect.void));
 
         featureStats.spamKicked(guildId, userId, warnings);
       }
@@ -187,20 +163,16 @@ const executeSoftban = (
   Effect.gen(function* () {
     const guild = message.guild!;
 
-    yield* Effect.tryPromise({
-      try: async () => {
-        await member.ban({
-          reason: "honeypot spam detected",
-          deleteMessageSeconds: 604800, // 7 days
-        });
-        await guild.members.unban(member);
-      },
-      catch: (error) =>
-        new SpamDetectionError({ operation: "softban", cause: error }),
+    yield* Effect.tryPromise(async () => {
+      await member.ban({
+        reason: "honeypot spam detected",
+        deleteMessageSeconds: 604800, // 7 days
+      });
+      await guild.members.unban(member);
     }).pipe(
-      Effect.catchTag("SpamDetectionError", (e) =>
+      Effect.catchAll((error) =>
         logEffect("error", "SpamResponse", "Failed to softban user", {
-          error: String(e.cause),
+          error: String(error),
           userId: member.id,
           guildId: guild.id,
         }),

@@ -6,8 +6,7 @@
 import type { GuildMember, Message } from "discord.js";
 import { Context, Effect, Layer } from "effect";
 
-import { DatabaseLayer, DatabaseService } from "#~/Database.ts";
-import { type SpamDetectionError } from "#~/effects/errors.ts";
+import { DatabaseService } from "#~/Database.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.ts";
 
@@ -16,7 +15,6 @@ import { analyzeContent } from "./contentAnalyzer.ts";
 import {
   cleanupTracker,
   getRecentMessages,
-  hashContent,
   recordMessage,
   type ActivityMap,
 } from "./recentActivityTracker.ts";
@@ -32,7 +30,7 @@ export interface ISpamDetectionService {
   readonly checkMessage: (
     message: Message,
     member: GuildMember,
-  ) => Effect.Effect<SpamVerdict, SpamDetectionError>;
+  ) => Effect.Effect<SpamVerdict, never>;
   readonly executeResponse: (
     verdict: SpamVerdict,
     message: Message,
@@ -78,7 +76,7 @@ export const SpamDetectionServiceLive = Layer.effect(
     const checkHoneypot = (
       guildId: string,
       channelId: string,
-    ): Effect.Effect<SpamSignal[], SpamDetectionError> =>
+    ): Effect.Effect<SpamSignal[], never> =>
       Effect.gen(function* () {
         const cached = honeypotCache.get(guildId);
         if (cached && cached.cachedAt + HONEYPOT_CACHE_TTL > Date.now()) {
@@ -158,7 +156,7 @@ export const SpamDetectionServiceLive = Layer.effect(
           const hasLink = content.includes("http");
 
           // Record in activity tracker
-          const contentHash = hashContent(content);
+          const contentHash = content.toLowerCase().trim();
           recordMessage(tracker, guildId, userId, {
             messageId: message.id,
             channelId: message.channelId,
@@ -218,7 +216,7 @@ export const SpamDetectionServiceLive = Layer.effect(
 
       executeResponse: (verdict, message, member) =>
         executeResponse(verdict, message, member).pipe(
-          Effect.provide(DatabaseLayer),
+          Effect.provide(Layer.succeed(DatabaseService, db)),
           Effect.catchAll((error) =>
             logEffect("error", "SpamDetection", "Response execution failed", {
               error: String(error),

@@ -31,7 +31,6 @@ import { applicationKey } from "#~/helpers/env.server";
 
 import { runtime } from "./AppRuntime";
 import { checkpointWal, runIntegrityCheck } from "./Database";
-import { startHoneypotTracking } from "./discord/honeypotTracker";
 import { DiscordApiError } from "./effects/errors";
 import { logEffect } from "./effects/observability";
 import { initializeGroups } from "./effects/posthog";
@@ -100,7 +99,6 @@ const startup = Effect.gen(function* () {
         modActionLogger(discordClient),
         deployCommands(discordClient),
         startActivityTracking(discordClient),
-        startHoneypotTracking(discordClient),
         startReactjiChanneler(discordClient),
       ]),
     catch: (error) => new DiscordApiError({ operation: "init", cause: error }),

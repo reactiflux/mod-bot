@@ -2,10 +2,7 @@ import { Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
 import { runEffect } from "#~/AppRuntime";
-import {
-  SpamDetectionService,
-  SpamDetectionServiceLive,
-} from "#~/features/spam/service.ts";
+import { SpamDetectionService } from "#~/features/spam/service.ts";
 import { isStaff } from "#~/helpers/discord";
 
 export default async (bot: Client) => {
@@ -27,7 +24,7 @@ export default async (bot: Client) => {
         if (verdict.tier !== "none") {
           yield* spamService.executeResponse(verdict, message, member);
         }
-      }).pipe(Effect.provide(SpamDetectionServiceLive)),
+      }),
     );
   });
 };

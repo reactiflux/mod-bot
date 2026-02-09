@@ -3,7 +3,7 @@
  * Mutable Map with plain functions — no Effect, no async.
  *
  * State is created inside the SpamDetectionService Layer and lives
- * for the bot's lifetime, matching the pattern used by honeypotTracker.ts.
+ * for the bot's lifetime.
  */
 
 export interface RecentMessage {
@@ -26,11 +26,6 @@ const MAX_MESSAGES_PER_USER = 20;
 
 function makeKey(guildId: string, userId: string): string {
   return `${guildId}:${userId}`;
-}
-
-/** Simple content normalization for duplicate detection */
-export function hashContent(content: string): string {
-  return content.toLowerCase().trim();
 }
 
 /** Record a new message for a user */

@@ -3,8 +3,30 @@
  * Evolved from app/helpers/isSpam.ts with additional signals.
  */
 
-import { safeKeywords, spamKeywords, spamPings } from "./spamPatterns.ts";
 import type { SpamSignal } from "./spamScorer.ts";
+
+// ── Static keyword lists for content-based spam detection ──
+
+const spamKeywordsByCategory = {
+  scam: ["nitro", "steam", "gift", "free", "claim", "reward"],
+  nsfw: ["18+", "nudes", "onlyfans", "deepfake", "poki"],
+  crypto: ["airdrop", "whitelist", "nft", "mint", "dex"],
+  phishing: ["verify", "billing", "suspended", "expired"],
+} as const;
+
+type SpamCategory = keyof typeof spamKeywordsByCategory;
+
+const spamKeywords: { pattern: RegExp; category: SpamCategory }[] =
+  Object.entries(spamKeywordsByCategory).flatMap(([category, keywords]) =>
+    keywords.map((kw) => ({
+      pattern: new RegExp(kw, "i"),
+      category: category as SpamCategory,
+    })),
+  );
+
+const safeKeywords = ["forhire", "hiring", "remote", "onsite"];
+
+const spamPings = ["@everyone", "@here"] as const;
 
 /** Count how many spam pings (@everyone, @here) appear in the content */
 function getPingCount(content: string): number {
