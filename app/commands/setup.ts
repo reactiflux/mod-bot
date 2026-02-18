@@ -30,6 +30,13 @@ export const Command = {
         .setDescription(
           "The role that prevents a member from accessing some channels",
         ),
+    )
+    .addChannelOption((x) =>
+      x
+        .setName("deletion-log-channel")
+        .setDescription(
+          "The channel where message deletions and edits will be logged",
+        ),
     ) as SlashCommandBuilder,
 
   handler: (interaction) =>
@@ -52,6 +59,9 @@ export const Command = {
       const role = interaction.options.getRole("moderator");
       const channel = interaction.options.getChannel("mod-log-channel");
       const restricted = interaction.options.getRole("restricted");
+      const deletionLogChannel = interaction.options.getChannel(
+        "deletion-log-channel",
+      );
 
       if (!role) {
         yield* Effect.fail(new Error("Interaction has no role"));
@@ -66,6 +76,7 @@ export const Command = {
         [SETTINGS.modLog]: channel.id,
         [SETTINGS.moderator]: role.id,
         [SETTINGS.restricted]: restricted?.id,
+        [SETTINGS.deletionLog]: deletionLogChannel?.id,
       };
 
       yield* Effect.tryPromise(() =>

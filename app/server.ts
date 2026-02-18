@@ -19,6 +19,7 @@ import { Command as setupTicket } from "#~/commands/setupTickets";
 import { Command as track } from "#~/commands/track";
 import { startActivityTracking } from "#~/discord/activityTracker";
 import automod from "#~/discord/automod";
+import { startDeletionLogging } from "#~/discord/deletionLogger";
 import {
   deployCommands,
   registerCommand,
@@ -99,6 +100,7 @@ const startup = Effect.gen(function* () {
         modActionLogger(discordClient),
         deployCommands(discordClient),
         startActivityTracking(discordClient),
+        startDeletionLogging(discordClient),
         startReactjiChanneler(discordClient),
       ]),
     catch: (error) => new DiscordApiError({ operation: "init", cause: error }),

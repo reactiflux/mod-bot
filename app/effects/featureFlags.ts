@@ -17,6 +17,7 @@ export const BooleanFlag = Schema.Literal(
   "escalate",
   "ticketing",
   "analytics",
+  "deletion-log",
 );
 export type BooleanFlag = typeof BooleanFlag.Type;
 
@@ -60,35 +61,6 @@ export const FeatureFlagServiceLive = Layer.scoped(
     const db = yield* DatabaseService;
     const posthog = yield* PostHogService;
 
-    // Await initial PostHog flag load during layer construction — no startup race
-    if (posthog) {
-      yield* Effect.tryPromise(() => posthog.reloadFeatureFlags()).pipe(
-        Effect.tapError((e) =>
-          logEffect(
-            "warn",
-            "FeatureFlagService",
-            "Initial PostHog flag load failed, flags will default to off",
-            { error: String(e) },
-          ),
-        ),
-        Effect.catchAll(() => Effect.void),
-      );
-    }
-
-    // Periodic refresh with scope-managed cleanup
-    if (posthog) {
-      yield* Effect.acquireRelease(
-        Effect.sync(() =>
-          setInterval(() => {
-            posthog.reloadFeatureFlags().catch(() => {
-              // Silently swallow — flags stay at their last known state
-            });
-          }, 30_000),
-        ),
-        (interval) => Effect.sync(() => clearInterval(interval)),
-      );
-    }
-
     const checkTier = (flag: TierFlag, guildId: string) =>
       Effect.gen(function* () {
         if (!PAID_FEATURES.has(flag)) return false;
@@ -124,12 +96,12 @@ export const FeatureFlagServiceLive = Layer.scoped(
         return Effect.tryPromise(() =>
           posthog.isFeatureEnabled(flag, guildId, {
             groups: { guild: guildId },
-            onlyEvaluateLocally: true,
             sendFeatureFlagEvents: false,
           }),
         ).pipe(
           Effect.map((result) => result ?? false),
           Effect.catchAll(() => Effect.succeed(false as boolean)),
+          Effect.tap((enabled) => Effect.annotateCurrentSpan({ enabled })),
           Effect.withSpan("FeatureFlagService.isPostHogEnabled", {
             attributes: { flag, guildId },
           }),
@@ -143,7 +115,6 @@ export const FeatureFlagServiceLive = Layer.scoped(
             const result = yield* Effect.tryPromise(() =>
               posthog.getFeatureFlag(flag, guildId, {
                 groups: { guild: guildId },
-                onlyEvaluateLocally: true,
                 sendFeatureFlagEvents: false,
               }),
             ).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
