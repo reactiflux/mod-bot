@@ -62,6 +62,7 @@ export const recordReport = (data: {
       staff_id: data.staffId,
       staff_username: data.staffUsername,
       extra: data.extra,
+      created_at: new Date().toISOString(),
     });
 
     yield* logEffect("info", "ReportedMessage", "Report recorded", {
