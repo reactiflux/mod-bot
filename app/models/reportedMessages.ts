@@ -208,6 +208,74 @@ export const getSpamReportCount = (userId: string, guildId: string) =>
   );
 
 /**
+ * Get a comprehensive report summary for a user in a guild.
+ * Combines stats, reason breakdown, time range, anonymous count,
+ * and peak daily report count in concurrent queries.
+ */
+export const getUserReportSummary = (userId: string, guildId: string) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+
+    const [stats, reasonBreakdown, [timeRow], [anonRow], [peakDayRow]] =
+      yield* Effect.all([
+        getUserReportStats(userId, guildId),
+        kysely
+          .selectFrom("reported_messages")
+          .select(["reason"])
+          .select((eb) => eb.fn.count("id").as("count"))
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null)
+          .groupBy("reason")
+          .orderBy("count", "desc"),
+        kysely
+          .selectFrom("reported_messages")
+          .select((eb) => [
+            eb.fn.min("created_at").as("firstReport"),
+            eb.fn.max("created_at").as("lastReport"),
+          ])
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null),
+        kysely
+          .selectFrom("reported_messages")
+          .select((eb) => eb.fn.count("id").as("count"))
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null)
+          .where("reason", "=", ReportReasons.anonReport),
+        kysely
+          .selectFrom("reported_messages")
+          .select((eb) => [
+            eb.fn.count("id").as("count"),
+            eb.ref("created_at").as("day"),
+          ])
+          .where("reported_user_id", "=", userId)
+          .where("guild_id", "=", guildId)
+          .where("deleted_at", "is", null)
+          .groupBy(({ fn }) => fn("date", ["created_at"]))
+          .orderBy("count", "desc")
+          .limit(1),
+      ]);
+
+    return {
+      ...stats,
+      reasonBreakdown: reasonBreakdown.map((r) => ({
+        reason: r.reason,
+        count: Number(r.count),
+      })),
+      firstReport: timeRow?.firstReport as string | null,
+      lastReport: timeRow?.lastReport as string | null,
+      anonymousCount: Number(anonRow?.count ?? 0),
+      peakDayCount: Number(peakDayRow?.count ?? 0),
+    };
+  }).pipe(
+    Effect.withSpan("getUserReportSummary", {
+      attributes: { userId, guildId },
+    }),
+  );
+
+/**
  * Delete a report from the database.
  */
 export const deleteReport = (reportId: string) =>
