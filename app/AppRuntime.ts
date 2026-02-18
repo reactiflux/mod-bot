@@ -10,6 +10,7 @@ import {
 } from "#~/effects/featureFlags";
 import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
 import { TracingLive } from "#~/effects/tracing.js";
+import { SpamDetectionServiceLive } from "#~/features/spam/service.ts";
 import { isProd } from "#~/helpers/env.server.js";
 
 // Infrastructure layer: tracing + structured logging + prod log level
@@ -21,7 +22,7 @@ const InfraLayer = isProd()
     )
   : Layer.mergeAll(TracingLive, Logger.json);
 
-// App layer: database + PostHog + feature flags + infrastructure
+// App layer: database + PostHog + feature flags + spam detection + infrastructure
 const AppLayer = Layer.mergeAll(
   DatabaseLayer,
   PostHogServiceLive,
@@ -29,6 +30,7 @@ const AppLayer = Layer.mergeAll(
     FeatureFlagServiceLive,
     Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
   ),
+  Layer.provide(SpamDetectionServiceLive, DatabaseLayer),
   InfraLayer,
 );
 
