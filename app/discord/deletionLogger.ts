@@ -261,10 +261,8 @@ export async function startDeletionLogging(client: Client) {
 
         if (!thread) return;
 
-        const channelName =
-          "name" in newMessage.channel
-            ? `#${newMessage.channel.name}`
-            : `<#${newMessage.channelId}>`;
+        const channelMention = `<#${newMessage.channelId}>`;
+        const sent = `<t:${Math.floor(newMessage.createdTimestamp / 1000)}:R>`;
 
         yield* Effect.tryPromise({
           try: () =>
@@ -272,24 +270,14 @@ export async function startDeletionLogging(client: Client) {
               allowedMentions: { parse: [] },
               embeds: [
                 {
-                  title: "Message edited",
+                  description: [
+                    `<@${author.id}> edited their message in ${channelMention}, sent ${sent}`,
+                    quoteMessageContent(before),
+                    "↓",
+                    quoteMessageContent(after),
+                    `-# [Go to message](${newMessage.url})`,
+                  ].join("\n"),
                   color: Colors.Yellow,
-                  fields: [
-                    { name: "Before", value: before },
-                    { name: "After", value: after },
-                    { name: "Channel", value: channelName, inline: true },
-                    {
-                      name: "Sent",
-                      value: `<t:${Math.floor(newMessage.createdTimestamp / 1000)}:F>`,
-                      inline: true,
-                    },
-                    {
-                      name: "Jump",
-                      value: `[Go to message](${newMessage.url})`,
-                      inline: true,
-                    },
-                  ],
-                  timestamp: new Date().toISOString(),
                 },
               ],
             }),
