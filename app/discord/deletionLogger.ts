@@ -1,14 +1,56 @@
-import { Colors, Events, type Client } from "discord.js";
+import { AuditLogEvent, Colors, Events, type Client } from "discord.js";
 import { Effect } from "effect";
 
-import { runGatedFeature } from "#~/AppRuntime";
-import { fetchChannel, fetchGuild } from "#~/effects/discordSdk.ts";
+import { runEffect, runGatedFeature } from "#~/AppRuntime";
+import { AUDIT_LOG_WINDOW_MS, fetchAuditLogEntry } from "#~/discord/auditLog";
+import {
+  fetchChannel,
+  fetchGuild,
+  fetchUserOrNull,
+} from "#~/effects/discordSdk.ts";
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
+import { quoteMessageContent } from "#~/helpers/discord";
 import { getOrCreateDeletionLogThread } from "#~/models/deletionLogThreads";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
+import {
+  MessageCacheService,
+  startMessageCacheExpiration,
+} from "./messageCacheService";
+
 export async function startDeletionLogging(client: Client) {
+  // Cache every guild message so we have author/content on delete even for
+  // messages Discord doesn't include in the partial delete event.
+  client.on(Events.MessageCreate, (msg) => {
+    if (msg.author.system || msg.author.bot || !msg.inGuild()) return;
+
+    void runGatedFeature(
+      "deletion-log",
+      msg.guildId,
+      Effect.gen(function* () {
+        const cache = yield* MessageCacheService;
+        yield* cache.upsertMessage({
+          messageId: msg.id,
+          guildId: msg.guildId,
+          channelId: msg.channelId,
+          userId: msg.author.id,
+          content: msg.content,
+        });
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect("warn", "DeletionLogger", "Failed to cache message", {
+            messageId: msg.id,
+            error: String(e),
+          }),
+        ),
+        Effect.withSpan("DeletionLogger.cacheMessage", {
+          attributes: { messageId: msg.id, guildId: msg.guildId },
+        }),
+      ),
+    );
+  });
+
   client.on(Events.MessageDelete, (msg) => {
     if (msg.system || msg.author?.bot || !msg.guildId) return;
 
@@ -22,59 +64,121 @@ export async function startDeletionLogging(client: Client) {
           SETTINGS.deletionLog,
         ]).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
-        if (!settings?.deletionLog) {
-          yield* logEffect(
-            "debug",
-            "DeletionLogger",
-            "No deletionLog channel configured, skipping",
-            { guildId: guild.id },
-          );
+        if (!settings?.deletionLog) return;
+
+        const cache = yield* MessageCacheService;
+        const cached = yield* cache.getMessage(msg.id);
+
+        yield* logEffect("info", "DeletionLogger", "MessageDelete event data", {
+          messageId: msg.id,
+          partial: msg.partial,
+          hasAuthor: !!msg.author,
+          authorId: msg.author?.id ?? null,
+          hasCacheEntry: !!cached,
+          cachedUserId: cached?.user_id ?? null,
+          hasContent: msg.content !== null,
+          hasCachedContent:
+            cached?.content !== null && cached?.content !== undefined,
+        });
+
+        const channelMention = `<#${msg.channelId}>`;
+
+        // Resolve author: prefer live partial data, fall back to cache
+        const userId = msg.author?.id ?? cached?.user_id;
+        const content = msg.content ?? cached?.content ?? null;
+
+        if (!userId) {
+          // Nothing to attribute — post a minimal record to the log channel
+          const logChannel = yield* fetchChannel(
+            guild,
+            settings.deletionLog,
+          ).pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+          if (logChannel?.isTextBased()) {
+            const uncachedAuditEntry = yield* fetchAuditLogEntry(
+              guild,
+              msg.id,
+              AuditLogEvent.MessageDelete,
+              (entries) =>
+                entries.find(
+                  (e) =>
+                    (e.extra as { channel?: { id: string } } | null)?.channel
+                      ?.id === msg.channelId &&
+                    Date.now() - e.createdTimestamp < AUDIT_LOG_WINDOW_MS,
+                ),
+            ).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+
+            const sent = `<t:${Math.floor(msg.createdTimestamp / 1000)}:R>`;
+            const header = uncachedAuditEntry?.executor
+              ? `<@${uncachedAuditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
+              : `Message deleted from ${channelMention}, sent ${sent}`;
+
+            yield* Effect.tryPromise({
+              try: () =>
+                logChannel.send({
+                  allowedMentions: { parse: [] },
+                  embeds: [
+                    {
+                      description: `${header}\n-# we don't know the content or author of uncached messages`,
+                      color: Colors.Red,
+                    },
+                  ],
+                }),
+              catch: () => Effect.void,
+            }).pipe(Effect.catchAll((e) => e));
+          }
           return;
         }
 
-        const author = msg.author;
-        if (!author) {
-          yield* logEffect(
-            "debug",
-            "DeletionLogger",
-            "Message has no author (not cached), skipping",
-            { guildId: guild.id },
-          );
-          return;
-        }
+        // We have a userId — resolve to a User object for thread creation
+        const user = msg.author ?? (yield* fetchUserOrNull(client, userId));
 
-        const thread = yield* getOrCreateDeletionLogThread(guild, author).pipe(
+        if (!user) return;
+
+        const thread = yield* getOrCreateDeletionLogThread(guild, user).pipe(
           Effect.catchAll((error) =>
             logEffect(
               "warn",
               "DeletionLogger",
               "Failed to get/create deletion log thread",
-              { guildId: guild.id, userId: author.id, error: String(error) },
+              { guildId: guild.id, userId: user.id, error: String(error) },
             ),
           ),
         );
 
         if (!thread) return;
 
-        const content =
-          msg.content ?? "*(not available — message was not cached)*";
-        const channelName =
-          "name" in msg.channel
-            ? `#${msg.channel.name}`
-            : `<#${msg.channelId}>`;
+        // Check audit log to determine whether a mod or the author deleted it.
+        // Self-deletions don't appear in the audit log.
+        const auditEntry = yield* fetchAuditLogEntry(
+          guild,
+          userId,
+          AuditLogEvent.MessageDelete,
+          (entries) =>
+            entries.find(
+              (e) =>
+                e.targetId === userId &&
+                Date.now() - e.createdTimestamp < AUDIT_LOG_WINDOW_MS,
+            ),
+        ).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+
+        const sent = `<t:${Math.floor(msg.createdTimestamp / 1000)}:R>`;
+        const header = auditEntry?.executor
+          ? `<@${auditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
+          : `Message deleted from ${channelMention}, sent ${sent}`;
 
         yield* Effect.tryPromise({
           try: () =>
             thread.send({
+              allowedMentions: { parse: [] },
               embeds: [
                 {
-                  title: "Message deleted",
+                  description: [
+                    header,
+                    `<@${user.id}>`,
+                    quoteMessageContent(content ?? "*(content not cached)*"),
+                  ].join("\n"),
                   color: Colors.Red,
-                  fields: [
-                    { name: "Channel", value: channelName, inline: true },
-                    { name: "Content", value: content },
-                  ],
-                  timestamp: new Date().toISOString(),
                 },
               ],
             }),
@@ -125,18 +229,24 @@ export async function startDeletionLogging(client: Client) {
           SETTINGS.deletionLog,
         ]).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
-        if (!settings?.deletionLog) {
-          yield* logEffect(
-            "debug",
-            "DeletionLogger",
-            "No deletionLog channel configured, skipping",
-            { guildId: guild.id },
-          );
-          return;
-        }
+        if (!settings?.deletionLog) return;
 
         const author = newMessage.author;
         if (!author) return;
+
+        const cache = yield* MessageCacheService;
+        const cached = yield* cache.getMessage(newMessage.id);
+
+        // Prefer cached content as "before" — more reliable than the partial
+        // oldMessage which Discord may not populate
+        const before =
+          cached?.content ??
+          oldMessage.content ??
+          "*(not available — message was not cached)*";
+        const after = newMessage.content ?? "*(content unavailable)*";
+
+        // Update cache with new content and refresh last_touched
+        yield* cache.touchMessage(newMessage.id, newMessage.content ?? null);
 
         const thread = yield* getOrCreateDeletionLogThread(guild, author).pipe(
           Effect.catchAll((error) =>
@@ -151,18 +261,15 @@ export async function startDeletionLogging(client: Client) {
 
         if (!thread) return;
 
-        const before =
-          oldMessage.content ?? "*(not available — message was not cached)*";
-        const after = newMessage.content ?? "*(content unavailable)*";
         const channelName =
           "name" in newMessage.channel
             ? `#${newMessage.channel.name}`
             : `<#${newMessage.channelId}>`;
-        const jumpLink = newMessage.url;
 
         yield* Effect.tryPromise({
           try: () =>
             thread.send({
+              allowedMentions: { parse: [] },
               embeds: [
                 {
                   title: "Message edited",
@@ -172,8 +279,13 @@ export async function startDeletionLogging(client: Client) {
                     { name: "After", value: after },
                     { name: "Channel", value: channelName, inline: true },
                     {
+                      name: "Sent",
+                      value: `<t:${Math.floor(newMessage.createdTimestamp / 1000)}:F>`,
+                      inline: true,
+                    },
+                    {
                       name: "Jump",
-                      value: `[Go to message](${jumpLink})`,
+                      value: `[Go to message](${newMessage.url})`,
                       inline: true,
                     },
                   ],
@@ -220,15 +332,7 @@ export async function startDeletionLogging(client: Client) {
           SETTINGS.deletionLog,
         ]).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
-        if (!settings?.deletionLog) {
-          yield* logEffect(
-            "debug",
-            "DeletionLogger",
-            "No deletionLog channel configured, skipping bulk delete",
-            { guildId: guild.id },
-          );
-          return;
-        }
+        if (!settings?.deletionLog) return;
 
         const deletionLogChannel = yield* fetchChannel(
           guild,
@@ -255,12 +359,11 @@ export async function startDeletionLogging(client: Client) {
         }
 
         const channelName = `#${channel.name}`;
-        const count = messages.size;
 
-        // Tally messages per author from cached messages
+        // Tally messages per non-bot author from cached messages
         const authorCounts = new Map<string, { tag: string; count: number }>();
         for (const msg of messages.values()) {
-          if (!msg.author) continue;
+          if (!msg.author || msg.author.bot) continue;
           const key = msg.author.id;
           const existing = authorCounts.get(key);
           if (existing) {
@@ -269,6 +372,11 @@ export async function startDeletionLogging(client: Client) {
             authorCounts.set(key, { tag: msg.author.tag, count: 1 });
           }
         }
+
+        const count = [...messages.values()].filter(
+          (msg) => !msg.author?.bot,
+        ).length;
+        if (count === 0) return;
 
         const authorList =
           authorCounts.size > 0
@@ -283,6 +391,7 @@ export async function startDeletionLogging(client: Client) {
         yield* Effect.tryPromise({
           try: () =>
             deletionLogChannel.send({
+              allowedMentions: { parse: [] },
               embeds: [
                 {
                   title: "Messages bulk deleted",
@@ -319,4 +428,21 @@ export async function startDeletionLogging(client: Client) {
       ),
     );
   });
+
+  // Start periodic expiration of cached content (60 min) and rows (24 hr)
+  startMessageCacheExpiration(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const cache = yield* MessageCacheService;
+        yield* cache.expireContent();
+        yield* cache.expireRows();
+      }).pipe(
+        Effect.catchAll((e) =>
+          logEffect("warn", "MessageCacheExpiration", "Expiration run failed", {
+            error: String(e),
+          }),
+        ),
+      ),
+    ),
+  );
 }
