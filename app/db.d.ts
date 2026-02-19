@@ -16,6 +16,13 @@ export interface ChannelInfo {
   name: string | null;
 }
 
+export interface DeletionLogThreads {
+  created_at: Generated<string>;
+  guild_id: string;
+  thread_id: string;
+  user_id: string;
+}
+
 export interface EscalationRecords {
   escalation_id: string;
   id: string;
@@ -58,6 +65,16 @@ export interface GuildSubscriptions {
 export interface HoneypotConfig {
   channel_id: string;
   guild_id: string;
+}
+
+export interface MessageCache {
+  channel_id: string;
+  content: string | null;
+  created_at: string;
+  guild_id: string;
+  last_touched: string;
+  message_id: string;
+  user_id: string;
 }
 
 export interface MessageStats {
@@ -129,11 +146,13 @@ export interface UserThreads {
 
 export interface DB {
   channel_info: ChannelInfo;
+  deletion_log_threads: DeletionLogThreads;
   escalation_records: EscalationRecords;
   escalations: Escalations;
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   honeypot_config: HoneypotConfig;
+  message_cache: MessageCache;
   message_stats: MessageStats;
   reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;

@@ -12,6 +12,7 @@ export const SETTINGS = {
   moderator: "moderator",
   restricted: "restricted",
   quorum: "quorum",
+  deletionLog: "deletionLog",
 } as const;
 
 export const DEFAULT_QUORUM = 3;
@@ -23,6 +24,7 @@ interface SettingsRecord {
   [SETTINGS.moderator]: string;
   [SETTINGS.restricted]?: string;
   [SETTINGS.quorum]?: number;
+  [SETTINGS.deletionLog]?: string;
 }
 
 export const fetchGuild = async (guildId: string) => {

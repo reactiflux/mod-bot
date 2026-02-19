@@ -2,6 +2,7 @@ import { Effect, Layer, Logger, LogLevel, ManagedRuntime } from "effect";
 import type { PostHog } from "posthog-node";
 
 import { DatabaseLayer, DatabaseService, type EffectKysely } from "#~/Database";
+import { MessageCacheServiceLive } from "#~/discord/messageCacheService";
 import { NotFoundError } from "#~/effects/errors";
 import {
   FeatureFlagService,
@@ -14,23 +15,21 @@ import { SpamDetectionServiceLive } from "#~/features/spam/service.ts";
 import { isProd } from "#~/helpers/env.server.js";
 
 // Infrastructure layer: tracing + structured logging + prod log level
-const InfraLayer = isProd()
-  ? Layer.mergeAll(
-      TracingLive,
-      Logger.json,
-      Logger.minimumLogLevel(LogLevel.Info),
-    )
-  : Layer.mergeAll(TracingLive, Logger.json);
+const InfraLayer = Layer.mergeAll(
+  TracingLive,
+  Logger.json,
+  isProd()
+    ? Logger.minimumLogLevel(LogLevel.Info)
+    : Logger.minimumLogLevel(LogLevel.All),
+);
 
-// App layer: database + PostHog + feature flags + spam detection + infrastructure
+// App layer: database + PostHog + feature flags + spam detection + message cache + infrastructure
 const AppLayer = Layer.mergeAll(
   DatabaseLayer,
   PostHogServiceLive,
-  Layer.provide(
-    FeatureFlagServiceLive,
-    Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
-  ),
+  FeatureFlagServiceLive,
   Layer.provide(SpamDetectionServiceLive, DatabaseLayer),
+  MessageCacheServiceLive,
   InfraLayer,
 );
 

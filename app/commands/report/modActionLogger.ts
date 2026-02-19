@@ -8,61 +8,17 @@ import {
   type GuildBan,
   type GuildMember,
   type PartialGuildMember,
-  type PartialUser,
   type User,
 } from "discord.js";
 import { Effect } from "effect";
 
 import { runEffect } from "#~/AppRuntime";
 import { logAutomod } from "#~/commands/report/automodLog.ts";
+import { AUDIT_LOG_WINDOW_MS, fetchAuditLogEntry } from "#~/discord/auditLog";
 import { fetchUser } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 
 import { logModAction } from "./modActionLog";
-
-// Time window to check audit log for matching entries (5 seconds)
-const AUDIT_LOG_WINDOW_MS = 5000;
-
-interface AuditLogEntryResult {
-  executor: User | PartialUser | null;
-  reason: string | null;
-}
-
-/**
- * Fetches audit log entries with retry logic to handle propagation delay.
- * Returns the executor and reason if found.
- */
-const fetchAuditLogEntry = (
-  guild: Guild,
-  userId: string,
-  auditLogType: AuditLogEvent,
-  findEntry: (
-    entries: Awaited<ReturnType<typeof guild.fetchAuditLogs>>["entries"],
-  ) => AuditLogEntryResult | undefined,
-) =>
-  Effect.gen(function* () {
-    yield* Effect.sleep("100 millis");
-    for (let attempt = 0; attempt < 3; attempt++) {
-      yield* Effect.sleep("500 millis");
-
-      const auditLogs = yield* Effect.promise(() =>
-        guild.fetchAuditLogs({ type: auditLogType, limit: 5 }),
-      );
-
-      const entry = findEntry(auditLogs.entries);
-      if (entry?.executor) {
-        yield* logEffect("debug", "ModActionLogger", `record found`, {
-          attempt: attempt + 1,
-        });
-        return entry;
-      }
-    }
-    return undefined;
-  }).pipe(
-    Effect.withSpan("fetchAuditLogEntry", {
-      attributes: { userId, guildId: guild.id },
-    }),
-  );
 
 const banAddEffect = (ban: GuildBan) =>
   Effect.gen(function* () {
