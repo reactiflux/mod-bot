@@ -67,6 +67,16 @@ export interface HoneypotConfig {
   guild_id: string;
 }
 
+export interface MessageCache {
+  channel_id: string;
+  content: string | null;
+  created_at: string;
+  guild_id: string;
+  last_touched: string;
+  message_id: string;
+  user_id: string;
+}
+
 export interface MessageStats {
   author_id: string;
   channel_category: string | null;
@@ -142,6 +152,7 @@ export interface DB {
   guild_subscriptions: GuildSubscriptions;
   guilds: Guilds;
   honeypot_config: HoneypotConfig;
+  message_cache: MessageCache;
   message_stats: MessageStats;
   reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;
