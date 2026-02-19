@@ -14,13 +14,13 @@ import { SpamDetectionServiceLive } from "#~/features/spam/service.ts";
 import { isProd } from "#~/helpers/env.server.js";
 
 // Infrastructure layer: tracing + structured logging + prod log level
-const InfraLayer = isProd()
-  ? Layer.mergeAll(
-      TracingLive,
-      Logger.json,
-      Logger.minimumLogLevel(LogLevel.Info),
-    )
-  : Layer.mergeAll(TracingLive, Logger.json);
+const InfraLayer = Layer.mergeAll(
+  TracingLive,
+  Logger.json,
+  isProd()
+    ? Logger.minimumLogLevel(LogLevel.Info)
+    : Logger.minimumLogLevel(LogLevel.All),
+);
 
 // App layer: database + PostHog + feature flags + spam detection + infrastructure
 const AppLayer = Layer.mergeAll(
