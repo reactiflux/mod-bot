@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, Schema, type ParseResult } from "effect";
 
-import { DatabaseService } from "#~/Database";
+import { DatabaseLayer, DatabaseService } from "#~/Database";
 import { FeatureDisabledError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
-import { PostHogService } from "#~/effects/posthog";
+import { PostHogService, PostHogServiceLive } from "#~/effects/posthog";
 
 export const TierFlag = Schema.Literal(
   "advanced_analytics",
@@ -149,7 +149,7 @@ export const FeatureFlagServiceLive = Layer.scoped(
         ),
     };
   }),
-);
+).pipe(Layer.provide(Layer.merge(DatabaseLayer, PostHogServiceLive)));
 
 /**
  * Soft gate for conditional behavior based on a boolean check.

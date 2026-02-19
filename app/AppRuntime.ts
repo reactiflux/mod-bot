@@ -27,12 +27,9 @@ const InfraLayer = Layer.mergeAll(
 const AppLayer = Layer.mergeAll(
   DatabaseLayer,
   PostHogServiceLive,
-  Layer.provide(
-    FeatureFlagServiceLive,
-    Layer.mergeAll(DatabaseLayer, PostHogServiceLive),
-  ),
+  FeatureFlagServiceLive,
   Layer.provide(SpamDetectionServiceLive, DatabaseLayer),
-  Layer.provide(MessageCacheServiceLive, DatabaseLayer),
+  MessageCacheServiceLive,
   InfraLayer,
 );
 

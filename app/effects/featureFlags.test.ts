@@ -11,9 +11,11 @@ import {
 // Mock heavy transitive deps that featureFlags.ts imports but we don't use
 vi.mock("#~/Database", () => ({
   DatabaseService: { key: "DatabaseService" },
+  DatabaseLayer: {},
 }));
 vi.mock("#~/effects/posthog", () => ({
   PostHogService: { key: "PostHogService" },
+  PostHogServiceLive: {},
 }));
 
 describe("withFeatureFlag", () => {

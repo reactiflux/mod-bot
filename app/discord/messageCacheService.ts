@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import type { Selectable } from "kysely";
 
-import { DatabaseService, type SqlError } from "#~/Database";
+import { DatabaseLayer, DatabaseService, type SqlError } from "#~/Database";
 import type { DB } from "#~/db";
 import { logEffect } from "#~/effects/observability";
 import { scheduleTask } from "#~/helpers/schedule";
@@ -134,7 +134,7 @@ export const MessageCacheServiceLive = Layer.effect(
         }).pipe(Effect.withSpan("MessageCacheService.expireRows")),
     };
   }),
-);
+).pipe(Layer.provide(DatabaseLayer));
 
 /**
  * Start the periodic message cache expiration scheduler.
