@@ -26,7 +26,7 @@ export function analyzeBehavior(
   if (accountAge < ONE_DAY_MS) {
     signals.push({
       name: "account_age_lt_1d",
-      score: 3,
+      score: 2,
       description: "Acct <1 day",
     });
   } else if (accountAge < 7 * ONE_DAY_MS) {
@@ -50,7 +50,7 @@ export function analyzeBehavior(
     if (serverTenure < ONE_HOUR_MS) {
       signals.push({
         name: "server_tenure_lt_1h",
-        score: 3,
+        score: 2,
         description: "Joined < 1hr ago",
       });
     } else if (serverTenure < ONE_DAY_MS) {

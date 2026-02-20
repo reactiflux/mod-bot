@@ -74,3 +74,60 @@ test("does not flag normal messaging pace", () => {
   expect(signals.find((s) => s.name === "rapid_fire")).toBeUndefined();
   expect(signals.find((s) => s.name === "duplicate_messages")).toBeUndefined();
 });
+
+test("detects cross-channel duplicate spam", () => {
+  const now = Date.now();
+  const hash = "spam content";
+  const messages: RecentMessage[] = [
+    makeMessage({
+      contentHash: hash,
+      channelId: "ch-1",
+      timestamp: now - 10000,
+    }),
+    makeMessage({
+      contentHash: hash,
+      channelId: "ch-2",
+      timestamp: now - 20000,
+    }),
+    makeMessage({
+      contentHash: hash,
+      channelId: "ch-3",
+      timestamp: now - 30000,
+    }),
+  ];
+
+  const signals = analyzeVelocity(messages, hash);
+  const crossChannelSignal = signals.find(
+    (s) => s.name === "cross_channel_spam",
+  );
+  expect(crossChannelSignal).toBeDefined();
+  expect(crossChannelSignal!.score).toBe(15);
+
+  // Should not also flag individual duplicate_messages or channel_hop
+  expect(signals.find((s) => s.name === "duplicate_messages")).toBeUndefined();
+  expect(signals.find((s) => s.name === "channel_hop_fast")).toBeUndefined();
+});
+
+test("does not flag cross-channel spam if content differs", () => {
+  const now = Date.now();
+  const messages: RecentMessage[] = [
+    makeMessage({
+      contentHash: "msg1",
+      channelId: "ch-1",
+      timestamp: now - 10000,
+    }),
+    makeMessage({
+      contentHash: "msg2",
+      channelId: "ch-2",
+      timestamp: now - 20000,
+    }),
+    makeMessage({
+      contentHash: "msg3",
+      channelId: "ch-3",
+      timestamp: now - 30000,
+    }),
+  ];
+
+  const signals = analyzeVelocity(messages, "new content");
+  expect(signals.find((s) => s.name === "cross_channel_spam")).toBeUndefined();
+});

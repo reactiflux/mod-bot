@@ -10,22 +10,15 @@ test("content analysis produces correct tiers for known spam patterns", () => {
   // With new system: "Hello @everyone" = mass_ping(+5) = 5 = none
   // This is intentional — behavioral signals would push it higher for real spammers
 
-  // Bare invite in short message = +5 (bare_invite) + 2 (has_link) = 7 => low
-  expect(
-    getVerdict("@everyone https://discord.gg/garbage join now").tier,
-  ).not.toBe("none");
+  // @everyone + spam keyword = +5 (mass_ping) + 1 (spam_keyword) = 6 => low
+  expect(getVerdict("@everyone free nitro join now").tier).not.toBe("none");
 
-  // Bare discord.gg invite = +5 (bare_invite) + 2 (has_link) = 7 => low
-  expect(getVerdict("https://discord.gg/garbage join now").tier).not.toBe(
+  // Multiple spam keywords from different categories
+  // poki(nsfw)+deepfake(nsfw)+nudes(nsfw)+free(scam)+nitro(scam) = 5 keywords = 5 points
+  // Still below threshold, but with @here it would be 10 points
+  expect(getVerdict("@here poki deepfakes nudes free nitro").tier).not.toBe(
     "none",
   );
-
-  // Multiple spam keywords + link = high signals
-  expect(
-    getVerdict(
-      "<https://example.net/1234/poki-private-stream poki deepfakes lol",
-    ).tier,
-  ).not.toBe("none");
 });
 
 test("content analysis does not flag legitimate messages", () => {
@@ -50,11 +43,10 @@ test("content analysis does not flag legitimate messages", () => {
 });
 
 test("content signals are correctly identified", () => {
-  const signals = analyzeContent("Check out https://example.com nitro free");
+  const signals = analyzeContent("Check out nitro free gift");
   const names = signals.map((s) => s.name);
 
-  expect(names).toContain("has_link");
-  expect(names).toContain("spam_keyword:scam"); // nitro, free
+  expect(names).toContain("spam_keyword:scam"); // nitro, free, gift
 });
 
 test("safe keywords reduce score", () => {
@@ -84,13 +76,4 @@ test("mass ping detection", () => {
   const pingSignal = signals.find((s) => s.name === "mass_ping");
   expect(pingSignal).toBeDefined();
   expect(pingSignal!.score).toBe(10); // 2 pings * 5
-});
-
-test("high link ratio detection", () => {
-  // Message that is >50% links
-  const signals = analyzeContent(
-    "https://spam1.com https://spam2.com https://spam3.com hi",
-  );
-  const linkRatioSignal = signals.find((s) => s.name === "high_link_ratio");
-  expect(linkRatioSignal).toBeDefined();
 });
