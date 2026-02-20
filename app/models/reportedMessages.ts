@@ -158,24 +158,21 @@ export const getUserReportStats = (userId: string, guildId: string) =>
           .selectFrom("reported_messages")
           .select((eb) => eb.fn.count("id").as("count"))
           .where("reported_user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .where("deleted_at", "is", null),
+          .where("guild_id", "=", guildId),
         kysely
           .selectFrom("reported_messages")
           .select(({ fn }) =>
             fn.count("reported_message_id").distinct().as("count"),
           )
           .where("reported_user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .where("deleted_at", "is", null),
+          .where("guild_id", "=", guildId),
         kysely
           .selectFrom("reported_messages")
           .select(({ fn }) =>
             fn.count("reported_channel_id").distinct().as("count"),
           )
           .where("reported_user_id", "=", userId)
-          .where("guild_id", "=", guildId)
-          .where("deleted_at", "is", null),
+          .where("guild_id", "=", guildId),
       ]);
 
     return {
@@ -200,8 +197,7 @@ export const getSpamReportCount = (userId: string, guildId: string) =>
       .select((eb) => eb.fn.count("id").as("count"))
       .where("reported_user_id", "=", userId)
       .where("guild_id", "=", guildId)
-      .where("reason", "=", ReportReasons.spam)
-      .where("deleted_at", "is", null);
+      .where("reason", "=", ReportReasons.spam);
 
     return Number(result?.count ?? 0);
   }).pipe(
@@ -233,7 +229,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .select((eb) => eb.fn.count("id").as("count"))
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .groupBy("reason")
         .orderBy("count", "desc"),
       // Get first report (earliest created_at)
@@ -242,7 +237,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .select("created_at")
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .orderBy("created_at", "asc")
         .limit(1),
       // Get last report (latest created_at)
@@ -251,7 +245,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .select("created_at")
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .orderBy("created_at", "desc")
         .limit(1),
       kysely
@@ -259,7 +252,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .select((eb) => eb.fn.count("id").as("count"))
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .where("reason", "=", ReportReasons.anonReport),
       kysely
         .selectFrom("reported_messages")
@@ -269,7 +261,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         ])
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .groupBy(({ fn }) => fn("date", ["created_at"]))
         .orderBy("count", "desc")
         .limit(1),
@@ -278,7 +269,6 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .select(({ fn }) => fn.count("staff_id").distinct().as("count"))
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .where("staff_id", "is not", null),
     ]);
 
@@ -324,7 +314,6 @@ export const getMonthlyReportCounts = (
       ])
       .where("reported_user_id", "=", userId)
       .where("guild_id", "=", guildId)
-      .where("deleted_at", "is", null)
       .where("created_at", ">=", cutoff)
       .groupBy(({ fn, val, ref }) =>
         fn("strftime", [val("%Y-%m"), ref("created_at")]),
@@ -355,14 +344,12 @@ export const getRecentReportCount = (
         .selectFrom("reported_messages")
         .select((eb) => eb.fn.count("id").as("count"))
         .where("reported_user_id", "=", userId)
-        .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null),
+        .where("guild_id", "=", guildId),
       kysely
         .selectFrom("reported_messages")
         .select((eb) => eb.fn.count("id").as("count"))
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null)
         .where("created_at", ">=", cutoff),
     ]);
 
@@ -394,7 +381,6 @@ export const getChannelBreakdown = (
       .select((eb) => eb.fn.count("id").as("count"))
       .where("reported_user_id", "=", userId)
       .where("guild_id", "=", guildId)
-      .where("deleted_at", "is", null)
       .groupBy("reported_channel_id")
       .orderBy("count", "desc")
       .limit(limit);
@@ -417,7 +403,6 @@ export const getStaffBreakdown = (userId: string, guildId: string, limit = 5) =>
       .select((eb) => eb.fn.count("id").as("count"))
       .where("reported_user_id", "=", userId)
       .where("guild_id", "=", guildId)
-      .where("deleted_at", "is", null)
       .where("staff_id", "is not", null)
       .groupBy(["staff_id", "staff_username"])
       .orderBy("count", "desc")
