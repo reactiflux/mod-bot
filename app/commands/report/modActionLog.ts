@@ -5,6 +5,7 @@ import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk";
 import { logEffect } from "#~/effects/observability";
 import { truncateMessage } from "#~/helpers/string";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
+import { recordModAction } from "#~/models/modActions";
 import { getOrCreateUserThread } from "#~/models/userThreads.ts";
 
 export type ModActionReport =
@@ -98,6 +99,17 @@ export const logModAction = (report: ModActionReport) =>
 
     // Forward to mod log (non-critical)
     yield* forwardMessageSafe(logMessage, modLog);
+
+    // Persist to database
+    yield* recordModAction({
+      userId: user.id,
+      guildId: guild.id,
+      actionType,
+      executorId: executor?.id,
+      executorUsername: executor?.username,
+      reason,
+      duration: actionType === "timeout" ? report.duration : undefined,
+    });
   }).pipe(
     Effect.withSpan("logModAction", {
       attributes: {
