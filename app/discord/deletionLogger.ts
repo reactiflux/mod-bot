@@ -13,6 +13,7 @@ import { logEffect } from "#~/effects/observability";
 import { quoteMessageContent } from "#~/helpers/discord";
 import { getOrCreateDeletionLogThread } from "#~/models/deletionLogThreads";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
+import { getOrCreateUserThread } from "#~/models/userThreads";
 
 import {
   MessageCacheService,
@@ -110,8 +111,8 @@ export async function startDeletionLogging(client: Client) {
 
             const sent = `<t:${Math.floor(msg.createdTimestamp / 1000)}:R>`;
             const header = uncachedAuditEntry?.executor
-              ? `<@${uncachedAuditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
-              : `Message deleted from ${channelMention}, sent ${sent}`;
+              ? `-# <@${uncachedAuditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
+              : `-# Message deleted from ${channelMention}, sent ${sent}`;
 
             yield* Effect.tryPromise({
               try: () =>
@@ -164,23 +165,23 @@ export async function startDeletionLogging(client: Client) {
 
         const sent = `<t:${Math.floor(msg.createdTimestamp / 1000)}:R>`;
         const header = auditEntry?.executor
-          ? `<@${auditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
-          : `Message deleted from ${channelMention}, sent ${sent}`;
+          ? `-# <@${auditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
+          : `-# Message deleted from ${channelMention}, sent ${sent}`;
+
+        const embed = {
+          description: [
+            header,
+            `<@${user.id}>`,
+            quoteMessageContent(content ?? "*(content not cached)*"),
+          ].join("\n"),
+          color: Colors.Red,
+        };
 
         yield* Effect.tryPromise({
           try: () =>
             thread.send({
               allowedMentions: { parse: [] },
-              embeds: [
-                {
-                  description: [
-                    header,
-                    `<@${user.id}>`,
-                    quoteMessageContent(content ?? "*(content not cached)*"),
-                  ].join("\n"),
-                  color: Colors.Red,
-                },
-              ],
+              embeds: [embed],
             }),
           catch: (error) =>
             logEffect(
@@ -190,6 +191,37 @@ export async function startDeletionLogging(client: Client) {
               { guildId: guild.id, error: String(error) },
             ),
         }).pipe(Effect.catchAll((e) => e));
+
+        // If a mod deleted this message, also log to the moderation thread
+        if (auditEntry?.executor) {
+          const modThread = yield* getOrCreateUserThread(guild, user).pipe(
+            Effect.catchAll((error) =>
+              logEffect(
+                "warn",
+                "DeletionLogger",
+                "Failed to get/create moderation thread for mod deletion",
+                { guildId: guild.id, userId: user.id, error: String(error) },
+              ),
+            ),
+          );
+
+          if (modThread) {
+            yield* Effect.tryPromise({
+              try: () =>
+                modThread.send({
+                  allowedMentions: { parse: [] },
+                  embeds: [embed],
+                }),
+              catch: (error) =>
+                logEffect(
+                  "warn",
+                  "DeletionLogger",
+                  "Failed to post mod deletion to moderation thread",
+                  { guildId: guild.id, error: String(error) },
+                ),
+            }).pipe(Effect.catchAll((e) => e));
+          }
+        }
       }).pipe(
         Effect.catchAll((e) =>
           logEffect(
