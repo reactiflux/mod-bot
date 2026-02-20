@@ -188,6 +188,26 @@ export const getUserReportStats = (userId: string, guildId: string) =>
   );
 
 /**
+ * Count spam reports for a user in a guild (used for auto-kick threshold).
+ */
+export const getSpamReportCount = (userId: string, guildId: string) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+
+    const [result] = yield* kysely
+      .selectFrom("reported_messages")
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId)
+      .where("reason", "=", ReportReasons.spam)
+      .where("deleted_at", "is", null);
+
+    return Number(result?.count ?? 0);
+  }).pipe(
+    Effect.withSpan("getSpamReportCount", { attributes: { userId, guildId } }),
+  );
+
+/**
  * Delete a report from the database.
  */
 export const deleteReport = (reportId: string) =>

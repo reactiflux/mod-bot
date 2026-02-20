@@ -13,6 +13,7 @@ import { logEffect } from "#~/effects/observability.ts";
 import { featureStats } from "#~/helpers/metrics.ts";
 import { applyRestriction, timeout } from "#~/models/discord.server.ts";
 import {
+  getSpamReportCount,
   markMessageAsDeleted,
   ReportReasons,
 } from "#~/models/reportedMessages.ts";
@@ -91,10 +92,11 @@ export const executeResponse = (
     // Log to mod thread for all medium/high tiers
     const logResult = yield* logSpamReport(message, verdict);
 
-    // Check for auto-kick on high tier
+    // Check for auto-kick on high tier (spam reports only)
     if (verdict.tier === "high" && logResult) {
-      const { warnings, message: logMessage } = logResult;
-      if (warnings >= AUTO_KICK_THRESHOLD) {
+      const { message: logMessage } = logResult;
+      const spamCount = yield* getSpamReportCount(userId, guildId);
+      if (spamCount >= AUTO_KICK_THRESHOLD) {
         yield* Effect.tryPromise(() =>
           member.kick("Autokicked for repeated spam"),
         ).pipe(
@@ -112,7 +114,7 @@ export const executeResponse = (
           }),
         ).pipe(Effect.catchAll(() => Effect.void));
 
-        featureStats.spamKicked(guildId, userId, warnings);
+        featureStats.spamKicked(guildId, userId, spamCount);
       }
     }
 
