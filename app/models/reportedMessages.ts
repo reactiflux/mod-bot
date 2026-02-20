@@ -62,6 +62,7 @@ export const recordReport = (data: {
       staff_id: data.staffId,
       staff_username: data.staffUsername,
       extra: data.extra,
+      created_at: new Date().toISOString(),
     });
 
     yield* logEffect("info", "ReportedMessage", "Report recorded", {
@@ -205,6 +206,192 @@ export const getSpamReportCount = (userId: string, guildId: string) =>
     return Number(result?.count ?? 0);
   }).pipe(
     Effect.withSpan("getSpamReportCount", { attributes: { userId, guildId } }),
+  );
+
+/**
+ * Get a comprehensive report summary for a user in a guild.
+ * Combines stats, reason breakdown, time range, anonymous count,
+ * and peak daily report count in concurrent queries.
+ */
+export const getUserReportSummary = (userId: string, guildId: string) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+
+    const [
+      stats,
+      reasonBreakdown,
+      [timeRow],
+      [anonRow],
+      [peakDayRow],
+      [staffRow],
+    ] = yield* Effect.all([
+      getUserReportStats(userId, guildId),
+      kysely
+        .selectFrom("reported_messages")
+        .select(["reason"])
+        .select((eb) => eb.fn.count("id").as("count"))
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .groupBy("reason")
+        .orderBy("count", "desc"),
+      kysely
+        .selectFrom("reported_messages")
+        .select((eb) => [
+          eb.fn.min("created_at").as("firstReport"),
+          eb.fn.max("created_at").as("lastReport"),
+        ])
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null),
+      kysely
+        .selectFrom("reported_messages")
+        .select((eb) => eb.fn.count("id").as("count"))
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .where("reason", "=", ReportReasons.anonReport),
+      kysely
+        .selectFrom("reported_messages")
+        .select((eb) => [
+          eb.fn.count("id").as("count"),
+          eb.ref("created_at").as("day"),
+        ])
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .groupBy(({ fn }) => fn("date", ["created_at"]))
+        .orderBy("count", "desc")
+        .limit(1),
+      kysely
+        .selectFrom("reported_messages")
+        .select(({ fn }) => fn.count("staff_id").distinct().as("count"))
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .where("staff_id", "is not", null),
+    ]);
+
+    return {
+      ...stats,
+      reasonBreakdown: reasonBreakdown.map((r) => ({
+        reason: r.reason,
+        count: Number(r.count),
+      })),
+      firstReport: timeRow?.firstReport as string | null,
+      lastReport: timeRow?.lastReport as string | null,
+      anonymousCount: Number(anonRow?.count ?? 0),
+      peakDayCount: Number(peakDayRow?.count ?? 0),
+      uniqueStaffCount: Number(staffRow?.count ?? 0),
+    };
+  }).pipe(
+    Effect.withSpan("getUserReportSummary", {
+      attributes: { userId, guildId },
+    }),
+  );
+
+/**
+ * Get report counts grouped by month for a user in a guild.
+ * Returns one row per month (YYYY-MM) over the last N months, ordered chronologically.
+ * Months with zero reports are not included in the results.
+ */
+export const getMonthlyReportCounts = (
+  userId: string,
+  guildId: string,
+  months = 6,
+) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+    const cutoff = new Date(
+      Date.now() - months * 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    return yield* kysely
+      .selectFrom("reported_messages")
+      .select((eb) => [
+        eb.fn("strftime", [eb.val("%Y-%m"), eb.ref("created_at")]).as("month"),
+        eb.fn.count("id").as("count"),
+      ])
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId)
+      .where("deleted_at", "is", null)
+      .where("created_at", ">=", cutoff)
+      .groupBy(({ fn, val, ref }) =>
+        fn("strftime", [val("%Y-%m"), ref("created_at")]),
+      )
+      .orderBy("month", "asc");
+  }).pipe(
+    Effect.withSpan("getMonthlyReportCounts", {
+      attributes: { userId, guildId, months },
+    }),
+  );
+
+/**
+ * Count reports in the last N days vs total for a user in a guild.
+ */
+export const getRecentReportCount = (
+  userId: string,
+  guildId: string,
+  days = 30,
+) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+    const cutoff = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const [[totalRow], [recentRow]] = yield* Effect.all([
+      kysely
+        .selectFrom("reported_messages")
+        .select((eb) => eb.fn.count("id").as("count"))
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null),
+      kysely
+        .selectFrom("reported_messages")
+        .select((eb) => eb.fn.count("id").as("count"))
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .where("created_at", ">=", cutoff),
+    ]);
+
+    return {
+      total: Number(totalRow?.count ?? 0),
+      recent: Number(recentRow?.count ?? 0),
+      days,
+    };
+  }).pipe(
+    Effect.withSpan("getRecentReportCount", {
+      attributes: { userId, guildId, days },
+    }),
+  );
+
+/**
+ * Get report counts grouped by channel for a user in a guild.
+ */
+export const getChannelBreakdown = (
+  userId: string,
+  guildId: string,
+  limit = 5,
+) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+
+    return yield* kysely
+      .selectFrom("reported_messages")
+      .select(["reported_channel_id"])
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId)
+      .where("deleted_at", "is", null)
+      .groupBy("reported_channel_id")
+      .orderBy("count", "desc")
+      .limit(limit);
+  }).pipe(
+    Effect.withSpan("getChannelBreakdown", {
+      attributes: { userId, guildId, limit },
+    }),
   );
 
 /**

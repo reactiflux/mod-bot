@@ -92,6 +92,18 @@ export interface MessageStats {
   word_count: number;
 }
 
+export interface ModActions {
+  action_type: string;
+  created_at: string;
+  duration: string | null;
+  executor_id: string | null;
+  executor_username: string | null;
+  guild_id: string;
+  id: string;
+  reason: string | null;
+  user_id: string;
+}
+
 export interface ReactjiChannelerConfig {
   channel_id: string;
   configured_by_id: string;
@@ -154,6 +166,7 @@ export interface DB {
   honeypot_config: HoneypotConfig;
   message_cache: MessageCache;
   message_stats: MessageStats;
+  mod_actions: ModActions;
   reactji_channeler_config: ReactjiChannelerConfig;
   reported_messages: ReportedMessages;
   sessions: Sessions;

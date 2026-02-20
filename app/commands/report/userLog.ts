@@ -93,7 +93,8 @@ export function logUserMessage({
     ]);
 
     const alreadyReported = existingReports.find(
-      (r) => r.reported_message_id === message.id,
+      (r) =>
+        r.reported_message_id === message.id && r.reason === (reason as string),
     );
 
     yield* logEffect(
