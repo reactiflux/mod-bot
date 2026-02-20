@@ -220,7 +220,8 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
     const [
       stats,
       reasonBreakdown,
-      [timeRow],
+      [firstReportRow],
+      [lastReportRow],
       [anonRow],
       [peakDayRow],
       [staffRow],
@@ -235,15 +236,24 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         .where("deleted_at", "is", null)
         .groupBy("reason")
         .orderBy("count", "desc"),
+      // Get first report (earliest created_at)
       kysely
         .selectFrom("reported_messages")
-        .select((eb) => [
-          eb.fn.min("created_at").as("firstReport"),
-          eb.fn.max("created_at").as("lastReport"),
-        ])
+        .select("created_at")
         .where("reported_user_id", "=", userId)
         .where("guild_id", "=", guildId)
-        .where("deleted_at", "is", null),
+        .where("deleted_at", "is", null)
+        .orderBy("created_at", "asc")
+        .limit(1),
+      // Get last report (latest created_at)
+      kysely
+        .selectFrom("reported_messages")
+        .select("created_at")
+        .where("reported_user_id", "=", userId)
+        .where("guild_id", "=", guildId)
+        .where("deleted_at", "is", null)
+        .orderBy("created_at", "desc")
+        .limit(1),
       kysely
         .selectFrom("reported_messages")
         .select((eb) => eb.fn.count("id").as("count"))
@@ -278,8 +288,8 @@ export const getUserReportSummary = (userId: string, guildId: string) =>
         reason: r.reason,
         count: Number(r.count),
       })),
-      firstReport: timeRow?.firstReport as string | null,
-      lastReport: timeRow?.lastReport as string | null,
+      firstReport: firstReportRow?.created_at ?? null,
+      lastReport: lastReportRow?.created_at ?? null,
       anonymousCount: Number(anonRow?.count ?? 0),
       peakDayCount: Number(peakDayRow?.count ?? 0),
       uniqueStaffCount: Number(staffRow?.count ?? 0),
@@ -390,6 +400,30 @@ export const getChannelBreakdown = (
       .limit(limit);
   }).pipe(
     Effect.withSpan("getChannelBreakdown", {
+      attributes: { userId, guildId, limit },
+    }),
+  );
+
+/**
+ * Get report counts grouped by staff member for a user in a guild.
+ */
+export const getStaffBreakdown = (userId: string, guildId: string, limit = 5) =>
+  Effect.gen(function* () {
+    const kysely = yield* DatabaseService;
+
+    return yield* kysely
+      .selectFrom("reported_messages")
+      .select(["staff_id", "staff_username"])
+      .select((eb) => eb.fn.count("id").as("count"))
+      .where("reported_user_id", "=", userId)
+      .where("guild_id", "=", guildId)
+      .where("deleted_at", "is", null)
+      .where("staff_id", "is not", null)
+      .groupBy(["staff_id", "staff_username"])
+      .orderBy("count", "desc")
+      .limit(limit);
+  }).pipe(
+    Effect.withSpan("getStaffBreakdown", {
       attributes: { userId, guildId, limit },
     }),
   );

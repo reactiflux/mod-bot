@@ -26,6 +26,7 @@ import {
   getChannelBreakdown,
   getMonthlyReportCounts,
   getRecentReportCount,
+  getStaffBreakdown,
   getUserReportSummary,
   type ReportReasons,
 } from "#~/models/reportedMessages";
@@ -125,6 +126,7 @@ export const Command = {
         recentActions,
         recency,
         channels,
+        staff,
         monthlyData,
       ] = yield* Effect.all([
         getUserReportSummary(targetUser.id, guildId),
@@ -134,6 +136,7 @@ export const Command = {
         getRecentModActions(targetUser.id, guildId),
         getRecentReportCount(targetUser.id, guildId),
         getChannelBreakdown(targetUser.id, guildId),
+        getStaffBreakdown(targetUser.id, guildId),
         getMonthlyReportCounts(targetUser.id, guildId, SPARKLINE_MONTHS),
       ]);
 
@@ -183,12 +186,6 @@ export const Command = {
         if (sparkline) {
           descLines.push(`\`${sparkline}\` (last ${SPARKLINE_MONTHS} months)`);
         }
-
-        if (summary.uniqueStaffCount > 0) {
-          descLines.push(
-            `Reported by ${summary.uniqueStaffCount} different staff member${summary.uniqueStaffCount === 1 ? "" : "s"}`,
-          );
-        }
       }
 
       // Action count summary line
@@ -230,7 +227,7 @@ export const Command = {
             (r) =>
               `${ReadableReasons[r.reason as ReportReasons] ?? r.reason} ×${r.count}`,
           )
-          .join(" · ");
+          .join("\n");
         fields.push({
           name: "Reasons",
           value: truncateMessage(reasonText, 1024),
@@ -242,10 +239,22 @@ export const Command = {
       if (channels.length > 0) {
         const channelText = channels
           .map((c) => `<#${c.reported_channel_id}> (${Number(c.count)})`)
-          .join(" · ");
+          .join("\n");
         fields.push({
           name: "Top Channels",
           value: truncateMessage(channelText, 1024),
+          inline: true,
+        });
+      }
+
+      // Staff reporter breakdown
+      if (staff.length > 0) {
+        const staffText = staff
+          .map((s) => `@${s.staff_username} (${Number(s.count)})`)
+          .join("\n");
+        fields.push({
+          name: "Reported By",
+          value: truncateMessage(staffText, 1024),
           inline: true,
         });
       }
