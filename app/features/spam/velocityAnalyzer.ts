@@ -71,12 +71,31 @@ export function analyzeVelocity(
   const signals: SpamSignal[] = [];
   const now = Date.now();
 
-  // Channel-hopping: 3+ channels in 60 seconds
+  // Check for cross-channel duplicate spam FIRST (combo detector)
+  // 3+ identical messages across 3+ channels in 60s → immediate kick
   const channelsIn60s = countChannelsInWindow(
     recentMessages,
     ONE_MINUTE_MS,
     now,
   );
+  const duplicatesIn60s = countDuplicatesInWindow(
+    recentMessages,
+    ONE_MINUTE_MS,
+    now,
+    currentContentHash,
+  );
+
+  if (channelsIn60s >= 3 && duplicatesIn60s >= 3) {
+    signals.push({
+      name: "cross_channel_spam",
+      score: 15,
+      description: `${duplicatesIn60s} identical messages across ${channelsIn60s} channels in 60s`,
+    });
+    // Early return to avoid double-counting with individual signals
+    return signals;
+  }
+
+  // Channel-hopping: 3+ channels in 60 seconds
   if (channelsIn60s >= 3) {
     signals.push({
       name: "channel_hop_fast",

@@ -60,23 +60,9 @@ function getUserMentionCount(content: string): number {
   return mentions ? new Set(mentions).size : 0;
 }
 
-/** Calculate what fraction of the message is links */
-function getLinkRatio(content: string): number {
-  const linkMatches = content.match(/https?:\/\/\S+/g);
-  if (!linkMatches) return 0;
-  const linkChars = linkMatches.join("").length;
-  return content.length > 0 ? linkChars / content.length : 0;
-}
-
 /** Analyze message content and return scored signals */
 export function analyzeContent(content: string): SpamSignal[] {
   const signals: SpamSignal[] = [];
-
-  // Link presence
-  const hasLink = content.includes("http");
-  if (hasLink) {
-    signals.push({ name: "has_link", score: 2, description: "Contains link" });
-  }
 
   // Spam keyword matches
   for (const { pattern, category } of spamKeywords) {
@@ -96,24 +82,6 @@ export function analyzeContent(content: string): SpamSignal[] {
       name: "mass_ping",
       score: pingCount * 5,
       description: `@everyone/@here ping (x${pingCount})`,
-    });
-  }
-
-  // Bare discord.gg invite in short message
-  if (content.includes("discord.gg") && content.length < 50) {
-    signals.push({
-      name: "bare_invite",
-      score: 5,
-      description: "Bare discord.gg invite link",
-    });
-  }
-
-  // High link-to-text ratio
-  if (getLinkRatio(content) > 0.5) {
-    signals.push({
-      name: "high_link_ratio",
-      score: 3,
-      description: "Message is mostly links (>50%)",
     });
   }
 
