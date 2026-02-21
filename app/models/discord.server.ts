@@ -198,7 +198,7 @@ export const fetchGuilds = async (
       return guild ? { ...guild, hasBot: true } : undefined;
     }),
     ...[...invitableGuilds].map((gId) => {
-      const guild = botGuilds.get(gId);
+      const guild = userGuilds.get(gId);
       return guild ? { ...guild, hasBot: false } : undefined;
     }),
   ].filter((g) => !isUndefined(g));
