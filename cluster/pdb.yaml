@@ -3,7 +3,7 @@ kind: PodDisruptionBudget
 metadata:
   name: mod-bot-pdb
 spec:
-  maxUnavailable: 0
+  maxUnavailable: 1
   selector:
     matchLabels:
       app: mod-bot
