@@ -18,9 +18,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=build /app/node_modules /app/node_modules
-ADD package.json package-lock.json ./
-RUN npm prune --production
+COPY package.json package-lock.json ./
+RUN apk add --no-cache --virtual .build-deps python3 make g++ && \
+    npm ci --omit=dev && \
+    apk del .build-deps
 
 COPY --from=build /app/build ./build
 ADD index.prod.js ./

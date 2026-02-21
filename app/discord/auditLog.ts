@@ -31,6 +31,10 @@ export const fetchAuditLogEntry = (
 
       const auditLogs = yield* Effect.promise(() =>
         guild.fetchAuditLogs({ type: auditLogType, limit: 5 }),
+      ).pipe(
+        Effect.withSpan("discord.fetchAuditLogs", {
+          attributes: { attempt: attempt + 1, guildId: guild.id },
+        }),
       );
 
       const entry = findEntry(auditLogs.entries);
@@ -38,9 +42,17 @@ export const fetchAuditLogEntry = (
         yield* logEffect("debug", "AuditLog", "Record found", {
           attempt: attempt + 1,
         });
+        yield* Effect.annotateCurrentSpan({
+          "auditLog.found": true,
+          "auditLog.attempts": attempt + 1,
+        });
         return entry;
       }
     }
+    yield* Effect.annotateCurrentSpan({
+      "auditLog.found": false,
+      "auditLog.attempts": 3,
+    });
     return undefined;
   }).pipe(
     Effect.withSpan("fetchAuditLogEntry", {

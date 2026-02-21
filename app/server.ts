@@ -126,7 +126,7 @@ const startup = Effect.gen(function* () {
   yield* initializeGroups(discordClient.guilds.cache);
 
   yield* logEffect("debug", "Server", "scheduling integrity check");
-  yield* runtime.runFork(runIntegrityCheck);
+  runtime.runFork(runIntegrityCheck);
 
   // Graceful shutdown handler to checkpoint WAL and dispose the runtime
   // (tears down PostHog finalizer, feature flag interval, and SQLite connection)

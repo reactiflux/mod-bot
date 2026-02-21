@@ -223,7 +223,7 @@ jobs:
           # Tear down the preview deployment
           echo "Tearing down smoke test deployment..."
           envsubst < cluster/preview/deployment.yaml | kubectl delete -f - --ignore-not-found
-          kubectl delete pvc -l app=mod-bot-pr-${PR_NUMBER} --ignore-not-found
+          kubectl delete pvc -l preview=pr-${PR_NUMBER} --ignore-not-found
 
           echo "Smoke test complete"
 

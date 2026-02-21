@@ -8,7 +8,12 @@ import { Effect } from "effect";
 
 import { runEffect } from "#~/AppRuntime";
 import { type DatabaseService, type SqlError } from "#~/Database";
-import { forwardMessageSafe, sendMessage } from "#~/effects/discordSdk.ts";
+import {
+  fetchMessage,
+  forwardMessageSafe,
+  messageReply,
+  sendMessage,
+} from "#~/effects/discordSdk.ts";
 import { DiscordApiError, type NotFoundError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
 import {
@@ -106,26 +111,20 @@ export function logUserMessage({
 
     if (alreadyReported && reason !== ReportReasons.modResolution) {
       // Message already reported with this reason, just add to thread
-      const latestReport = yield* Effect.tryPromise({
-        try: async () => {
-          try {
-            const reportContents = `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`;
-            const priorLogMessage = await thread.messages.fetch(
-              alreadyReported.log_message_id,
-            );
-            return priorLogMessage
-              .reply(reportContents)
-              .catch(() => priorLogMessage.channel.send(reportContents));
-          } catch (_) {
-            return thread.send(logBody);
-          }
-        },
-        catch: (error) =>
-          new DiscordApiError({
-            operation: "logUserMessage existing",
-            cause: error,
-          }),
-      });
+      const reportContents = `${staff ? ` ${staff.username} ` : ""}${ReadableReasons[reason]}`;
+      const latestReport = (yield* fetchMessage(
+        thread,
+        alreadyReported.log_message_id,
+      ).pipe(
+        Effect.flatMap((priorLogMessage) =>
+          messageReply(priorLogMessage, reportContents).pipe(
+            Effect.catchAll(() =>
+              sendMessage(priorLogMessage.channel, reportContents),
+            ),
+          ),
+        ),
+        Effect.catchAll(() => sendMessage(thread, logBody)),
+      )) as Message<true>;
 
       yield* logEffect(
         "info",
