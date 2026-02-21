@@ -41,7 +41,10 @@ export function ServerCard({
   const badge = tierBadge[tier] ?? tierBadge.free;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
+    <Link
+      to={`/app/${id}`}
+      className="flex flex-col gap-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5 transition-colors hover:border-stone-600"
+    >
       {/* Header: icon + name + tier */}
       <div className="flex items-center gap-3">
         {icon ? (
@@ -95,21 +98,8 @@ export function ServerCard({
 
       {/* Footer */}
       <div className="flex items-center gap-3 border-t border-stone-700/40 pt-3">
-        <Link
-          to={`/app/${id}/settings`}
-          className="text-sm font-medium text-stone-400 transition-colors hover:text-stone-100"
-        >
-          Settings
-        </Link>
-        {tier === "free" && (
-          <Link
-            to={`/app/${id}/settings/subscription`}
-            className="text-sm font-medium text-amber-500 transition-colors hover:text-amber-400"
-          >
-            Upgrade
-          </Link>
-        )}
+        <span className="text-sm font-medium text-stone-400">View details</span>
       </div>
-    </div>
+    </Link>
   );
 }

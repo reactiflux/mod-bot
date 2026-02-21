@@ -66,7 +66,7 @@ export function DiscordLayout({
           {manageableGuilds.map((guild) => (
             <div key={guild.id} className="flex justify-center">
               <Link
-                to={`/app/${guild.id}/settings`}
+                to={`/app/${guild.id}`}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
                   isActive(`/app/${guild.id}`)
                     ? "bg-accent-strong rounded-xl"
@@ -145,6 +145,16 @@ export function DiscordLayout({
                   <hr className="border-stone-700" />
                 </>
               )}
+              <Link
+                to={`/app/${guildId}`}
+                className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive(`/app/${guildId}`, true)
+                    ? "bg-surface-overlay text-stone-100"
+                    : "hover:bg-surface-overlay text-stone-400 hover:text-stone-100"
+                }`}
+              >
+                📊 Overview
+              </Link>
               <Link
                 to={`/app/${guildId}/settings`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
