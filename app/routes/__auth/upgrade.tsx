@@ -245,7 +245,11 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
           <h2 className="text-3xl font-extrabold text-gray-200">
             Switch to Paid
           </h2>
-          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
+          <p className="mt-4 text-lg">
+            Unlock the full coordination toolkit for your mod team. Anonymous
+            reports, escalation voting, the ticket system, and /modreport —
+            everything that turns your moderators from individuals into a team.
+          </p>
 
           {currentTier === "paid" ? (
             <div className="mt-6 space-y-4">
@@ -271,11 +275,27 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
             <span className="text-base font-medium text-gray-400">/yr</span>
           </p>
           <ul className="mt-6 space-y-2">
-            <Benefit>Anonymous community reports</Benefit>
-            <Benefit>Ticketing system</Benefit>
-            <Benefit>Kick spammers automatically</Benefit>
-            <Benefit>Moderator decision tools</Benefit>
+            <Benefit>
+              Anonymous community reports — members report without fear of
+              retaliation
+            </Benefit>
+            <Benefit>
+              Escalation voting — quorum-based team decisions on enforcement
+            </Benefit>
+            <Benefit>
+              Ticket system — private threads for member support
+            </Benefit>
+            <Benefit>
+              Velocity-based spam detection — catches coordinated raids, not
+              just keywords
+            </Benefit>
+            <Benefit>
+              /modreport analytics — full user moderation history at a glance
+            </Benefit>
           </ul>
+          <p className="mt-4 text-sm text-gray-400">
+            Includes a 90-day free trial. No charge until the trial ends.
+          </p>
           {currentTier === "paid" ? <Cancel guildId={guildId} /> : null}
         </div>
 
@@ -283,7 +303,11 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
           <h2 className="text-3xl font-extrabold text-gray-200">
             Get a custom integration
           </h2>
-          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
+          <p className="mt-4 text-lg">
+            For communities that need guaranteed uptime, a dedicated bot
+            instance, and direct support. Custom plans run on a stable release
+            channel with an SLA.
+          </p>
 
           {currentTier === "custom" ? (
             <div className="mt-6">
@@ -292,24 +316,26 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
               </div>
             </div>
           ) : (
-            <Form method="post">
-              <input type="hidden" name="guild_id" value={guildId} />
-              <input type="hidden" name="tier" value="custom" />
-              <button
-                type="submit"
-                className="shad rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-              >
-                Contact Sales
-              </button>
-            </Form>
+            <a
+              href="mailto:support@euno.reactiflux.com?subject=Custom%20Euno%20Plan"
+              className="inline-block rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            >
+              Contact Sales
+            </a>
           )}
 
           <ul className="mt-6 space-y-2">
-            <Benefit>All paid features</Benefit>
-            <Benefit>Dedicated bot instance</Benefit>
-            <Benefit>Stable bot version</Benefit>
-            <Benefit>Support SLAs</Benefit>
+            <Benefit>Everything in Standard</Benefit>
+            <Benefit>
+              Dedicated bot instance — your own isolated deployment
+            </Benefit>
+            <Benefit>Stable release channel — no surprise updates</Benefit>
+            <Benefit>Support SLA — guaranteed response times</Benefit>
+            <Benefit>Priority feature requests</Benefit>
           </ul>
+          <p className="mt-4 text-sm text-gray-400">
+            Pricing based on community size and requirements.
+          </p>
         </div>
       </div>
     </div>
