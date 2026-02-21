@@ -202,7 +202,7 @@ function Cancel({ guildId }: { guildId: string }) {
       <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
         Cancel subscription
       </summary>
-      <div className="mt-3 rounded-md border border-rose-800 bg-rose-900 bg-opacity-20 p-4">
+      <div className="mt-3 rounded-md border border-rose-800 bg-rose-900/20 p-4">
         <p className="mb-3 text-gray-300">
           Are you sure you want to cancel? You'll lose access to paid features
           at the end of your billing period.
@@ -212,7 +212,7 @@ function Cancel({ guildId }: { guildId: string }) {
           <input type="hidden" name="intent" value="cancel" />
           <button
             type="submit"
-            className="rounded-md bg-rose-700 bg-opacity-85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+            className="rounded-md bg-rose-700/85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
           >
             Yes, cancel my subscription
           </button>
@@ -230,7 +230,7 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
   return (
     <div className="text-gray-300 sm:w-full sm:max-w-3xl">
       {actionData?.error ? (
-        <div className="my-4 space-y-2 rounded-md border-[1px] border-rose-800 bg-rose-400 bg-opacity-10 p-4">
+        <div className="my-4 space-y-2 rounded-md border-[1px] border-rose-800 bg-rose-400/10 p-4">
           <p>{actionData.error.message}</p>
           <details className="text-sm text-gray-400">
             <summary>Technical details</summary>
@@ -264,7 +264,7 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
               <input type="hidden" name="tier" value="paid" />
               <button
                 type="submit"
-                className="text-sh rounded-md border border-transparent bg-emerald-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                className="text-sh rounded-md border border-transparent bg-emerald-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
               >
                 Switch to Paid
               </button>
@@ -318,7 +318,7 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
           ) : (
             <a
               href="mailto:support@euno.reactiflux.com?subject=Custom%20Euno%20Plan"
-              className="inline-block rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+              className="inline-block rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-600 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:outline-none"
             >
               Contact Sales
             </a>

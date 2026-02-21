@@ -12,7 +12,6 @@ k8s-context
 *.sqlite3*
 tsconfig.tsbuildinfo
 .react-router
-tailwind.css
 userInfoCache.json
 *timestamp*
 vite.config.ts*
