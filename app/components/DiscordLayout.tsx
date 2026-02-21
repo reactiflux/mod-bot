@@ -44,17 +44,17 @@ export function DiscordLayout({
   };
 
   return (
-    <div className="flex h-screen bg-gray-800 text-white">
+    <div className="bg-surface-deep flex h-screen text-stone-100">
       {/* Server Selector Column */}
-      <div className="flex w-16 flex-col border-r border-gray-800 bg-gray-900">
+      <div className="bg-surface-deep flex w-16 flex-col border-r border-stone-800">
         {/* Home/Euno Icon */}
-        <div className="flex h-16 items-center justify-center border-b border-gray-800">
+        <div className="flex h-16 items-center justify-center border-b border-stone-800">
           <Link
             to="/app"
             className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
               isActive("/app", true)
-                ? "rounded-xl bg-indigo-600"
-                : "bg-gray-800 hover:bg-gray-600"
+                ? "bg-accent-strong rounded-xl"
+                : "bg-surface-raised hover:bg-surface-overlay"
             }`}
           >
             E
@@ -69,8 +69,8 @@ export function DiscordLayout({
                 to={`/app/${guild.id}/settings`}
                 className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl ${
                   isActive(`/app/${guild.id}`)
-                    ? "rounded-xl bg-indigo-600"
-                    : "bg-gray-800 hover:bg-gray-600"
+                    ? "bg-accent-strong rounded-xl"
+                    : "bg-surface-raised hover:bg-surface-overlay"
                 }`}
                 title={guild.name}
               >
@@ -81,7 +81,7 @@ export function DiscordLayout({
                     className="h-10 w-10 rounded-xl"
                   />
                 ) : (
-                  <span className="font-semibold text-white">
+                  <span className="font-semibold text-stone-100">
                     {guild.name.charAt(0).toUpperCase()}
                   </span>
                 )}
@@ -94,10 +94,10 @@ export function DiscordLayout({
               to={
                 "https://discord.com/oauth2/authorize?client_id=984212151608705054&scope=applications.commands%20bot"
               }
-              className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-700 transition-all duration-200 hover:rounded-xl hover:bg-gray-600`}
+              className={`bg-surface-overlay flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 hover:rounded-xl hover:bg-stone-600`}
               title={"Add to server"}
             >
-              <span className="font-semibold text-white">+</span>
+              <span className="font-semibold text-stone-100">+</span>
             </Link>
           </div>
         </div>
@@ -118,10 +118,12 @@ export function DiscordLayout({
       </div>
 
       {/* Channel Sidebar */}
-      <div className="flex w-60 flex-col bg-gray-800">
+      <div className="bg-surface-base flex w-60 flex-col">
         {/* Channel Header */}
-        <div className="flex h-16 items-center border-b border-gray-700 px-4">
-          <h2 className="text-lg font-semibold text-white">Euno Dashboard</h2>
+        <div className="flex h-16 items-center border-b border-stone-700 px-4">
+          <h2 className="font-serif text-lg font-semibold text-stone-100">
+            Euno Dashboard
+          </h2>
         </div>
 
         {/* Navigation */}
@@ -134,21 +136,21 @@ export function DiscordLayout({
                     to={`/app/${guildId}/sh`}
                     className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                       isActive(`/app/${guildId}/sh`)
-                        ? "bg-gray-600 text-white"
-                        : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                        ? "bg-surface-overlay text-stone-100"
+                        : "hover:bg-surface-overlay text-stone-400 hover:text-stone-100"
                     }`}
                   >
                     🌟 Star Hunter
                   </Link>
-                  <hr className="" />
+                  <hr className="border-stone-700" />
                 </>
               )}
               <Link
                 to={`/app/${guildId}/settings`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(`/app/${guildId}/settings`)
-                    ? "bg-gray-600 text-white"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-surface-overlay text-stone-100"
+                    : "hover:bg-surface-overlay text-stone-400 hover:text-stone-100"
                 }`}
               >
                 ⚙️ Settings
@@ -157,8 +159,8 @@ export function DiscordLayout({
                 to={`/app/${guildId}/onboard`}
                 className={`group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(`/app/${guildId}/onboard`)
-                    ? "bg-gray-600 text-white"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-surface-overlay text-stone-100"
+                    : "hover:bg-surface-overlay text-stone-400 hover:text-stone-100"
                 }`}
               >
                 🆕 Onboarding flow
@@ -169,45 +171,45 @@ export function DiscordLayout({
 
         {/* Expanded Account Menu */}
         {accountExpanded && (
-          <div className="border-t border-gray-700 bg-gray-700">
+          <div className="bg-surface-overlay border-t border-stone-700">
             <div className="px-3 py-2">
-              <p className="mb-2 text-xs text-gray-400">Account</p>
+              <p className="mb-2 text-xs text-stone-500">Account</p>
               <div className="space-y-1">
                 {/* <Link
                     to="/profile"
-                    className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                    className="block rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100"
                   >
                     Profile
                   </Link> */}
                 <Link
                   to="/profile"
-                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  className="block rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100"
                 >
                   Profile
                 </Link>
 
                 <Link
                   to="/terms"
-                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  className="block rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100"
                 >
                   Terms of Service
                 </Link>
                 <Link
                   to="/privacy"
-                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  className="block rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100"
                 >
                   Privacy Policy
                 </Link>
                 <Link
                   to="mailto:support@euno.reactiflux.com"
-                  className="block rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white"
+                  className="block rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100"
                 >
                   Contact Support
                 </Link>
 
-                <hr />
+                <hr className="border-stone-700" />
 
-                <div className="rounded px-2 py-1 text-sm text-gray-300 hover:bg-gray-600 hover:text-white">
+                <div className="rounded px-2 py-1 text-sm text-stone-400 hover:bg-stone-600 hover:text-stone-100">
                   <Logout>Log Out</Logout>
                 </div>
               </div>
@@ -216,22 +218,22 @@ export function DiscordLayout({
         )}
 
         {/* Account Section */}
-        <div className="border-t border-gray-700 bg-gray-800">
+        <div className="bg-surface-base border-t border-stone-700">
           <button
             onClick={() => setAccountExpanded(!accountExpanded)}
-            className="flex w-full items-center px-3 py-3 text-left text-sm transition-colors hover:bg-gray-700"
+            className="hover:bg-surface-overlay flex w-full items-center px-3 py-3 text-left text-sm transition-colors"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white">
+            <div className="bg-accent-strong flex h-8 w-8 items-center justify-center rounded-full text-stone-100">
               {user.email?.charAt(0).toUpperCase()}
             </div>
             <div className="ml-3 min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">
+              <p className="truncate text-sm font-medium text-stone-100">
                 {user.email?.split("@")[0]}
               </p>
-              <p className="truncate text-xs text-gray-400">Online</p>
+              <p className="truncate text-xs text-stone-500">Online</p>
             </div>
             <svg
-              className={`h-4 w-4 text-gray-400 transition-transform ${
+              className={`h-4 w-4 text-stone-500 transition-transform ${
                 accountExpanded ? "rotate-180" : ""
               }`}
               fill="none"
@@ -250,7 +252,7 @@ export function DiscordLayout({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden bg-gray-600">
+      <div className="bg-surface-raised flex flex-1 overflow-hidden">
         {/* Main Content */}
         <main className={`flex-1 overflow-auto ${rightPanel ? "pr-0" : ""}`}>
           {children}
@@ -258,7 +260,7 @@ export function DiscordLayout({
 
         {/* Right Panel (conditional) */}
         {rightPanel && (
-          <aside className="w-80 overflow-auto border-l border-gray-600 bg-gray-800">
+          <aside className="bg-surface-base w-80 overflow-auto border-l border-stone-700">
             {rightPanel}
           </aside>
         )}

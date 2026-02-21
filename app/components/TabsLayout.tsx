@@ -23,7 +23,7 @@ export default function TabsLayout() {
     <Page>
       {/* Tabs Navigation */}
       <nav
-        className="flex space-x-1 border-b-2 border-indigo-500"
+        className="flex space-x-1 border-b border-stone-600"
         aria-label="Tabs"
         aria-controls="settings-pane"
       >
@@ -33,10 +33,10 @@ export default function TabsLayout() {
             aria-selected={isActive(tab.path)}
             key={tab.name}
             to={basePath + tab.path}
-            className={`whitespace-nowrap px-3 py-2 text-sm font-medium ${tab.style === "upsell" ? "upsell-tab" : ""} ${
+            className={`px-3 py-2 text-sm font-medium whitespace-nowrap ${tab.style === "upsell" ? "upsell-tab" : ""} ${
               isActive(tab.path)
-                ? "bg-indigo-600 text-indigo-100"
-                : "text-gray-400 hover:text-gray-300"
+                ? "-mb-px border-b-2 border-amber-500 text-amber-400"
+                : "text-stone-400 hover:text-stone-200"
             }`}
           >
             {tab.name}

@@ -26,9 +26,9 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="moderator_role"
-          className="block text-sm font-medium text-gray-300"
+          className="block text-sm font-medium text-stone-300"
         >
-          Moderator Role <span className="text-red-500">*</span>
+          Moderator Role <span className="text-rose-500">*</span>
         </label>
         <div className="mt-1">
           <select
@@ -36,7 +36,7 @@ export function GuildSettingsForm({
             name="moderator_role"
             required
             defaultValue={defaultValues?.moderatorRole ?? ""}
-            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-amber-500 focus:ring-amber-500 focus:outline-none sm:text-sm"
           >
             <option value="">Select a role...</option>
             {roles.map((role) => (
@@ -56,7 +56,7 @@ export function GuildSettingsForm({
             ))}
           </select>
         </div>
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-stone-500">
           The role that grants moderator permissions to users.
         </p>
       </div>
@@ -64,9 +64,9 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="mod_log_channel"
-          className="block text-sm font-medium text-gray-300"
+          className="block text-sm font-medium text-stone-300"
         >
-          Mod Log Channel <span className="text-red-500">*</span>
+          Mod Log Channel <span className="text-rose-500">*</span>
         </label>
         <div className="mt-1">
           <select
@@ -74,7 +74,7 @@ export function GuildSettingsForm({
             name="mod_log_channel"
             required
             defaultValue={defaultValues?.modLogChannel ?? ""}
-            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-amber-500 focus:ring-amber-500 focus:outline-none sm:text-sm"
           >
             <option value="">Select a channel...</option>
             {channels.map((item) => {
@@ -106,7 +106,7 @@ export function GuildSettingsForm({
             })}
           </select>
         </div>
-        <p className="mt-2 text-sm text-gray-400">
+        <p className="mt-2 text-sm text-stone-500">
           The channel where moderation reports will be sent.
         </p>
       </div>
@@ -114,7 +114,7 @@ export function GuildSettingsForm({
       <div>
         <label
           htmlFor="restricted_role"
-          className="block text-sm font-medium text-gray-300"
+          className="block text-sm font-medium text-stone-300"
         >
           Restricted Role (Optional)
         </label>
@@ -123,7 +123,7 @@ export function GuildSettingsForm({
             id="restricted_role"
             name="restricted_role"
             defaultValue={defaultValues?.restrictedRole ?? ""}
-            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-amber-500 focus:ring-amber-500 focus:outline-none sm:text-sm"
           >
             <option value="">Select a role...</option>
             {roles.map((role) => (
@@ -143,20 +143,20 @@ export function GuildSettingsForm({
             ))}
           </select>
         </div>
-        <p className="mt-2 text-sm text-gray-400">
+        <p className="mt-2 text-sm text-stone-500">
           A role that prevents members from accessing some channels during
           timeouts.
         </p>
       </div>
 
       {(roles.length === 0 || channels.length === 0) && (
-        <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
+        <div className="rounded-md border border-amber-600/30 bg-amber-950 p-4">
           <div className="flex">
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">
+              <h3 className="text-sm font-medium text-amber-300">
                 Unable to load server data
               </h3>
-              <div className="mt-2 text-sm text-yellow-700">
+              <div className="mt-2 text-sm text-amber-300/80">
                 <p>
                   We couldn't fetch your server's roles and channels. Make sure
                   Euno has proper permissions in your server.
@@ -170,7 +170,7 @@ export function GuildSettingsForm({
       <div>
         <button
           type="submit"
-          className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          className="bg-accent-strong flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:outline-none"
         >
           {buttonText}
         </button>
