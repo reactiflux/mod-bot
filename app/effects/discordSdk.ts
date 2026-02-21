@@ -3,6 +3,9 @@
  *
  * These helpers provide consistent error handling and reduce boilerplate
  * when calling Discord.js APIs from Effect-based code.
+ *
+ * All wrappers include `Effect.withSpan("discord.<operation>")` for
+ * performance tracing. Span names use a `discord.` prefix consistently.
  */
 import type {
   ChatInputCommandInteraction,
@@ -29,14 +32,16 @@ export const fetchGuild = (client: Client, guildId: string) =>
     try: () => client.guilds.fetch(guildId),
     catch: (error) =>
       new DiscordApiError({ operation: "fetchGuild", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.fetchGuild", { attributes: { guildId } }));
 
 export const fetchChannel = (guild: Guild, channelId: string) =>
   Effect.tryPromise({
     try: () => guild.channels.fetch(channelId),
     catch: (error) =>
       new DiscordApiError({ operation: "fetchChannel", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.fetchChannel", { attributes: { channelId } }),
+  );
 
 export const fetchChannelFromClient = <T = GuildTextBasedChannel>(
   client: Client,
@@ -46,14 +51,18 @@ export const fetchChannelFromClient = <T = GuildTextBasedChannel>(
     try: () => client.channels.fetch(channelId) as Promise<T>,
     catch: (error) =>
       new DiscordApiError({ operation: "fetchChannel", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.fetchChannel", {
+      attributes: { channelId, variant: "fromClient" },
+    }),
+  );
 
 export const fetchMember = (guild: Guild, userId: string) =>
   Effect.tryPromise({
     try: () => guild.members.fetch(userId),
     catch: (error) =>
       new DiscordApiError({ operation: "fetchMember", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.fetchMember", { attributes: { userId } }));
 
 export const fetchMemberOrNull = (
   guild: Guild,
@@ -62,14 +71,22 @@ export const fetchMemberOrNull = (
   Effect.tryPromise({
     try: () => guild.members.fetch(userId),
     catch: () => null,
-  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed(null)),
+    Effect.tap((result) =>
+      Effect.annotateCurrentSpan({ found: result !== null }),
+    ),
+    Effect.withSpan("discord.fetchMember", {
+      attributes: { userId, variant: "orNull" },
+    }),
+  );
 
 export const fetchUser = (client: Client, userId: string) =>
   Effect.tryPromise({
     try: () => client.users.fetch(userId),
     catch: (error) =>
       new DiscordApiError({ operation: "fetchUser", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.fetchUser", { attributes: { userId } }));
 
 export const fetchUserOrNull = (
   client: Client,
@@ -78,7 +95,15 @@ export const fetchUserOrNull = (
   Effect.tryPromise({
     try: () => client.users.fetch(userId),
     catch: () => null,
-  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  }).pipe(
+    Effect.catchAll(() => Effect.succeed(null)),
+    Effect.tap((result) =>
+      Effect.annotateCurrentSpan({ found: result !== null }),
+    ),
+    Effect.withSpan("discord.fetchUser", {
+      attributes: { userId, variant: "orNull" },
+    }),
+  );
 
 export const fetchMessage = (
   channel: GuildTextBasedChannel | ThreadChannel,
@@ -88,14 +113,22 @@ export const fetchMessage = (
     try: () => channel.messages.fetch(messageId),
     catch: (error) =>
       new DiscordApiError({ operation: "fetchMessage", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.fetchMessage", {
+      attributes: { messageId, channelId: channel.id },
+    }),
+  );
 
 export const deleteMessage = (message: Message | PartialMessage) =>
   Effect.tryPromise({
     try: () => message.delete(),
     catch: (error) =>
       new DiscordApiError({ operation: "deleteMessage", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.deleteMessage", {
+      attributes: { messageId: message.id },
+    }),
+  );
 
 export const sendMessage = (
   channel: GuildTextBasedChannel | ThreadChannel,
@@ -105,7 +138,11 @@ export const sendMessage = (
     try: () => channel.send(options),
     catch: (error) =>
       new DiscordApiError({ operation: "sendMessage", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.sendMessage", {
+      attributes: { channelId: channel.id },
+    }),
+  );
 
 export const editMessage = (
   message: Message,
@@ -115,7 +152,11 @@ export const editMessage = (
     try: () => message.edit(options),
     catch: (error) =>
       new DiscordApiError({ operation: "editMessage", cause: error }),
-  });
+  }).pipe(
+    Effect.withSpan("discord.editMessage", {
+      attributes: { messageId: message.id },
+    }),
+  );
 
 export const forwardMessageSafe = (message: Message, targetChannelId: string) =>
   Effect.tryPromise({
@@ -129,6 +170,9 @@ export const forwardMessageSafe = (message: Message, targetChannelId: string) =>
         targetChannelId,
       }),
     ),
+    Effect.withSpan("discord.forwardMessage", {
+      attributes: { messageId: message.id, targetChannelId, variant: "safe" },
+    }),
   );
 
 export const messageReply = (
@@ -139,7 +183,11 @@ export const messageReply = (
     try: () => message.reply(options),
     catch: (error) =>
       new DiscordApiError({ operation: "messageReply", cause: error }),
-  }).pipe(Effect.withSpan("messageReply"));
+  }).pipe(
+    Effect.withSpan("discord.messageReply", {
+      attributes: { messageId: message.id },
+    }),
+  );
 
 export const replyAndForwardSafe = (
   message: Message,
@@ -161,6 +209,13 @@ export const replyAndForwardSafe = (
         forwardToChannelId,
       }),
     ),
+    Effect.withSpan("discord.replyAndForward", {
+      attributes: {
+        messageId: message.id,
+        forwardToChannelId,
+        variant: "safe",
+      },
+    }),
   );
 
 /**
@@ -171,7 +226,7 @@ export const replyAndForwardSafe = (
 export const resolveMessagePartial = (
   msg: Message | PartialMessage,
 ): Effect.Effect<Message, DiscordApiError, never> =>
-  msg.partial
+  (msg.partial
     ? Effect.tryPromise({
         try: () => msg.fetch(),
         catch: (error) =>
@@ -180,7 +235,12 @@ export const resolveMessagePartial = (
             cause: error,
           }),
       })
-    : Effect.succeed(msg);
+    : Effect.succeed(msg)
+  ).pipe(
+    Effect.withSpan("discord.resolveMessagePartial", {
+      attributes: { wasPartial: msg.partial },
+    }),
+  );
 
 export const interactionReply = (
   interaction:
@@ -195,7 +255,8 @@ export const interactionReply = (
     try: () => interaction.reply(options),
     catch: (error) =>
       new DiscordApiError({ operation: "interactionReply", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.interactionReply"));
+
 export const interactionDeferReply = (
   interaction:
     | MessageComponentInteraction
@@ -208,7 +269,8 @@ export const interactionDeferReply = (
     try: () => interaction.deferReply(options),
     catch: (error) =>
       new DiscordApiError({ operation: "interactionDeferReply", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.interactionDeferReply"));
+
 export const interactionEditReply = (
   interaction:
     | MessageComponentInteraction
@@ -221,7 +283,8 @@ export const interactionEditReply = (
     try: () => interaction.editReply(options),
     catch: (error) =>
       new DiscordApiError({ operation: "interactionEditReply", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.interactionEditReply"));
+
 export const interactionFollowUp = (
   interaction:
     | MessageComponentInteraction
@@ -234,7 +297,7 @@ export const interactionFollowUp = (
     try: () => interaction.followUp(options),
     catch: (error) =>
       new DiscordApiError({ operation: "interactionFollowUp", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.interactionFollowUp"));
 
 export const interactionUpdate = (
   interaction: MessageComponentInteraction,
@@ -244,4 +307,4 @@ export const interactionUpdate = (
     try: () => interaction.update(options),
     catch: (error) =>
       new DiscordApiError({ operation: "interactionUpdate", cause: error }),
-  });
+  }).pipe(Effect.withSpan("discord.interactionUpdate"));

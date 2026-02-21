@@ -12,9 +12,16 @@ if (isValidDsn) {
     // Skip Sentry's auto OpenTelemetry setup - we'll use Effect's OpenTelemetry
     // and provide the SentrySpanProcessor to it
     skipOpenTelemetrySetup: true,
-    // Set tracesSampleRate to 1.0 to capture 100%
-    // of transactions for performance monitoring.
-    tracesSampleRate: isProd() ? 0.2 : 1,
+    // Configurable via SENTRY_TRACES_SAMPLE_RATE env var for diagnosis periods.
+    // Defaults: 0.2 in prod, 1.0 in dev.
+    tracesSampleRate: process.env.SENTRY_TRACES_SAMPLE_RATE
+      ? Math.min(
+          1,
+          Math.max(0, parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE)),
+        )
+      : isProd()
+        ? 0.2
+        : 1,
     sendDefaultPii: true,
   };
 

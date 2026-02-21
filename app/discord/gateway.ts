@@ -76,25 +76,40 @@ export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
       customId: interaction.customId,
     });
     let config: AnyCommand | undefined = undefined;
+    let commandName: string | undefined = undefined;
     switch (interaction.type) {
       case InteractionType.ApplicationCommand: {
-        config = matchCommand(interaction.commandName);
+        commandName = interaction.commandName;
+        config = matchCommand(commandName);
         break;
       }
       case InteractionType.MessageComponent:
       case InteractionType.ModalSubmit: {
-        config = matchCommand(interaction.customId);
+        commandName = interaction.customId;
+        config = matchCommand(commandName);
         break;
       }
     }
 
-    if (!config) {
+    if (!config || !commandName) {
       log("debug", "deployCommands", "no matching command found");
       return;
     }
     log("debug", "deployCommands", "found matching command", { config });
 
-    void runEffect(config.handler(interaction as never));
+    void runEffect(
+      config.handler(interaction as never).pipe(
+        Effect.withSpan(`command.${commandName}`, {
+          attributes: {
+            "command.name": commandName,
+            "command.type": interaction.type,
+            "interaction.id": interaction.id,
+            guildId: interaction.guildId,
+            userId: interaction.user.id,
+          },
+        }),
+      ),
+    );
   });
 
   const errorHandler = (error: unknown) => {
