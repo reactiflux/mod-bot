@@ -46,11 +46,11 @@ export default function Onboard({
 }: Route.ComponentProps) {
   return (
     <Page>
-      <h2 className="text-3xl font-extrabold text-gray-100">
+      <h2 className="font-serif text-3xl font-bold text-stone-100">
         <div className="inline-block">
-          <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-800">
+          <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-900">
             <svg
-              className="h-6 w-6 text-green-300"
+              className="h-6 w-6 text-emerald-400"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -64,7 +64,7 @@ export default function Onboard({
         </div>
         Set up Euno for your server
       </h2>
-      <p className="mt-2 text-lg text-gray-300">
+      <p className="mt-2 text-lg text-stone-400">
         Configure the essential settings to get started
       </p>
 

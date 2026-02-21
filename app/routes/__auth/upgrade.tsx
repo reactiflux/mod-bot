@@ -172,7 +172,7 @@ export async function action({ request }: Route.ActionArgs) {
 function Check() {
   return (
     <svg
-      className="h-6 w-6 text-green-500"
+      className="h-6 w-6 text-emerald-500"
       fill="currentColor"
       viewBox="0 0 20 20"
     >
@@ -199,11 +199,11 @@ function Benefit({ children }: PropsWithChildren) {
 function Cancel({ guildId }: { guildId: string }) {
   return (
     <details className="text-sm">
-      <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+      <summary className="cursor-pointer text-stone-500 hover:text-stone-400">
         Cancel subscription
       </summary>
-      <div className="mt-3 rounded-md border border-rose-800 bg-rose-900 bg-opacity-20 p-4">
-        <p className="mb-3 text-gray-300">
+      <div className="mt-3 rounded-md border border-rose-700 bg-rose-950 p-4">
+        <p className="mb-3 text-stone-300">
           Are you sure you want to cancel? You'll lose access to paid features
           at the end of your billing period.
         </p>
@@ -212,7 +212,7 @@ function Cancel({ guildId }: { guildId: string }) {
           <input type="hidden" name="intent" value="cancel" />
           <button
             type="submit"
-            className="rounded-md bg-rose-700 bg-opacity-85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+            className="rounded-md bg-rose-700/85 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
           >
             Yes, cancel my subscription
           </button>
@@ -228,11 +228,11 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
   const didPay = typeof search.get("success") === "string";
 
   return (
-    <div className="text-gray-300 sm:w-full sm:max-w-3xl">
+    <div className="text-stone-300 sm:w-full sm:max-w-3xl">
       {actionData?.error ? (
-        <div className="my-4 space-y-2 rounded-md border-[1px] border-rose-800 bg-rose-400 bg-opacity-10 p-4">
+        <div className="my-4 space-y-2 rounded-md border-[1px] border-rose-700 bg-rose-950 p-4">
           <p>{actionData.error.message}</p>
-          <details className="text-sm text-gray-400">
+          <details className="text-sm text-stone-500">
             <summary>Technical details</summary>
             <pre className="text-xs">
               <code>{JSON.stringify(actionData.error.detail, null, 2)}</code>
@@ -242,14 +242,18 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
       ) : null}
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
         <div className="space-y-4">
-          <h2 className="text-3xl font-extrabold text-gray-200">
+          <h2 className="font-serif text-3xl font-bold text-stone-100">
             Switch to Paid
           </h2>
-          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
+          <p className="mt-4 text-lg">
+            Unlock the full coordination toolkit for your mod team. Anonymous
+            reports, escalation voting, the ticket system, and /modreport —
+            everything that turns your moderators from individuals into a team.
+          </p>
 
           {currentTier === "paid" ? (
             <div className="mt-6 space-y-4">
-              <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
+              <div className="w-full rounded-md border border-emerald-700 bg-emerald-950 px-4 py-3 text-center text-sm font-medium text-emerald-300">
                 ✓ You have a paid plan
                 {didPay ? ". Thank you for subscribing!" : ""}
               </div>
@@ -260,56 +264,78 @@ export default function Upgrade({ actionData }: Route.ComponentProps) {
               <input type="hidden" name="tier" value="paid" />
               <button
                 type="submit"
-                className="text-sh rounded-md border border-transparent bg-emerald-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                className="text-sh bg-accent-strong rounded-md border border-transparent px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:outline-none"
               >
                 Switch to Paid
               </button>
             </Form>
           )}
           <p>
-            <span className="text-4xl font-extrabold">$100</span>
-            <span className="text-base font-medium text-gray-400">/yr</span>
+            <span className="font-serif text-4xl font-bold">$100</span>
+            <span className="text-base font-medium text-stone-500">/yr</span>
           </p>
           <ul className="mt-6 space-y-2">
-            <Benefit>Anonymous community reports</Benefit>
-            <Benefit>Ticketing system</Benefit>
-            <Benefit>Kick spammers automatically</Benefit>
-            <Benefit>Moderator decision tools</Benefit>
+            <Benefit>
+              Anonymous community reports — members report without fear of
+              retaliation
+            </Benefit>
+            <Benefit>
+              Escalation voting — quorum-based team decisions on enforcement
+            </Benefit>
+            <Benefit>
+              Ticket system — private threads for member support
+            </Benefit>
+            <Benefit>
+              Velocity-based spam detection — catches coordinated raids, not
+              just keywords
+            </Benefit>
+            <Benefit>
+              /modreport analytics — full user moderation history at a glance
+            </Benefit>
           </ul>
+          <p className="mt-4 text-sm text-stone-500">
+            Includes a 90-day free trial. No charge until the trial ends.
+          </p>
           {currentTier === "paid" ? <Cancel guildId={guildId} /> : null}
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-3xl font-extrabold text-gray-200">
+          <h2 className="font-serif text-3xl font-bold text-stone-100">
             Get a custom integration
           </h2>
-          <p className="mt-4 text-lg">{/* TODO: copy for upgrade page */}</p>
+          <p className="mt-4 text-lg">
+            For communities that need guaranteed uptime, a dedicated bot
+            instance, and direct support. Custom plans run on a stable release
+            channel with an SLA.
+          </p>
 
           {currentTier === "custom" ? (
             <div className="mt-6">
-              <div className="w-full rounded-md border border-green-200 bg-green-100 px-4 py-3 text-center text-sm font-medium text-green-800">
+              <div className="w-full rounded-md border border-emerald-700 bg-emerald-950 px-4 py-3 text-center text-sm font-medium text-emerald-300">
                 ✓ You have this plan
               </div>
             </div>
           ) : (
-            <Form method="post">
-              <input type="hidden" name="guild_id" value={guildId} />
-              <input type="hidden" name="tier" value="custom" />
-              <button
-                type="submit"
-                className="shad rounded-md border border-transparent bg-teal-700 px-6 py-2 text-lg font-medium text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-              >
-                Contact Sales
-              </button>
-            </Form>
+            <a
+              href="mailto:support@euno.reactiflux.com?subject=Custom%20Euno%20Plan"
+              className="inline-block rounded-md border border-stone-600 bg-transparent px-6 py-2 text-lg font-medium text-stone-200 shadow-sm hover:bg-stone-800 focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-none"
+            >
+              Contact Sales
+            </a>
           )}
 
           <ul className="mt-6 space-y-2">
-            <Benefit>All paid features</Benefit>
-            <Benefit>Dedicated bot instance</Benefit>
-            <Benefit>Stable bot version</Benefit>
-            <Benefit>Support SLAs</Benefit>
+            <Benefit>Everything in Standard</Benefit>
+            <Benefit>
+              Dedicated bot instance — your own isolated deployment
+            </Benefit>
+            <Benefit>Stable release channel — no surprise updates</Benefit>
+            <Benefit>Support SLA — guaranteed response times</Benefit>
+            <Benefit>Priority feature requests</Benefit>
           </ul>
+          <p className="mt-4 text-sm text-stone-500">
+            Pricing based on community size and requirements.
+          </p>
         </div>
       </div>
     </div>

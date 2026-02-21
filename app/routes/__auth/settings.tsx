@@ -64,7 +64,7 @@ export default function Settings({
         <>
           You haven’t finished setting the bot up for this server yet!{" "}
           <Link
-            className="text-indigo-400 underline"
+            className="text-amber-400 underline hover:text-amber-300"
             to={`/app/${guildId}/onboard`}
           >
             Finish onboarding

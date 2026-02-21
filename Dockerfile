@@ -7,7 +7,7 @@ RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 RUN npm install
 
-COPY vite.config.ts tailwind.config.js kysely.config.ts tsconfig.json .eslint* .prettierignore ./
+COPY vite.config.ts kysely.config.ts tsconfig.json .eslint* .prettierignore ./
 COPY app ./app
 
 RUN npm run build

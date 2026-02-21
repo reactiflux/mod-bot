@@ -16,7 +16,7 @@ export function Login({
     <Form method="post" className="space-y-6" action="/auth">
       <input type="hidden" name="redirectTo" value={redirectTo} />
       <button
-        className="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
+        className="bg-accent-strong w-full rounded px-4 py-2 text-white hover:bg-amber-700 focus:bg-amber-500"
         {...props}
         type="submit"
       >
