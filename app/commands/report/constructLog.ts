@@ -69,7 +69,7 @@ ${preface}
 -# ${extra}${formatDistanceToNowStrict(lastReport.message.createdAt)} ago · <t:${Math.floor(lastReport.message.createdTimestamp / 1000)}:R>`).trim(),
       allowedMentions: { roles: [moderator] },
     } satisfies MessageCreateOptions;
-  });
+  }).pipe(Effect.withSpan("constructLog"));
 
 export const isForwardedMessage = (message: Message): boolean => {
   return message.reference?.type === MessageReferenceType.Forward;

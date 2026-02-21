@@ -128,4 +128,8 @@ export const fetchSettingsEffect = <T extends keyof typeof SETTINGS>(
       );
     }
     return Object.fromEntries(result) as Pick<SettingsRecord, T>;
-  });
+  }).pipe(
+    Effect.withSpan("fetchSettingsEffect", {
+      attributes: { guildId, keys: keys.join(",") },
+    }),
+  );
