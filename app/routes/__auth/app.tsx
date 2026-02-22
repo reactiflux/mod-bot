@@ -172,7 +172,7 @@ export default function AppDashboard() {
             Add Euno to a server to get started.
           </p>
           <a
-            href="https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=8&scope=applications.commands%20bot"
+            href="https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=1443377523858&scope=applications.commands%20bot"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-stone-100 transition-colors hover:bg-amber-500"

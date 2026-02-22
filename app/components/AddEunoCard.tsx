@@ -5,7 +5,7 @@ interface AddEunoCardProps {
 }
 
 const INVITE_BASE =
-  "https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=8&scope=applications.commands%20bot";
+  "https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=1443377523858&scope=applications.commands%20bot";
 
 export function AddEunoCard({ id, name, icon }: AddEunoCardProps) {
   return (
