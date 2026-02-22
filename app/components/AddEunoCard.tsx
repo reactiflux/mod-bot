@@ -1,11 +1,10 @@
+import { botInviteUrl } from "#~/helpers/botPermissions";
+
 interface AddEunoCardProps {
   id: string;
   name: string;
   icon: string | null;
 }
-
-const INVITE_BASE =
-  "https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=1443377523858&scope=applications.commands%20bot";
 
 export function AddEunoCard({ id, name, icon }: AddEunoCardProps) {
   return (
@@ -25,7 +24,7 @@ export function AddEunoCard({ id, name, icon }: AddEunoCardProps) {
         {name}
       </span>
       <a
-        href={`${INVITE_BASE}&guild_id=${id}`}
+        href={botInviteUrl({ guildId: id })}
         target="_blank"
         rel="noopener noreferrer"
         className="shrink-0 rounded-md px-3 py-1 text-xs text-stone-500 transition-colors hover:text-amber-400"

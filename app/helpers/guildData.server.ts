@@ -8,6 +8,7 @@ import {
 } from "discord-api-types/v10";
 
 import { ssrDiscordSdk } from "#~/discord/api";
+import { REQUIRED_PERMISSIONS } from "#~/helpers/botPermissions";
 import { applicationId } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -46,30 +47,6 @@ function toGuildChannel(ch: APIChannel): GuildChannel {
     parentId: "parent_id" in ch ? (ch.parent_id ?? null) : null,
   };
 }
-
-/** Permissions the bot requires to operate — matches /check-requirements */
-const REQUIRED_PERMISSIONS = [
-  { flag: PermissionFlagsBits.ManageChannels, name: "Manage Channels" },
-  { flag: PermissionFlagsBits.ManageRoles, name: "Manage Roles" },
-  { flag: PermissionFlagsBits.ManageMessages, name: "Manage Messages" },
-  {
-    flag: PermissionFlagsBits.ReadMessageHistory,
-    name: "Read Message History",
-  },
-  { flag: PermissionFlagsBits.SendMessages, name: "Send Messages" },
-  {
-    flag: PermissionFlagsBits.SendMessagesInThreads,
-    name: "Send Messages in Threads",
-  },
-  { flag: PermissionFlagsBits.ViewChannel, name: "View Channels" },
-  { flag: PermissionFlagsBits.KickMembers, name: "Kick Members" },
-  { flag: PermissionFlagsBits.ModerateMembers, name: "Moderate Members" },
-  {
-    flag: PermissionFlagsBits.CreatePrivateThreads,
-    name: "Create Private Threads",
-  },
-  { flag: PermissionFlagsBits.ViewAuditLog, name: "View Audit Log" },
-];
 
 /**
  * Fetch the bot's guild member and guild roles, then compute which required
