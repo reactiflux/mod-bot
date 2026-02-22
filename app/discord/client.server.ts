@@ -1,5 +1,6 @@
 import { ActivityType, Client, GatewayIntentBits, Partials } from "discord.js";
 
+import { botInviteUrl } from "#~/helpers/botPermissions";
 import { discordToken } from "#~/helpers/env.server";
 import { log, trackPerformance } from "#~/helpers/observability";
 
@@ -49,7 +50,7 @@ export const login = () => {
         const { id } = client.application;
         log("info", "Client", "Discord application ready", {
           applicationId: id,
-          inviteUrl: `https://discord.com/oauth2/authorize?client_id=${id}&permissions=1443377523858&scope=applications.commands%20bot`,
+          inviteUrl: botInviteUrl({ clientId: id }),
         });
       }
     },

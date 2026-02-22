@@ -4,6 +4,7 @@ import { db, run } from "#~/AppRuntime";
 import { AddEunoCard } from "#~/components/AddEunoCard";
 import { ServerCard } from "#~/components/ServerCard";
 import { ssrDiscordSdk, userDiscordSdkFromRequest } from "#~/discord/api";
+import { botInviteUrl } from "#~/helpers/botPermissions";
 import { getCachedGuilds } from "#~/helpers/guildCache.server";
 import { getUser } from "#~/models/session.server";
 import { SubscriptionService } from "#~/models/subscriptions.server";
@@ -172,7 +173,7 @@ export default function AppDashboard() {
             Add Euno to a server to get started.
           </p>
           <a
-            href="https://discord.com/oauth2/authorize?client_id=984212151608705054&permissions=1443377523858&scope=applications.commands%20bot"
+            href={botInviteUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-stone-100 transition-colors hover:bg-amber-500"
