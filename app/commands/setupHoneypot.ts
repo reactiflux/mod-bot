@@ -13,7 +13,7 @@ import { logEffect } from "#~/effects/observability.ts";
 import type { SlashCommand } from "#~/helpers/discord.js";
 import { featureStats } from "#~/helpers/metrics";
 
-const DEFAULT_MESSAGE_TEXT =
+export const DEFAULT_MESSAGE_TEXT =
   "This channel is used to catch spambots. Do not send a message in this channel or you will be kicked automatically.";
 
 export const Command = [

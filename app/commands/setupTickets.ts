@@ -32,7 +32,7 @@ import {
 import { featureStats } from "#~/helpers/metrics";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
-const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
+export const DEFAULT_BUTTON_TEXT = "Open a private ticket with the moderators";
 
 export const Command = [
   {
