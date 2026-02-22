@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useReducer, type PropsWithChildren } from "react";
 import { data, useNavigation, useSubmit } from "react-router";
 
 import { Page } from "#~/basics/page.js";
@@ -136,24 +136,6 @@ type WizardAction =
   | { type: "update"; fields: Partial<WizardData> }
   | { type: "goto"; step: number };
 
-const TOTAL_STEPS = 5;
-
-function wizardReducer(state: WizardState, action: WizardAction): WizardState {
-  switch (action.type) {
-    case "next":
-      return { ...state, step: Math.min(state.step + 1, TOTAL_STEPS - 1) };
-    case "back":
-      return { ...state, step: Math.max(state.step - 1, 0) };
-    case "update":
-      return { ...state, data: { ...state.data, ...action.fields } };
-    case "goto":
-      return {
-        ...state,
-        step: Math.max(0, Math.min(action.step, TOTAL_STEPS - 1)),
-      };
-  }
-}
-
 const STEPS = [
   { label: "Welcome", validate: () => true },
   {
@@ -165,13 +147,62 @@ const STEPS = [
   { label: "Anti-spam", validate: () => true },
 ];
 
-// --- Shared form styling ---
+function wizardReducer(state: WizardState, action: WizardAction): WizardState {
+  switch (action.type) {
+    case "next":
+      return { ...state, step: Math.min(state.step + 1, STEPS.length - 1) };
+    case "back":
+      return { ...state, step: Math.max(state.step - 1, 0) };
+    case "update":
+      return { ...state, data: { ...state.data, ...action.fields } };
+    case "goto":
+      return {
+        ...state,
+        step: Math.max(0, Math.min(action.step, STEPS.length - 1)),
+      };
+  }
+}
+
+// --- Shared primitives ---
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2.5}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4.5 12.75l6 6 9-13.5"
+      />
+    </svg>
+  );
+}
+
+function StepCard({ children }: PropsWithChildren) {
+  return (
+    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
+      {children}
+    </section>
+  );
+}
+
+function SectionHeading({ children }: PropsWithChildren) {
+  return (
+    <h3 className="font-serif text-xs font-semibold tracking-widest text-stone-500 uppercase">
+      {children}
+    </h3>
+  );
+}
 
 const selectClass =
   "block w-full appearance-none rounded-lg border border-stone-600 bg-surface-base px-3 py-2.5 text-sm text-stone-200 shadow-sm transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none";
 
 function ChannelSelect({
-  id,
   name,
   label,
   description,
@@ -179,33 +210,28 @@ function ChannelSelect({
   value,
   onChange,
 }: {
-  id: string;
   name: string;
   label: string;
   description: string;
   channels: ProcessedChannel[];
-  value?: string;
-  onChange?: (value: string) => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const selectProps = onChange
-    ? {
-        value: value ?? CREATE_NEW,
-        onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-          onChange(e.target.value),
-      }
-    : { defaultValue: CREATE_NEW };
-
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-stone-300">
+      <label
+        htmlFor={name}
+        className="block text-sm font-medium text-stone-300"
+      >
         {label}
       </label>
       <select
-        id={id}
+        id={name}
         name={name}
         required
         className={selectClass}
-        {...selectProps}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       >
         <option value={CREATE_NEW}>+ Create automatically</option>
         <optgroup label="Use existing channel">
@@ -237,7 +263,6 @@ function ChannelSelect({
 }
 
 function RoleSelect({
-  id,
   name,
   label,
   description,
@@ -246,35 +271,30 @@ function RoleSelect({
   value,
   onChange,
 }: {
-  id: string;
   name: string;
   label: string;
   description: string;
   roles: GuildRole[];
   required?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const selectProps = onChange
-    ? {
-        value: value ?? "",
-        onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-          onChange(e.target.value),
-      }
-    : { defaultValue: "" };
-
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-stone-300">
+      <label
+        htmlFor={name}
+        className="block text-sm font-medium text-stone-300"
+      >
         {label}
         {required && <span className="text-rose-400"> *</span>}
       </label>
       <select
-        id={id}
+        id={name}
         name={name}
         required={required}
         className={selectClass}
-        {...selectProps}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       >
         <option value="">Select a role...</option>
         {roles.map((role) => (
@@ -292,20 +312,18 @@ function RoleSelect({
 
 function StepIndicator({
   currentStep,
-  completedUpTo,
   onGoto,
 }: {
   currentStep: number;
-  completedUpTo: number;
   onGoto: (step: number) => void;
 }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         {STEPS.map((s, i) => {
-          const isCompleted = i < completedUpTo;
+          const isCompleted = i < currentStep;
           const isCurrent = i === currentStep;
-          const isClickable = i <= completedUpTo && i !== currentStep;
+          const isClickable = isCompleted && !isCurrent;
 
           return (
             <div key={i} className="flex flex-1 items-center">
@@ -322,28 +340,12 @@ function StepIndicator({
                 }`}
                 aria-label={`Step ${i + 1}: ${s.label}`}
               >
-                {isCompleted ? (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
+                {isCompleted ? <CheckIcon className="h-4 w-4" /> : i + 1}
               </button>
               {i < STEPS.length - 1 && (
                 <div
                   className={`mx-2 h-px flex-1 ${
-                    i < completedUpTo ? "bg-amber-600" : "bg-stone-700"
+                    isCompleted ? "bg-amber-600" : "bg-stone-700"
                   }`}
                 />
               )}
@@ -352,7 +354,7 @@ function StepIndicator({
         })}
       </div>
       <p className="text-center text-xs text-stone-500">
-        Step {currentStep + 1} of {TOTAL_STEPS} &mdash;{" "}
+        Step {currentStep + 1} of {STEPS.length} &mdash;{" "}
         {STEPS[currentStep].label}
       </p>
     </div>
@@ -376,7 +378,7 @@ function WizardNavigation({
   onNext: () => void;
   onSubmit: () => void;
 }) {
-  const isLastStep = step === TOTAL_STEPS - 1;
+  const isLastStep = step === STEPS.length - 1;
 
   return (
     <div className="flex items-center justify-between pt-2">
@@ -412,7 +414,7 @@ function WizardNavigation({
 
 function StepIntro() {
   return (
-    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
+    <StepCard>
       <h3 className="font-serif text-lg font-semibold text-stone-100">
         Welcome to Euno Setup
       </h3>
@@ -448,7 +450,7 @@ function StepIntro() {
         Takes about a minute. You can go back to change any step before
         finishing.
       </p>
-    </section>
+    </StepCard>
   );
 }
 
@@ -462,13 +464,10 @@ function StepRoles({
   onUpdate: (fields: Partial<WizardData>) => void;
 }) {
   return (
-    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
-      <h3 className="font-serif text-xs font-semibold tracking-widest text-stone-500 uppercase">
-        Roles
-      </h3>
+    <StepCard>
+      <SectionHeading>Roles</SectionHeading>
 
       <RoleSelect
-        id="moderator_role"
         name="moderator_role"
         label="Moderator Role"
         description="Members with this role can use moderation commands."
@@ -479,7 +478,6 @@ function StepRoles({
       />
 
       <RoleSelect
-        id="restricted_role"
         name="restricted_role"
         label="Restricted Role"
         description="Applied during timeouts to limit channel access. Optional."
@@ -487,7 +485,7 @@ function StepRoles({
         value={wizardData.restricted_role}
         onChange={(v) => onUpdate({ restricted_role: v })}
       />
-    </section>
+    </StepCard>
   );
 }
 
@@ -501,11 +499,9 @@ function StepLogs({
   onUpdate: (fields: Partial<WizardData>) => void;
 }) {
   return (
-    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
+    <StepCard>
       <div>
-        <h3 className="font-serif text-xs font-semibold tracking-widest text-stone-500 uppercase">
-          Log Channels
-        </h3>
+        <SectionHeading>Log Channels</SectionHeading>
         <p className="mt-1 text-xs text-stone-500">
           These channels are placed in a private{" "}
           <span className="text-stone-400">Euno Logs</span> category, visible
@@ -515,7 +511,6 @@ function StepLogs({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <ChannelSelect
-          id="mod_log_channel"
           name="mod_log_channel"
           label="Mod Log"
           description="Moderation reports and actions."
@@ -525,7 +520,6 @@ function StepLogs({
         />
 
         <ChannelSelect
-          id="deletion_log_channel"
           name="deletion_log_channel"
           label="Deletion Log"
           description="Deleted message captures."
@@ -534,63 +528,39 @@ function StepLogs({
           onChange={(v) => onUpdate({ deletion_log_channel: v })}
         />
       </div>
-    </section>
+    </StepCard>
   );
 }
 
-function StepTickets({
+function SingleChannelStep({
+  heading,
+  name,
+  label,
+  description,
   channels,
-  wizardData,
-  onUpdate,
+  value,
+  onChange,
 }: {
+  heading: string;
+  name: string;
+  label: string;
+  description: string;
   channels: ProcessedChannel[];
-  wizardData: WizardData;
-  onUpdate: (fields: Partial<WizardData>) => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
-    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
-      <h3 className="font-serif text-xs font-semibold tracking-widest text-stone-500 uppercase">
-        Ticket Channel
-      </h3>
-
+    <StepCard>
+      <SectionHeading>{heading}</SectionHeading>
       <ChannelSelect
-        id="ticket_channel"
-        name="ticket_channel"
-        label="Tickets"
-        description="Members open private mod tickets here."
+        name={name}
+        label={label}
+        description={description}
         channels={channels}
-        value={wizardData.ticket_channel}
-        onChange={(v) => onUpdate({ ticket_channel: v })}
+        value={value}
+        onChange={onChange}
       />
-    </section>
-  );
-}
-
-function StepAntispam({
-  channels,
-  wizardData,
-  onUpdate,
-}: {
-  channels: ProcessedChannel[];
-  wizardData: WizardData;
-  onUpdate: (fields: Partial<WizardData>) => void;
-}) {
-  return (
-    <section className="space-y-4 rounded-xl border border-stone-700/60 bg-stone-800/60 p-5">
-      <h3 className="font-serif text-xs font-semibold tracking-widest text-stone-500 uppercase">
-        Anti-Spam
-      </h3>
-
-      <ChannelSelect
-        id="honeypot_channel"
-        name="honeypot_channel"
-        label="Honeypot"
-        description="Trap channel to catch spam bots. Bots that post here are automatically banned."
-        channels={channels}
-        value={wizardData.honeypot_channel}
-        onChange={(v) => onUpdate({ honeypot_channel: v })}
-      />
-    </section>
+    </StepCard>
   );
 }
 
@@ -620,19 +590,7 @@ function SuccessView({ result }: { result: SetupAllResult }) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <div className="bg-success-subtle border-success/30 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border">
-          <svg
-            className="text-success h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.5 12.75l6 6 9-13.5"
-            />
-          </svg>
+          <CheckIcon className="text-success h-6 w-6" />
         </div>
         <div>
           <h2 className="font-serif text-2xl font-bold text-stone-100">
@@ -700,7 +658,7 @@ export default function Onboard({
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  const [state, dispatch] = useReducer(wizardReducer, {
+  const [{ step, data: wizardData }, dispatch] = useReducer(wizardReducer, {
     step: 0,
     data: initialData,
   });
@@ -713,15 +671,10 @@ export default function Onboard({
     );
   }
 
-  const { step, data: wizardData } = state;
   const hasMissingPermissions = missingPermissions.length > 0;
-  const isLastStep = step === TOTAL_STEPS - 1;
+  const isLastStep = step === STEPS.length - 1;
   const canAdvance =
     STEPS[step].validate(wizardData) && !(isLastStep && hasMissingPermissions);
-
-  // Track the highest step reached for the indicator
-  // (completedUpTo = current step means steps 0..step-1 are done)
-  const completedUpTo = step;
 
   const handleUpdate = (fields: Partial<WizardData>) =>
     dispatch({ type: "update", fields });
@@ -729,12 +682,9 @@ export default function Onboard({
   const handleSubmit = () => {
     const formData = new FormData();
     formData.set("guild_id", guildId);
-    formData.set("moderator_role", wizardData.moderator_role);
-    formData.set("restricted_role", wizardData.restricted_role);
-    formData.set("mod_log_channel", wizardData.mod_log_channel);
-    formData.set("deletion_log_channel", wizardData.deletion_log_channel);
-    formData.set("ticket_channel", wizardData.ticket_channel);
-    formData.set("honeypot_channel", wizardData.honeypot_channel);
+    for (const [key, val] of Object.entries(wizardData)) {
+      formData.set(key, val);
+    }
     void submit(formData, { method: "post" });
   };
 
@@ -752,17 +702,25 @@ export default function Onboard({
       wizardData={wizardData}
       onUpdate={handleUpdate}
     />,
-    <StepTickets
+    <SingleChannelStep
       key={3}
+      heading="Ticket Channel"
+      name="ticket_channel"
+      label="Tickets"
+      description="Members open private mod tickets here."
       channels={channels}
-      wizardData={wizardData}
-      onUpdate={handleUpdate}
+      value={wizardData.ticket_channel}
+      onChange={(v) => handleUpdate({ ticket_channel: v })}
     />,
-    <StepAntispam
+    <SingleChannelStep
       key={4}
+      heading="Anti-Spam"
+      name="honeypot_channel"
+      label="Honeypot"
+      description="Trap channel to catch spam bots. Bots that post here are automatically banned."
       channels={channels}
-      wizardData={wizardData}
-      onUpdate={handleUpdate}
+      value={wizardData.honeypot_channel}
+      onChange={(v) => handleUpdate({ honeypot_channel: v })}
     />,
   ];
 
@@ -779,7 +737,6 @@ export default function Onboard({
 
       <StepIndicator
         currentStep={step}
-        completedUpTo={completedUpTo}
         onGoto={(s) => dispatch({ type: "goto", step: s })}
       />
 
