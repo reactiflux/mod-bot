@@ -323,3 +323,16 @@ export const interactionUpdate = (
     catch: (error) =>
       new DiscordApiError({ operation: "interactionUpdate", cause: error }),
   }).pipe(Effect.withSpan("discord.interactionUpdate"));
+
+export const interactionDeferUpdate = (
+  interaction: MessageComponentInteraction,
+  options?: Parameters<typeof interaction.deferUpdate>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.deferUpdate(options),
+    catch: (error) =>
+      new DiscordApiError({
+        operation: "interactionDeferUpdate",
+        cause: error,
+      }),
+  }).pipe(Effect.withSpan("discord.interactionDeferUpdate"));

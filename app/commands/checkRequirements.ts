@@ -62,7 +62,7 @@ export const Command = {
         results.push({
           name: "Guild Registration",
           ok: false,
-          detail: "Guild not registered. Run `/setup` or `/setup-all`.",
+          detail: "Guild not registered. Run `/setup`.",
         });
       } else {
         results.push({
@@ -275,7 +275,7 @@ export const Command = {
                   ? allOk
                     ? "All checks passed"
                     : "Core features configured. Optional features noted above."
-                  : "Run /setup or /setup-all to fix configuration",
+                  : "Run /setup to fix configuration",
             },
           },
         ],
