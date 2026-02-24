@@ -20,6 +20,61 @@ import {
   startMessageCacheExpiration,
 } from "./messageCacheService";
 
+// --- Uncached deletion batching ---
+// Collapses rapid-fire uncached deletions from the same channel into a single
+// log entry instead of spamming one embed per message.
+
+interface UncachedBatch {
+  count: number;
+  sourceChannelId: string;
+  deletionLogChannelId: string;
+  guildId: string;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const UNCACHED_BATCH_WINDOW_MS = 10_000; // 10 seconds
+const uncachedBatches = new Map<string, UncachedBatch>();
+
+function flushUncachedBatch(key: string, client: Client) {
+  const batch = uncachedBatches.get(key);
+  if (!batch) return;
+  uncachedBatches.delete(key);
+
+  void runEffect(
+    Effect.gen(function* () {
+      const guild = yield* fetchGuild(client, batch.guildId);
+      const logChannel = yield* fetchChannel(
+        guild,
+        batch.deletionLogChannelId,
+      ).pipe(Effect.catchAll(() => Effect.succeed(null)));
+
+      if (!logChannel?.isTextBased()) return;
+
+      const s = batch.count !== 1 ? "s" : "";
+      yield* Effect.tryPromise({
+        try: () =>
+          logChannel.send({
+            allowedMentions: { parse: [] },
+            embeds: [
+              {
+                description: `-# ${batch.count} uncached message${s} deleted from <#${batch.sourceChannelId}>\n-# we don't know the content or author of uncached messages`,
+                color: Colors.Red,
+              },
+            ],
+          }),
+        catch: () => Effect.void,
+      }).pipe(Effect.catchAll((e) => e));
+    }).pipe(
+      Effect.catchAll((e) =>
+        logEffect("warn", "DeletionLogger", "Failed to flush uncached batch", {
+          key,
+          error: String(e),
+        }),
+      ),
+    ),
+  );
+}
+
 export async function startDeletionLogging(client: Client) {
   // Cache every guild message so we have author/content on delete even for
   // messages Discord doesn't include in the partial delete event.
@@ -89,44 +144,29 @@ export async function startDeletionLogging(client: Client) {
         const content = msg.content ?? cached?.content ?? null;
 
         if (!userId) {
-          // Nothing to attribute — post a minimal record to the log channel
-          const logChannel = yield* fetchChannel(
-            guild,
-            settings.deletionLog,
-          ).pipe(Effect.catchAll(() => Effect.succeed(null)));
+          // Batch uncached deletions to avoid flooding the log when someone
+          // mass-deletes old messages the bot never cached.
+          const batchKey = `${guild.id}:${msg.channelId}`;
+          const existing = uncachedBatches.get(batchKey);
 
-          if (logChannel?.isTextBased()) {
-            const uncachedAuditEntry = yield* fetchAuditLogEntry(
-              guild,
-              msg.id,
-              AuditLogEvent.MessageDelete,
-              (entries) =>
-                entries.find(
-                  (e) =>
-                    (e.extra as { channel?: { id: string } } | null)?.channel
-                      ?.id === msg.channelId &&
-                    Date.now() - e.createdTimestamp < AUDIT_LOG_WINDOW_MS,
-                ),
-            ).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
-
-            const sent = `<t:${Math.floor(msg.createdTimestamp / 1000)}:R>`;
-            const header = uncachedAuditEntry?.executor
-              ? `-# <@${uncachedAuditEntry.executor.id}> deleted from ${channelMention}, sent ${sent}`
-              : `-# Message deleted from ${channelMention}, sent ${sent}`;
-
-            yield* Effect.tryPromise({
-              try: () =>
-                logChannel.send({
-                  allowedMentions: { parse: [] },
-                  embeds: [
-                    {
-                      description: `${header}\n-# we don't know the content or author of uncached messages`,
-                      color: Colors.Red,
-                    },
-                  ],
-                }),
-              catch: () => Effect.void,
-            }).pipe(Effect.catchAll((e) => e));
+          if (existing) {
+            existing.count++;
+            clearTimeout(existing.timer);
+            existing.timer = setTimeout(
+              () => flushUncachedBatch(batchKey, client),
+              UNCACHED_BATCH_WINDOW_MS,
+            );
+          } else {
+            uncachedBatches.set(batchKey, {
+              count: 1,
+              sourceChannelId: msg.channelId,
+              deletionLogChannelId: settings.deletionLog,
+              guildId: guild.id,
+              timer: setTimeout(
+                () => flushUncachedBatch(batchKey, client),
+                UNCACHED_BATCH_WINDOW_MS,
+              ),
+            });
           }
           return;
         }
