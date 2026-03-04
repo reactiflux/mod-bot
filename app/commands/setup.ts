@@ -22,8 +22,8 @@ export const Command = {
   handler: (interaction) =>
     Effect.gen(function* () {
       if (!interaction.guild || !interaction.guildId) {
-        yield* Effect.fail(new Error("Interaction has no guild"));
-        return;
+        // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+        return yield* Effect.fail(new Error("Interaction has no guild"));
       }
 
       yield* logEffect("info", "Commands", "Setup command executed", {

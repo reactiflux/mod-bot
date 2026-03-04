@@ -10,15 +10,15 @@ import {
   interactionDeferUpdate,
   interactionEditReply,
   interactionUpdate,
-} from "#~/effects/discordSdk.ts";
-import { logEffect } from "#~/effects/observability.ts";
+} from "#~/effects/discordSdk";
+import { logEffect } from "#~/effects/observability";
 import type { MessageComponentCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
 import {
   CREATE_SENTINEL,
   setupAll,
   type SetupAllResult,
-} from "#~/helpers/setupAll.server";
+} from "#~/helpers/setupAll.server.ts";
 
 // --- State management ---
 
@@ -302,8 +302,9 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
       Effect.gen(function* () {
         const guildId = interaction.customId.split("|")[1];
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
-          return;
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          //
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
         }
 
         yield* interactionUpdate(interaction, {
@@ -351,20 +352,20 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
     handler: (interaction) =>
       Effect.gen(function* () {
         if (!interaction.isRoleSelectMenu()) {
-          yield* Effect.fail(new Error("Invalid interaction"));
-          return;
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Invalid interaction"));
         }
 
         const guildId = interaction.customId.split("|")[1];
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
-          return;
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
         }
 
         const modRoleId = interaction.values[0];
         if (!modRoleId) {
-          yield* Effect.fail(new Error("No role selected"));
-          return;
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("No role selected"));
         }
 
         // Clean up stale setups and store the new one
@@ -443,7 +444,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
       Effect.gen(function* () {
         const guildId = interaction.customId.split("|")[1];
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
           return;
         }
 
@@ -492,7 +494,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
       Effect.gen(function* () {
         const guildId = interaction.customId.split("|")[1];
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
           return;
         }
 
@@ -540,7 +543,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         const isNew = parts[3] === "new";
 
         if (!guildId || !stepStr) {
-          yield* Effect.fail(new Error("Invalid customId"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Invalid customId"));
           return;
         }
 
@@ -559,19 +563,24 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         } else if (interaction.isChannelSelectMenu()) {
           const selected = interaction.values[0];
           if (!selected) {
-            yield* Effect.fail(new Error("No channel selected"));
+            // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+            return yield* Effect.fail(new Error("No channel selected"));
             return;
           }
           value = selected;
         } else {
-          yield* Effect.fail(new Error("Unexpected interaction type"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Unexpected interaction type"));
           return;
         }
 
         // Store the value based on step number
         const step = CHANNEL_STEPS[stepNum - 1];
         if (!step) {
-          yield* Effect.fail(new Error(`Invalid step number: ${stepNum}`));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(
+            new Error(`Invalid step number: ${stepNum}`),
+          );
           return;
         }
         state[step.stateKey] = value;
@@ -617,7 +626,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         const isSkip = parts[2] === "skip";
 
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
           return;
         }
 
@@ -633,7 +643,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         } else if (interaction.isRoleSelectMenu()) {
           state.restrictedRoleId = interaction.values[0];
         } else {
-          yield* Effect.fail(new Error("Unexpected interaction type"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Unexpected interaction type"));
           return;
         }
 
@@ -667,7 +678,8 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
       Effect.gen(function* () {
         const guildId = interaction.customId.split("|")[1];
         if (!guildId) {
-          yield* Effect.fail(new Error("Missing guildId in customId"));
+          // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+          return yield* Effect.fail(new Error("Missing guildId in customId"));
           return;
         }
 
