@@ -43,5 +43,7 @@ export const stripeWebhookSecret = getEnv("STRIPE_WEBHOOK_SECRET");
 export const posthogApiKey = getEnv("POSTHOG_KEY", true);
 export const posthogHost = getEnv("POSTHOG_HOST", true);
 
+export const webBaseUrl = getEnv("WEB_BASE_URL", true);
+
 if (!ok) throw new Error("Environment misconfigured");
 console.log("");

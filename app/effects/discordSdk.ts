@@ -11,6 +11,7 @@ import type {
   ChatInputCommandInteraction,
   Client,
   Guild,
+  GuildChannelCreateOptions,
   GuildMember,
   GuildTextBasedChannel,
   Message,
@@ -26,6 +27,20 @@ import { Effect } from "effect";
 
 import { DiscordApiError } from "#~/effects/errors";
 import { logEffect } from "#~/effects/observability";
+
+export const createChannel = (
+  guild: Guild,
+  options: GuildChannelCreateOptions,
+) =>
+  Effect.tryPromise({
+    try: () => guild.channels.create(options),
+    catch: (error) =>
+      new DiscordApiError({ operation: "createChannel", cause: error }),
+  }).pipe(
+    Effect.withSpan("discord.createChannel", {
+      attributes: { guildId: guild.id, channelName: options.name },
+    }),
+  );
 
 export const fetchGuild = (client: Client, guildId: string) =>
   Effect.tryPromise({
@@ -308,3 +323,16 @@ export const interactionUpdate = (
     catch: (error) =>
       new DiscordApiError({ operation: "interactionUpdate", cause: error }),
   }).pipe(Effect.withSpan("discord.interactionUpdate"));
+
+export const interactionDeferUpdate = (
+  interaction: MessageComponentInteraction,
+  options?: Parameters<typeof interaction.deferUpdate>[0],
+) =>
+  Effect.tryPromise({
+    try: () => interaction.deferUpdate(options),
+    catch: (error) =>
+      new DiscordApiError({
+        operation: "interactionDeferUpdate",
+        cause: error,
+      }),
+  }).pipe(Effect.withSpan("discord.interactionDeferUpdate"));

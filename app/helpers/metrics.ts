@@ -2,6 +2,7 @@ import type {
   ChatInputCommandInteraction,
   Guild,
   Message,
+  MessageComponentInteraction,
   MessageContextMenuCommandInteraction,
   ThreadChannel,
   UserContextMenuCommandInteraction,
@@ -144,7 +145,7 @@ export const commandStats = {
     }),
 
   setupCompleted: (
-    interaction: ChatInputCommandInteraction,
+    interaction: ChatInputCommandInteraction | MessageComponentInteraction,
     settings: Record<string, string | undefined>,
   ) =>
     emitEvent(events.setupCompleted, {

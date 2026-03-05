@@ -18,7 +18,7 @@ export default async (bot: Client) => {
     // New installation - deploy commands and send welcome message
     await deployCommands(client);
 
-    const welcomeMessage = `Euno is here! Set it up with \`/setup\``;
+    const welcomeMessage = `Euno is here! Run \`/setup\` to get started.`;
 
     const channels = await guild.channels.fetch();
     const likelyChannels = channels.filter((c): c is TextChannel =>

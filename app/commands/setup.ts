@@ -1,106 +1,82 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import {
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+  PermissionFlagsBits,
+  SlashCommandBuilder,
+} from "discord.js";
 import { Effect } from "effect";
 
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { SlashCommand } from "#~/helpers/discord";
+import { webBaseUrl } from "#~/helpers/env.server";
 import { commandStats } from "#~/helpers/metrics";
-import { registerGuild, setSettings, SETTINGS } from "#~/models/guilds.server";
 
 export const Command = {
   command: new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Set up necessities for using the bot")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addRoleOption((x) =>
-      x
-        .setName("moderator")
-        .setDescription("The role that grants moderator permissions for a user")
-        .setRequired(true),
-    )
-    .addChannelOption((x) =>
-      x
-        .setName("mod-log-channel")
-        .setDescription("The channel where moderation reports will be sent")
-        .setRequired(true),
-    )
-    .addRoleOption((x) =>
-      x
-        .setName("restricted")
-        .setDescription(
-          "The role that prevents a member from accessing some channels",
-        ),
-    )
-    .addChannelOption((x) =>
-      x
-        .setName("deletion-log-channel")
-        .setDescription(
-          "The channel where message deletions and edits will be logged",
-        ),
-    ) as SlashCommandBuilder,
+    .setDescription("Set up Euno for your server")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   handler: (interaction) =>
     Effect.gen(function* () {
+      if (!interaction.guild || !interaction.guildId) {
+        // @effect-diagnostics-next-line globalErrorInEffectFailure:off
+        return yield* Effect.fail(new Error("Interaction has no guild"));
+      }
+
       yield* logEffect("info", "Commands", "Setup command executed", {
         guildId: interaction.guildId,
         userId: interaction.user.id,
         username: interaction.user.username,
       });
 
-      if (!interaction.guild) {
-        yield* Effect.fail(new Error("Interaction has no guild"));
-        return;
+      const guildId = interaction.guildId;
+
+      const buttons: {
+        type: ComponentType.Button;
+        label: string;
+        style: ButtonStyle;
+        custom_id?: string;
+        url?: string;
+      }[] = [];
+
+      if (webBaseUrl) {
+        buttons.push({
+          type: ComponentType.Button,
+          label: "Web Setup Wizard",
+          style: ButtonStyle.Link,
+          url: `${webBaseUrl}/app/${guildId}/onboard`,
+        });
       }
 
-      yield* Effect.tryPromise(() =>
-        registerGuild(interaction.guildId!).catch(console.error),
-      );
-
-      const role = interaction.options.getRole("moderator");
-      const channel = interaction.options.getChannel("mod-log-channel");
-      const restricted = interaction.options.getRole("restricted");
-      const deletionLogChannel = interaction.options.getChannel(
-        "deletion-log-channel",
-      );
-
-      if (!role) {
-        yield* Effect.fail(new Error("Interaction has no role"));
-        return;
-      }
-      if (!channel) {
-        yield* Effect.fail(new Error("Interaction has no channel"));
-        return;
-      }
-
-      const settings = {
-        [SETTINGS.modLog]: channel.id,
-        [SETTINGS.moderator]: role.id,
-        [SETTINGS.restricted]: restricted?.id,
-        [SETTINGS.deletionLog]: deletionLogChannel?.id,
-      };
-
-      yield* Effect.tryPromise(() =>
-        setSettings(interaction.guildId!, settings),
-      );
-
-      yield* logEffect("info", "Commands", "Setup completed successfully", {
-        guildId: interaction.guildId,
-        userId: interaction.user.id,
-        moderatorRoleId: role.id,
-        modLogChannelId: channel.id,
-        restrictedRoleId: restricted?.id,
-        hasRestrictedRole: !!restricted,
+      buttons.push({
+        type: ComponentType.Button,
+        label: "Set up in Discord",
+        style: ButtonStyle.Primary,
+        custom_id: `setup-discord|${guildId}`,
       });
 
-      commandStats.setupCompleted(interaction, {
-        moderator: role.id,
-        modLog: channel.id,
-        restricted: restricted?.id,
+      yield* interactionReply(interaction, {
+        embeds: [
+          {
+            title: "Set up Euno",
+            description:
+              "Choose how you'd like to configure Euno. The in-Discord flow will auto-create all necessary channels.",
+            color: 0x5865f2,
+          },
+        ],
+        components: [
+          {
+            type: ComponentType.ActionRow,
+            components: buttons,
+          },
+        ],
+        flags: [MessageFlags.Ephemeral],
       });
 
       commandStats.commandExecuted(interaction, "setup", true);
-
-      yield* interactionReply(interaction, "Setup completed!");
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {

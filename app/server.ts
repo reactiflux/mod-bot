@@ -8,12 +8,14 @@ import pinoHttp from "pino-http";
 
 import { createRequestHandler } from "@react-router/express";
 
+import { Command as checkRequirements } from "#~/commands/checkRequirements";
 import { EscalationCommands } from "#~/commands/escalationControls";
 import { Command as forceBan } from "#~/commands/force-ban";
 import { Command as modreport } from "#~/commands/modreport";
 import { Command as report } from "#~/commands/report";
 import modActionLogger from "#~/commands/report/modActionLogger";
 import { Command as setup } from "#~/commands/setup";
+import { SetupComponentCommands } from "#~/commands/setupHandlers";
 import { Command as setupHoneypot } from "#~/commands/setupHoneypot";
 import { Command as setupReactjiChannel } from "#~/commands/setupReactjiChannel";
 import { Command as setupTicket } from "#~/commands/setupTickets";
@@ -88,6 +90,8 @@ const startup = Effect.gen(function* () {
     registerCommand(setupReactjiChannel),
     registerCommand(EscalationCommands),
     registerCommand(setupHoneypot),
+    registerCommand(SetupComponentCommands),
+    registerCommand(checkRequirements),
     registerCommand(modreport),
   ]);
 
