@@ -27,16 +27,16 @@ export interface SetupAllOptions {
   moderatorRoleId: string;
   restrictedRoleId?: string;
   modLogChannel: string; // channel ID or CREATE_SENTINEL
-  deletionLogChannel: string;
-  honeypotChannel: string;
-  ticketChannel: string;
+  deletionLogChannel?: string; // channel ID, CREATE_SENTINEL, or undefined (disabled)
+  honeypotChannel?: string; // channel ID, CREATE_SENTINEL, or undefined (disabled)
+  ticketChannel?: string; // channel ID, CREATE_SENTINEL, or undefined (disabled)
 }
 
 export interface SetupAllResult {
   modLogChannelId: string;
-  deletionLogChannelId: string;
-  honeypotChannelId: string;
-  ticketChannelId: string;
+  deletionLogChannelId: string | undefined;
+  honeypotChannelId: string | undefined;
+  ticketChannelId: string | undefined;
   created: string[]; // names of channels that were created
 }
 
@@ -126,8 +126,8 @@ export async function setupAll(
     modLogChannelId = modLogChannel;
   }
 
-  // --- Deletion-log channel ---
-  let deletionLogChannelId: string;
+  // --- Deletion-log channel (optional) ---
+  let deletionLogChannelId: string | undefined;
   if (deletionLogChannel === CREATE_SENTINEL) {
     const ch = await createGuildChannel(guildId, {
       name: "deletion-log",
@@ -136,7 +136,7 @@ export async function setupAll(
     });
     deletionLogChannelId = ch.id;
     created.push("deletion-log");
-  } else {
+  } else if (deletionLogChannel !== undefined) {
     deletionLogChannelId = deletionLogChannel;
   }
 
@@ -145,11 +145,13 @@ export async function setupAll(
     [SETTINGS.modLog]: modLogChannelId,
     [SETTINGS.moderator]: moderatorRoleId,
     [SETTINGS.restricted]: restrictedRoleId,
-    [SETTINGS.deletionLog]: deletionLogChannelId,
+    ...(deletionLogChannelId
+      ? { [SETTINGS.deletionLog]: deletionLogChannelId }
+      : {}),
   });
 
-  // --- Honeypot channel ---
-  let honeypotChannelId: string;
+  // --- Honeypot channel (optional) ---
+  let honeypotChannelId: string | undefined;
   if (honeypotChannel === CREATE_SENTINEL) {
     const ch = await createGuildChannel(guildId, {
       name: "honeypot",
@@ -162,22 +164,24 @@ export async function setupAll(
     await sendChannelMessage(honeypotChannelId, {
       content: DEFAULT_MESSAGE_TEXT,
     });
-  } else {
+  } else if (honeypotChannel !== undefined) {
     honeypotChannelId = honeypotChannel;
   }
 
-  await run(
-    db
-      .insertInto("honeypot_config")
-      .values({
-        guild_id: guildId,
-        channel_id: honeypotChannelId,
-      })
-      .onConflict((c) => c.doNothing()),
-  );
+  if (honeypotChannelId !== undefined) {
+    await run(
+      db
+        .insertInto("honeypot_config")
+        .values({
+          guild_id: guildId,
+          channel_id: honeypotChannelId,
+        })
+        .onConflict((c) => c.doNothing()),
+    );
+  }
 
-  // --- Ticket channel ---
-  let ticketChannelId: string;
+  // --- Ticket channel (optional) ---
+  let ticketChannelId: string | undefined;
   if (ticketChannel === CREATE_SENTINEL) {
     const ch = await createGuildChannel(guildId, {
       name: "contact-mods",
@@ -185,33 +189,35 @@ export async function setupAll(
     });
     ticketChannelId = ch.id;
     created.push("contact-mods");
-  } else {
+  } else if (ticketChannel !== undefined) {
     ticketChannelId = ticketChannel;
   }
 
-  const ticketMessage = await sendChannelMessage(ticketChannelId, {
-    components: [
-      {
-        type: ComponentType.ActionRow,
-        components: [
-          {
-            type: ComponentType.Button,
-            label: DEFAULT_BUTTON_TEXT,
-            style: ButtonStyle.Primary,
-            custom_id: "open-ticket",
-          },
-        ],
-      },
-    ],
-  });
+  if (ticketChannelId !== undefined) {
+    const ticketMessage = await sendChannelMessage(ticketChannelId, {
+      components: [
+        {
+          type: ComponentType.ActionRow,
+          components: [
+            {
+              type: ComponentType.Button,
+              label: DEFAULT_BUTTON_TEXT,
+              style: ButtonStyle.Primary,
+              custom_id: "open-ticket",
+            },
+          ],
+        },
+      ],
+    });
 
-  await run(
-    db.insertInto("tickets_config").values({
-      message_id: ticketMessage.id,
-      channel_id: ticketChannelId,
-      role_id: moderatorRoleId,
-    }),
-  );
+    await run(
+      db.insertInto("tickets_config").values({
+        message_id: ticketMessage.id,
+        channel_id: ticketChannelId,
+        role_id: moderatorRoleId,
+      }),
+    );
+  }
 
   // --- Initialize free subscription ---
   await SubscriptionService.initializeFreeSubscription(guildId);

@@ -22,10 +22,10 @@ import { CREATE_SENTINEL, setupAll } from "#~/helpers/setupAll.server.ts";
 
 interface PendingSetup {
   modRoleId?: string; // undefined until selected (required)
-  modLogChannel: string; // defaults to CREATE_SENTINEL
-  deletionLogChannel: string; // defaults to CREATE_SENTINEL
-  honeypotChannel: string; // defaults to CREATE_SENTINEL
-  ticketChannel: string; // defaults to CREATE_SENTINEL
+  modLogChannel: string; // channel ID or CREATE_SENTINEL
+  deletionLogChannel: string | null; // channel ID, CREATE_SENTINEL, or null (disabled)
+  honeypotChannel: string | null; // channel ID, CREATE_SENTINEL, or null (disabled)
+  ticketChannel: string | null; // channel ID, CREATE_SENTINEL, or null (disabled)
   restrictedRoleId?: string; // undefined = skip
   createdAt: number;
 }
@@ -57,12 +57,47 @@ function defaultSetup(): Omit<PendingSetup, "createdAt"> {
   };
 }
 
+const FIELD_MAP = {
+  modRole: "modRoleId",
+  modLog: "modLogChannel",
+  deletionLog: "deletionLogChannel",
+  honeypot: "honeypotChannel",
+  tickets: "ticketChannel",
+  restrictedRole: "restrictedRoleId",
+} as const;
+
+type FieldKey = keyof typeof FIELD_MAP;
+
 // --- Helper functions ---
 
-function channelValue(value: string, createLabel: string): string {
-  return value === CREATE_SENTINEL
-    ? `Create new #${createLabel}`
-    : `<#${value}>`;
+function channelValue(value: string | null, createLabel: string): string {
+  if (value === null) return "Disabled";
+  if (value === CREATE_SENTINEL) return `Create new #${createLabel}`;
+  return `<#${value}>`;
+}
+
+const OPTIONAL_CHANNELS = [
+  { field: "deletionLog", label: "Deletion Log" },
+  { field: "honeypot", label: "Honeypot" },
+  { field: "tickets", label: "Tickets" },
+] as const;
+
+function buildFeatureToggleRow(guildId: string, state: PendingSetup) {
+  return {
+    type: ComponentType.ActionRow,
+    components: OPTIONAL_CHANNELS.map(({ field, label }) => {
+      const value = (state as unknown as Record<string, string | null>)[
+        FIELD_MAP[field]
+      ];
+      const isDisabled = value === null;
+      return {
+        type: ComponentType.Button,
+        custom_id: `setup-sel|${guildId}|${field}|${isDisabled ? "enable" : "disable"}`,
+        label: `${isDisabled ? "✗" : "✓"} ${label}`,
+        style: isDisabled ? ButtonStyle.Danger : ButtonStyle.Success,
+      };
+    }),
+  };
 }
 
 function v2Payload(payload: object) {
@@ -86,8 +121,8 @@ function buildSetupFormMessage(
   state: PendingSetup,
   errorText?: string,
 ) {
-  function channelDefaultValues(value: string) {
-    return value !== CREATE_SENTINEL
+  function channelDefaultValues(value: string | null) {
+    return value !== null && value !== CREATE_SENTINEL
       ? [{ id: value, type: "channel" as const }]
       : undefined;
   }
@@ -170,7 +205,11 @@ function buildSetupFormMessage(
               {
                 type: ComponentType.ChannelSelect,
                 custom_id: `setup-sel|${guildId}|deletionLog`,
-                placeholder: "Create new #deletion-log (default)",
+                placeholder:
+                  state.deletionLogChannel === null
+                    ? "Disabled"
+                    : "Create new #deletion-log (default)",
+                disabled: state.deletionLogChannel === null,
                 channel_types: [ChannelType.GuildText],
                 ...(channelDefaultValues(state.deletionLogChannel)
                   ? {
@@ -193,7 +232,11 @@ function buildSetupFormMessage(
               {
                 type: ComponentType.ChannelSelect,
                 custom_id: `setup-sel|${guildId}|honeypot`,
-                placeholder: "Create new #honeypot (default)",
+                placeholder:
+                  state.honeypotChannel === null
+                    ? "Disabled"
+                    : "Create new #honeypot (default)",
+                disabled: state.honeypotChannel === null,
                 channel_types: [ChannelType.GuildText],
                 ...(channelDefaultValues(state.honeypotChannel)
                   ? {
@@ -216,7 +259,11 @@ function buildSetupFormMessage(
               {
                 type: ComponentType.ChannelSelect,
                 custom_id: `setup-sel|${guildId}|tickets`,
-                placeholder: "Create new #contact-mods (default)",
+                placeholder:
+                  state.ticketChannel === null
+                    ? "Disabled"
+                    : "Create new #contact-mods (default)",
+                disabled: state.ticketChannel === null,
                 channel_types: [ChannelType.GuildText],
                 ...(channelDefaultValues(state.ticketChannel)
                   ? {
@@ -247,6 +294,12 @@ function buildSetupFormMessage(
               },
             ],
           },
+          { type: ComponentType.Separator },
+          {
+            type: ComponentType.TextDisplay,
+            content: "**Enabled features**",
+          },
+          buildFeatureToggleRow(guildId, state),
           { type: ComponentType.Separator },
           {
             type: ComponentType.ActionRow,
@@ -329,17 +382,6 @@ const button = (name: string) => ({
   name,
 });
 
-const FIELD_MAP = {
-  modRole: "modRoleId",
-  modLog: "modLogChannel",
-  deletionLog: "deletionLogChannel",
-  honeypot: "honeypotChannel",
-  tickets: "ticketChannel",
-  restrictedRole: "restrictedRoleId",
-} as const;
-
-type FieldKey = keyof typeof FIELD_MAP;
-
 export const SetupComponentCommands: MessageComponentCommand[] = [
   // 1. setup-sel — update one state field, deferUpdate to preserve UI
   {
@@ -359,6 +401,19 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         const state = pendingSetups.get(key);
         if (!state) {
           yield* interactionUpdate(interaction, EXPIRED_MESSAGE);
+          return;
+        }
+
+        const action = parts[3]; // "disable" | "enable" | undefined
+
+        if (action === "disable" || action === "enable") {
+          const stateKey = FIELD_MAP[field];
+          (state as unknown as Record<string, string | null>)[stateKey] =
+            action === "disable" ? null : CREATE_SENTINEL;
+          yield* interactionUpdate(
+            interaction,
+            buildSetupFormMessage(guildId, state),
+          );
           return;
         }
 
@@ -509,9 +564,9 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
             moderatorRoleId: state.modRoleId!,
             restrictedRoleId: state.restrictedRoleId,
             modLogChannel: state.modLogChannel,
-            deletionLogChannel: state.deletionLogChannel,
-            honeypotChannel: state.honeypotChannel,
-            ticketChannel: state.ticketChannel,
+            deletionLogChannel: state.deletionLogChannel ?? undefined,
+            honeypotChannel: state.honeypotChannel ?? undefined,
+            ticketChannel: state.ticketChannel ?? undefined,
           }),
         );
 
@@ -538,9 +593,15 @@ export const SetupComponentCommands: MessageComponentCommand[] = [
         const statusLines = [
           `**Moderator Role:** <@&${state.modRoleId}>`,
           `**Mod Log:** <#${result.modLogChannelId}>${result.created.includes("mod-log") ? " (created)" : ""}`,
-          `**Deletion Log:** <#${result.deletionLogChannelId}>${result.created.includes("deletion-log") ? " (created)" : ""}`,
-          `**Honeypot:** <#${result.honeypotChannelId}>${result.created.includes("honeypot") ? " (created)" : ""}`,
-          `**Tickets:** <#${result.ticketChannelId}>${result.created.includes("contact-mods") ? " (created)" : ""}`,
+          result.deletionLogChannelId
+            ? `**Deletion Log:** <#${result.deletionLogChannelId}>${result.created.includes("deletion-log") ? " (created)" : ""}`
+            : "**Deletion Log:** Disabled",
+          result.honeypotChannelId
+            ? `**Honeypot:** <#${result.honeypotChannelId}>${result.created.includes("honeypot") ? " (created)" : ""}`
+            : "**Honeypot:** Disabled",
+          result.ticketChannelId
+            ? `**Tickets:** <#${result.ticketChannelId}>${result.created.includes("contact-mods") ? " (created)" : ""}`
+            : "**Tickets:** Disabled",
           ...(state.restrictedRoleId
             ? [`**Restricted Role:** <@&${state.restrictedRoleId}>`]
             : []),
