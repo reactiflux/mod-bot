@@ -57,7 +57,6 @@ const vote =
           components: [
             buildConfirmedMessageComponents(escalation, tally.leader, tally),
           ],
-          flags: MessageFlags.IsComponentsV2,
         });
         return;
       }
@@ -74,7 +73,6 @@ const vote =
             earlyResolution,
           ),
         ],
-        flags: MessageFlags.IsComponentsV2,
       });
     }).pipe(
       Effect.withSpan("escalation-vote", {
@@ -149,7 +147,6 @@ const expedite = (interaction: MessageComponentInteraction) =>
 
     yield* editMessage(interaction.message, {
       components: [container],
-      flags: MessageFlags.IsComponentsV2,
     });
   }).pipe(
     Effect.withSpan("escalation-expedite", {

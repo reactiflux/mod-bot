@@ -1,6 +1,5 @@
 import {
   ContainerBuilder,
-  MessageFlags,
   SeparatorBuilder,
   SeparatorSpacingSize,
   TextDisplayBuilder,
@@ -157,7 +156,6 @@ export const processEscalationEffect = (
         escalationService.resolveEscalation(escalation.id, resolutions.track),
         editMessage(voteMessage, {
           components: [resolvedContainer],
-          flags: MessageFlags.IsComponentsV2,
         }),
         replyAndForwardSafe(voteMessage, content, modLog),
       ]).pipe(Effect.withConcurrency("unbounded"));
@@ -190,7 +188,6 @@ export const processEscalationEffect = (
       escalationService.resolveEscalation(escalation.id, resolution),
       editMessage(voteMessage, {
         components: [resolvedContainer],
-        flags: MessageFlags.IsComponentsV2,
       }),
       replyAndForwardSafe(voteMessage, `${noticeText}\n${timing}`, modLog),
       logEffect(

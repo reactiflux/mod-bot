@@ -228,7 +228,6 @@ export const upgradeToMajorityEffect = (
           false,
         ),
       ],
-      flags: MessageFlags.IsComponentsV2,
     });
 
     // Update the escalation's voting strategy and scheduled_for
