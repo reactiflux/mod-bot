@@ -3,7 +3,9 @@ concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-on: push
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
