@@ -151,6 +151,18 @@ export const SpamDetectionServiceLive = Layer.effect(
       checkMessage: (message, member) =>
         Effect.gen(function* () {
           const guildId = message.guild!.id;
+
+          // Check if moderator — mods are exempt from honeypot
+          const isMod = yield* isModeratorOrAdmin(member, guildId);
+          if (isMod) {
+            yield* logEffect(
+              "debug",
+              "SpamDetection",
+              "Mod posted in honeypot channel, no action taken",
+            );
+            return computeVerdict([]);
+          }
+
           const userId = message.author.id;
           const content = message.content;
           const hasLink = content.includes("http");
@@ -171,16 +183,6 @@ export const SpamDetectionServiceLive = Layer.effect(
             message.channelId,
           );
           if (honeypotSignals.length > 0) {
-            // Check if moderator — mods are exempt from honeypot
-            const isMod = yield* isModeratorOrAdmin(member, guildId);
-            if (isMod) {
-              yield* logEffect(
-                "debug",
-                "SpamDetection",
-                "Mod posted in honeypot channel, no action taken",
-              );
-              return computeVerdict([]);
-            }
             return computeVerdict(honeypotSignals);
           }
 
