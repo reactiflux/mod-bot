@@ -1,4 +1,8 @@
-import type { MessageComponentInteraction, ThreadChannel } from "discord.js";
+import {
+  MessageFlags,
+  type MessageComponentInteraction,
+  type ThreadChannel,
+} from "discord.js";
 import { Effect } from "effect";
 
 import { client } from "#~/discord/client.server";
@@ -22,7 +26,7 @@ import {
 } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
-import { buildVoteButtons, buildVoteMessageContent } from "./strings";
+import { buildVoteMessageComponents } from "./strings";
 import { tallyVotes, type VoteTally } from "./voting";
 
 export interface CreateEscalationResult {
@@ -103,19 +107,17 @@ export const createEscalationEffect = (
 
     // Send vote message to get its ID
     const voteMessage = yield* sendMessage(channel as ThreadChannel, {
-      content: buildVoteMessageContent(
-        modRoleId,
-        votingStrategy,
-        tempEscalation,
-        emptyTally,
-      ),
-      components: buildVoteButtons(
-        features,
-        votingStrategy,
-        tempEscalation,
-        emptyTally,
-        false,
-      ),
+      components: [
+        buildVoteMessageComponents(
+          modRoleId,
+          votingStrategy,
+          tempEscalation,
+          emptyTally,
+          features,
+          false,
+        ),
+      ],
+      flags: MessageFlags.IsComponentsV2,
     });
 
     // Create escalation record with the correct message ID
@@ -216,19 +218,16 @@ export const upgradeToMajorityEffect = (
 
     // Update the vote message
     yield* editMessage(voteMessage, {
-      content: buildVoteMessageContent(
-        modRoleId,
-        votingStrategy,
-        updatedEscalation,
-        tally,
-      ),
-      components: buildVoteButtons(
-        features,
-        votingStrategy,
-        escalation,
-        tally,
-        false, // Never in early resolution state when upgrading to majority
-      ),
+      components: [
+        buildVoteMessageComponents(
+          modRoleId,
+          votingStrategy,
+          updatedEscalation,
+          tally,
+          features,
+          false,
+        ),
+      ],
     });
 
     // Update the escalation's voting strategy and scheduled_for

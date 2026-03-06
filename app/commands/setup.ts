@@ -1,17 +1,12 @@
-import {
-  ButtonStyle,
-  ComponentType,
-  MessageFlags,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from "discord.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { Effect } from "effect";
 
 import { interactionReply } from "#~/effects/discordSdk.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import type { SlashCommand } from "#~/helpers/discord";
-import { webBaseUrl } from "#~/helpers/env.server";
 import { commandStats } from "#~/helpers/metrics";
+
+import { initSetupForm } from "./setupHandlers.ts";
 
 export const Command = {
   command: new SlashCommandBuilder()
@@ -32,49 +27,12 @@ export const Command = {
         username: interaction.user.username,
       });
 
-      const guildId = interaction.guildId;
+      const form = initSetupForm(interaction.guildId, interaction.user.id);
 
-      const buttons: {
-        type: ComponentType.Button;
-        label: string;
-        style: ButtonStyle;
-        custom_id?: string;
-        url?: string;
-      }[] = [];
-
-      if (webBaseUrl) {
-        buttons.push({
-          type: ComponentType.Button,
-          label: "Web Setup Wizard",
-          style: ButtonStyle.Link,
-          url: `${webBaseUrl}/app/${guildId}/onboard`,
-        });
-      }
-
-      buttons.push({
-        type: ComponentType.Button,
-        label: "Set up in Discord",
-        style: ButtonStyle.Primary,
-        custom_id: `setup-discord|${guildId}`,
-      });
-
-      yield* interactionReply(interaction, {
-        embeds: [
-          {
-            title: "Set up Euno",
-            description:
-              "Choose how you'd like to configure Euno. The in-Discord flow will auto-create all necessary channels.",
-            color: 0x5865f2,
-          },
-        ],
-        components: [
-          {
-            type: ComponentType.ActionRow,
-            components: buttons,
-          },
-        ],
-        flags: [MessageFlags.Ephemeral],
-      });
+      yield* interactionReply(
+        interaction,
+        form as Parameters<typeof interaction.reply>[0],
+      );
 
       commandStats.commandExecuted(interaction, "setup", true);
     }).pipe(
@@ -92,11 +50,7 @@ export const Command = {
 
           yield* interactionReply(
             interaction,
-            `Something broke:
-\`\`\`
-${err.toString()}
-\`\`\`
-`,
+            `Something broke:\n\`\`\`\n${err.toString()}\n\`\`\``,
           ).pipe(Effect.catchAll(() => Effect.void));
         }),
       ),

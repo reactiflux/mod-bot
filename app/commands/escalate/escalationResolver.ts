@@ -1,9 +1,9 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ComponentType,
+  ContainerBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  TextDisplayBuilder,
   type Client,
-  type Message,
   type ThreadChannel,
 } from "discord.js";
 import { Effect } from "effect";
@@ -27,32 +27,29 @@ import {
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
 import { EscalationService, type Escalation } from "./service";
+import { buildVotesListContent } from "./strings";
 import { tallyVotes } from "./voting";
 
 /**
- * Get disabled versions of all button components from a message.
+ * Build a resolved escalation container with no interactive buttons.
  */
-function getDisabledButtons(
-  message: Message,
-): ActionRowBuilder<ButtonBuilder>[] {
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-
-  for (const row of message.components) {
-    if (!("components" in row)) continue;
-
-    const buttons = row.components.filter(
-      (c) => c.type === ComponentType.Button,
-    );
-    if (buttons.length === 0) continue;
-
-    rows.push(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        buttons.map((btn) => ButtonBuilder.from(btn).setDisabled(true)),
+function buildResolvedContainer(
+  resolution: Resolution,
+  escalation: Escalation,
+  noticeText: string,
+  timing: string,
+  suffix?: string,
+): ContainerBuilder {
+  const container = new ContainerBuilder()
+    .setAccentColor(resolution === resolutions.track ? 0x5865f2 : 0xcc0000)
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(noticeText))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        suffix ? `${timing} (${suffix})` : timing,
       ),
     );
-  }
 
-  return rows;
+  return container;
 }
 
 /**
@@ -122,12 +119,32 @@ export const processEscalationEffect = (
     const noticeText = `Resolved with ${votes.length} votes from ${voters.size} voters: **${humanReadableResolutions[resolution]}** <@${escalation.reported_user_id}> (${reportedUser?.displayName ?? "no user"})`;
     const timing = `-# Resolved <t:${now}:s>, ${elapsedHours}hrs after escalation`;
 
+    const votesListText = buildVotesListContent(tally);
+
     // Handle case where user left the server or deleted their account
-    const disabledButtons = getDisabledButtons(voteMessage);
     if (!reportedMember) {
       const userLeft = reportedUser !== null;
       const reason = userLeft ? "left the server" : "account no longer exists";
       const content = `${noticeText}\n${timing} (${reason})`;
+
+      const resolvedContainer = buildResolvedContainer(
+        resolutions.track,
+        escalation,
+        noticeText,
+        timing,
+        reason,
+      );
+      if (votesListText) {
+        resolvedContainer
+          .addSeparatorComponents(
+            new SeparatorBuilder()
+              .setDivider(true)
+              .setSpacing(SeparatorSpacingSize.Small),
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(votesListText),
+          );
+      }
 
       yield* Effect.all([
         logEffect(
@@ -137,7 +154,9 @@ export const processEscalationEffect = (
           { reason, userLeft },
         ),
         escalationService.resolveEscalation(escalation.id, resolutions.track),
-        editMessage(voteMessage, { components: disabledButtons }),
+        editMessage(voteMessage, {
+          components: [resolvedContainer],
+        }),
         replyAndForwardSafe(voteMessage, content, modLog),
       ]).pipe(Effect.withConcurrency("unbounded"));
 
@@ -146,9 +165,30 @@ export const processEscalationEffect = (
 
     // Execute mod action first, then update DB/Discord in parallel
     yield* escalationService.executeResolution(resolution, escalation, guild);
+
+    const resolvedContainer = buildResolvedContainer(
+      resolution,
+      escalation,
+      noticeText,
+      timing,
+    );
+    if (votesListText) {
+      resolvedContainer
+        .addSeparatorComponents(
+          new SeparatorBuilder()
+            .setDivider(true)
+            .setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(votesListText),
+        );
+    }
+
     yield* Effect.all([
       escalationService.resolveEscalation(escalation.id, resolution),
-      editMessage(voteMessage, { components: disabledButtons }),
+      editMessage(voteMessage, {
+        components: [resolvedContainer],
+      }),
       replyAndForwardSafe(voteMessage, `${noticeText}\n${timing}`, modLog),
       logEffect(
         "info",
