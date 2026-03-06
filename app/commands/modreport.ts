@@ -1,9 +1,14 @@
 import {
+  ContainerBuilder,
+  MessageFlags,
   PermissionFlagsBits,
+  SectionBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   SlashCommandBuilder,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
   time,
-  type APIEmbed,
-  type APIEmbedField,
 } from "discord.js";
 import { Effect } from "effect";
 
@@ -217,10 +222,25 @@ export const Command = {
         descLines.push(threadLinks.join(" · "));
       }
 
-      // --- Embed fields ---
-      const fields: APIEmbedField[] = [];
+      // --- Build Components v2 container ---
+      const container = new ContainerBuilder().setAccentColor(0x5865f2);
 
-      // Reason breakdown
+      // Header: avatar + username + summary
+      container.addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `**${targetUser.username}**\n${descLines.join("\n")}`,
+            ),
+          )
+          .setThumbnailAccessory(
+            new ThumbnailBuilder().setURL(targetUser.displayAvatarURL()),
+          ),
+      );
+
+      // Breakdown fields
+      const breakdownParts: string[] = [];
+
       if (summary.reasonBreakdown.length > 0) {
         const reasonText = summary.reasonBreakdown
           .map(
@@ -228,35 +248,38 @@ export const Command = {
               `${ReadableReasons[r.reason as ReportReasons] ?? r.reason} ×${r.count}`,
           )
           .join("\n");
-        fields.push({
-          name: "Reasons",
-          value: truncateMessage(reasonText, 1024),
-          inline: true,
-        });
+        breakdownParts.push(
+          `**Reasons**\n${truncateMessage(reasonText, 1024)}`,
+        );
       }
 
-      // Channel breakdown
       if (channels.length > 0) {
         const channelText = channels
           .map((c) => `<#${c.reported_channel_id}> (${Number(c.count)})`)
           .join("\n");
-        fields.push({
-          name: "Top Channels",
-          value: truncateMessage(channelText, 1024),
-          inline: true,
-        });
+        breakdownParts.push(
+          `**Top Channels**\n${truncateMessage(channelText, 1024)}`,
+        );
       }
 
-      // Staff reporter breakdown
       if (staff.length > 0) {
         const staffText = staff
           .map((s) => `@${s.staff_username} (${Number(s.count)})`)
           .join("\n");
-        fields.push({
-          name: "Reported By",
-          value: truncateMessage(staffText, 1024),
-          inline: true,
-        });
+        breakdownParts.push(
+          `**Reported By**\n${truncateMessage(staffText, 1024)}`,
+        );
+      }
+
+      if (breakdownParts.length > 0) {
+        container.addSeparatorComponents(
+          new SeparatorBuilder()
+            .setDivider(true)
+            .setSpacing(SeparatorSpacingSize.Small),
+        );
+        container.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(breakdownParts.join("\n\n")),
+        );
       }
 
       // Mod action timeline
@@ -272,24 +295,21 @@ export const Command = {
           const ts = timestamp ? ` ${time(timestamp, "R")}` : "";
           return `${actionLabel}${executor}${reason}${ts}`;
         });
-        fields.push({
-          name: "Actions",
-          value: truncateMessage(timelineLines.join("\n"), 1024),
-          inline: false,
-        });
+        container.addSeparatorComponents(
+          new SeparatorBuilder()
+            .setDivider(true)
+            .setSpacing(SeparatorSpacingSize.Small),
+        );
+        container.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `**Actions**\n${truncateMessage(timelineLines.join("\n"), 1024)}`,
+          ),
+        );
       }
 
-      const embed: APIEmbed = {
-        author: {
-          name: targetUser.username,
-          icon_url: targetUser.displayAvatarURL(),
-        },
-        description: descLines.join("\n"),
-        fields: fields.length > 0 ? fields : undefined,
-      };
-
       yield* interactionEditReply(interaction, {
-        embeds: [embed],
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
       });
 
       commandStats.commandExecuted(interaction, "modreport", true);

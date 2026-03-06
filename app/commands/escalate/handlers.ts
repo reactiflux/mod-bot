@@ -1,8 +1,9 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  ContainerBuilder,
   MessageFlags,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  TextDisplayBuilder,
   type MessageComponentInteraction,
 } from "discord.js";
 import { Effect } from "effect";
@@ -32,9 +33,8 @@ import { createEscalationEffect, upgradeToMajorityEffect } from "./escalate";
 import { expediteEffect } from "./expedite";
 import { EscalationServiceLive } from "./service";
 import {
-  buildConfirmedMessageContent,
-  buildVoteButtons,
-  buildVoteMessageContent,
+  buildConfirmedMessageComponents,
+  buildVoteMessageComponents,
   buildVotesListContent,
 } from "./strings";
 import { voteEffect } from "./vote";
@@ -54,38 +54,27 @@ const vote =
       // Check if early resolution triggered with clear winner
       if (earlyResolution && !tally.isTied && tally.leader) {
         yield* interactionUpdate(interaction, {
-          content: buildConfirmedMessageContent(
-            escalation,
-            tally.leader,
-            tally,
-          ),
           components: [
-            new ActionRowBuilder<ButtonBuilder>().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`expedite|${escalation.id}`)
-                .setLabel("Expedite")
-                .setStyle(ButtonStyle.Primary),
-            ),
+            buildConfirmedMessageComponents(escalation, tally.leader, tally),
           ],
+          flags: MessageFlags.IsComponentsV2,
         });
         return;
       }
 
       // Update the message with new vote state
       yield* interactionUpdate(interaction, {
-        content: buildVoteMessageContent(
-          modRoleId ?? "",
-          votingStrategy,
-          escalation,
-          tally,
-        ),
-        components: buildVoteButtons(
-          features,
-          votingStrategy,
-          escalation,
-          tally,
-          earlyResolution,
-        ),
+        components: [
+          buildVoteMessageComponents(
+            modRoleId ?? "",
+            votingStrategy,
+            escalation,
+            tally,
+            features,
+            earlyResolution,
+          ),
+        ],
+        flags: MessageFlags.IsComponentsV2,
       });
     }).pipe(
       Effect.withSpan("escalation-vote", {
@@ -135,12 +124,32 @@ const expedite = (interaction: MessageComponentInteraction) =>
 
     const result = yield* expediteEffect(interaction);
 
-    const expediteNote = `\nResolved early by <@${interaction.user.id}> at <t:${Math.floor(Date.now() / 1000)}:f>`;
+    const expediteNote = `Resolved early by <@${interaction.user.id}> at <t:${Math.floor(Date.now() / 1000)}:f>`;
+
+    const container = new ContainerBuilder()
+      .setAccentColor(0x00cc00)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `**${humanReadableResolutions[result.resolution]}** ✅ <@${result.escalation.reported_user_id}>`,
+        ),
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(expediteNote),
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(SeparatorSpacingSize.Small),
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          buildVotesListContent(result.tally) || "_No votes_",
+        ),
+      );
 
     yield* editMessage(interaction.message, {
-      content: `**${humanReadableResolutions[result.resolution]}** ✅ <@${result.escalation.reported_user_id}>${expediteNote}
-${buildVotesListContent(result.tally)}`,
-      components: [], // Remove buttons
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     });
   }).pipe(
     Effect.withSpan("escalation-expedite", {
