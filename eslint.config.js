@@ -26,6 +26,7 @@ export default [
       "public",
       ".react-router",
       "*timestamp*",
+      ".claude",
     ],
   },
   {
