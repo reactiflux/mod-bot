@@ -3,9 +3,6 @@ concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  HUSKY: 0
-
 on: push
 
 jobs:
