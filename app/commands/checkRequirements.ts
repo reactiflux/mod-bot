@@ -17,10 +17,58 @@ import type { SlashCommand } from "#~/helpers/discord";
 import { commandStats } from "#~/helpers/metrics";
 import { fetchSettingsEffect, SETTINGS } from "#~/models/guilds.server";
 
-interface CheckResult {
+export interface CheckResult {
   name: string;
   ok: boolean;
   detail: string;
+}
+
+/**
+ * Build a CheckResult for a configured log channel.
+ * Returns null when the channel ID is configured but the channel no longer
+ * exists — deleted channels are not actionable from this command, so callers
+ * should silently skip a null return value instead of surfacing a failure.
+ */
+export function buildLogChannelResult(
+  name: string,
+  channelId: string | undefined,
+  fetchedChannelId: string | null,
+  unconfiguredDetail: string,
+): CheckResult | null {
+  if (!channelId) {
+    return { name, ok: false, detail: unconfiguredDetail };
+  }
+  if (!fetchedChannelId) {
+    // Configured but deleted — not actionable here, skip silently.
+    return null;
+  }
+  return { name, ok: true, detail: `<#${fetchedChannelId}>` };
+}
+
+/**
+ * Build the honeypot CheckResult given the set of valid (fetched) channel IDs.
+ * Missing channel IDs (configured but deleted) are simply absent from
+ * `validChannelIds`; they are silently skipped rather than surfaced as failures.
+ */
+export function buildHoneypotResult(
+  configuredCount: number,
+  validChannelIds: string[],
+): CheckResult {
+  if (configuredCount === 0) {
+    return {
+      name: "Honeypot",
+      ok: false,
+      detail: "No honeypot channels configured",
+    };
+  }
+  return {
+    name: "Honeypot",
+    ok: validChannelIds.length > 0,
+    detail:
+      validChannelIds.length > 0
+        ? validChannelIds.map((id) => `<#${id}>`).join(", ")
+        : "No honeypot channels found",
+  };
 }
 
 export const Command = {
@@ -94,45 +142,35 @@ export const Command = {
       }
 
       // --- Mod-log channel ---
-      if (settings?.modLog) {
-        const ch = yield* fetchChannel(guild, settings.modLog).pipe(
-          Effect.catchAll(() => Effect.succeed(null)),
+      {
+        const ch = settings?.modLog
+          ? yield* fetchChannel(guild, settings.modLog).pipe(
+              Effect.catchAll(() => Effect.succeed(null)),
+            )
+          : null;
+        const result = buildLogChannelResult(
+          "Mod Log Channel",
+          settings?.modLog,
+          ch?.id ?? null,
+          "Not configured",
         );
-
-        results.push({
-          name: "Mod Log Channel",
-          ok: !!ch,
-          detail: ch
-            ? `<#${ch.id}>`
-            : `Channel \`${settings.modLog}\` not found`,
-        });
-      } else {
-        results.push({
-          name: "Mod Log Channel",
-          ok: false,
-          detail: "Not configured",
-        });
+        if (result) results.push(result);
       }
 
       // --- Deletion-log channel (optional) ---
-      if (settings?.deletionLog) {
-        const ch = yield* fetchChannel(guild, settings.deletionLog).pipe(
-          Effect.catchAll(() => Effect.succeed(null)),
+      {
+        const ch = settings?.deletionLog
+          ? yield* fetchChannel(guild, settings.deletionLog).pipe(
+              Effect.catchAll(() => Effect.succeed(null)),
+            )
+          : null;
+        const result = buildLogChannelResult(
+          "Deletion Log Channel",
+          settings?.deletionLog,
+          ch?.id ?? null,
+          "Not configured (optional but recommended)",
         );
-
-        results.push({
-          name: "Deletion Log Channel",
-          ok: !!ch,
-          detail: ch
-            ? `<#${ch.id}>`
-            : `Channel \`${settings.deletionLog}\` not found`,
-        });
-      } else {
-        results.push({
-          name: "Deletion Log Channel",
-          ok: false,
-          detail: "Not configured (optional but recommended)",
-        });
+        if (result) results.push(result);
       }
 
       // --- Restricted role (optional) ---
@@ -163,31 +201,18 @@ export const Command = {
         .selectAll()
         .where("guild_id", "=", guildId);
 
-      if (honeypotRows.length === 0) {
-        results.push({
-          name: "Honeypot",
-          ok: false,
-          detail: "No honeypot channels configured",
-        });
-      } else {
-        let validCount = 0;
-        const details: string[] = [];
+      {
+        const validChannelIds: string[] = [];
         for (const row of honeypotRows) {
           const ch = yield* fetchChannel(guild, row.channel_id).pipe(
             Effect.catchAll(() => Effect.succeed(null)),
           );
           if (ch) {
-            validCount++;
-            details.push(`<#${ch.id}>`);
-          } else {
-            details.push(`\`${row.channel_id}\` (missing)`);
+            validChannelIds.push(ch.id);
           }
+          // Silently skip deleted/missing channels — they're not actionable here.
         }
-        results.push({
-          name: "Honeypot",
-          ok: validCount > 0,
-          detail: details.join(", "),
-        });
+        results.push(buildHoneypotResult(honeypotRows.length, validChannelIds));
       }
 
       // --- Ticket configuration ---
