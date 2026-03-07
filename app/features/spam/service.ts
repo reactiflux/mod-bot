@@ -168,7 +168,10 @@ export const SpamDetectionServiceLive = Layer.effect(
           const hasLink = content.includes("http");
 
           // Record in activity tracker
-          const contentHash = content.toLowerCase().trim();
+          const attachmentIds = Array.from(message.attachments.keys()).sort().join(",");
+          const contentHash = attachmentIds
+            ? `${content.toLowerCase().trim()}::attachments:${attachmentIds}`
+            : content.toLowerCase().trim();
           recordMessage(tracker, guildId, userId, {
             messageId: message.id,
             channelId: message.channelId,
