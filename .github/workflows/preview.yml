@@ -9,7 +9,7 @@ env:
 
 jobs:
   cleanup:
-    uses: reactiflux/hosting/.github/workflows/preview-cleanup.yml@main
+    uses: Euno-HQ/hosting/.github/workflows/preview-cleanup.yml@main
     with:
       app_name: mod-bot
     secrets:

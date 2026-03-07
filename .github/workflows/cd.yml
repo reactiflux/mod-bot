@@ -9,11 +9,11 @@ on:
 
 jobs:
   build:
-    uses: reactiflux/hosting/.github/workflows/docker-build.yml@main
+    uses: Euno-HQ/hosting/.github/workflows/docker-build.yml@main
 
   deploy:
     needs: build
-    uses: reactiflux/hosting/.github/workflows/deploy.yml@main
+    uses: Euno-HQ/hosting/.github/workflows/deploy.yml@main
     with:
       app_name: mod-bot
       statefulset_name: mod-bot-set
