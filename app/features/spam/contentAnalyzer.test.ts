@@ -77,3 +77,116 @@ test("mass ping detection", () => {
   expect(pingSignal).toBeDefined();
   expect(pingSignal!.score).toBe(10); // 2 pings * 5
 });
+
+// ── Embed content tests ──
+// These tests exercise the embed text extraction logic that service.ts applies
+// before calling analyzeContent. We replicate the same inline transformation
+// here so we can test it without spinning up the full Effect runtime.
+
+/** Mirrors the embedText extraction in service.ts */
+function buildEmbedText(
+  embeds: {
+    url?: string | null;
+    title?: string | null;
+    description?: string | null;
+  }[],
+): string {
+  return embeds
+    .map((e) => [e.url, e.title, e.description].filter(Boolean).join(" "))
+    .join(" ")
+    .toLowerCase()
+    .trim();
+}
+
+/** Mirrors the embedBody extraction in service.ts */
+function buildEmbedBody(
+  embeds: {
+    url?: string | null;
+    title?: string | null;
+    description?: string | null;
+    footer?: { text?: string | null } | null;
+    fields?: { name: string; value: string }[];
+  }[],
+): string {
+  return embeds
+    .map((e) =>
+      [
+        e.url,
+        e.title,
+        e.description,
+        e.footer?.text,
+        ...(e.fields ?? []).map((f) => `${f.name} ${f.value}`),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(" ");
+}
+
+test("embed-only message produces a non-empty content hash", () => {
+  const embeds = [
+    {
+      url: "https://scam.example.com/free-nitro",
+      title: "Free Nitro Giveaway",
+      description: "Click to claim your reward",
+    },
+  ];
+
+  // Mirrors: [content.toLowerCase().trim(), embedText].filter(Boolean).join(" ")
+  const content = "";
+  const embedText = buildEmbedText(embeds);
+  const contentHash = [content.toLowerCase().trim(), embedText]
+    .filter(Boolean)
+    .join(" ");
+
+  expect(contentHash).not.toBe("");
+  expect(contentHash).toContain("free nitro giveaway");
+});
+
+test("embed title and description keywords are detected by analyzeContent", () => {
+  const embeds = [
+    {
+      url: "https://scam.example.com",
+      title: "Claim your free nitro gift now",
+      description: "Limited airdrop — verify your account",
+      footer: null,
+      fields: [],
+    },
+  ];
+
+  // service.ts passes `content + " " + embedBody` to analyzeContent
+  const embedBody = buildEmbedBody(embeds);
+  const combinedContent = `${""} ${embedBody}`.trim();
+
+  const signals = analyzeContent(combinedContent);
+  const names = signals.map((s) => s.name);
+
+  expect(names).toContain("spam_keyword:scam"); // free, nitro, gift, claim
+  expect(names).toContain("spam_keyword:crypto"); // airdrop
+  expect(names).toContain("spam_keyword:phishing"); // verify
+});
+
+test("hasLink detects links in embed URLs even when message.content is empty", () => {
+  const content = "";
+  const embeds = [
+    {
+      url: "https://scam.example.com/free-nitro",
+      title: null,
+      description: null,
+    },
+  ];
+
+  // Mirrors: content.includes("http") || message.embeds.some((e) => e.url != null)
+  const hasLink = content.includes("http") || embeds.some((e) => e.url != null);
+
+  expect(hasLink).toBe(true);
+});
+
+test("hasLink is false when content has no http and embeds have no url", () => {
+  const content = "just a plain message";
+  const embeds = [{ url: null, title: "No link here", description: null }];
+
+  const hasLink = content.includes("http") || embeds.some((e) => e.url != null);
+
+  expect(hasLink).toBe(false);
+});
