@@ -94,46 +94,38 @@ export const Command = {
       }
 
       // --- Mod-log channel ---
-      if (settings?.modLog) {
-        const ch = yield* fetchChannel(guild, settings.modLog).pipe(
-          Effect.catchAll(() => Effect.succeed(null)),
-        );
+      const modLogChannel = settings?.modLog
+        ? yield* fetchChannel(guild, settings.modLog).pipe(
+            Effect.catchAll(() => Effect.succeed(null)),
+          )
+        : null;
 
-        results.push({
-          name: "Mod Log Channel",
-          ok: !!ch,
-          detail: ch
-            ? `<#${ch.id}>`
-            : `Channel \`${settings.modLog}\` not found`,
-        });
-      } else {
-        results.push({
-          name: "Mod Log Channel",
-          ok: false,
-          detail: "Not configured",
-        });
-      }
+      results.push(
+        modLogChannel
+          ? { name: "Mod Log Channel", ok: true, detail: `<#${modLogChannel.id}>` }
+          : { name: "Mod Log Channel", ok: false, detail: "Not configured" },
+      );
 
       // --- Deletion-log channel (optional) ---
-      if (settings?.deletionLog) {
-        const ch = yield* fetchChannel(guild, settings.deletionLog).pipe(
-          Effect.catchAll(() => Effect.succeed(null)),
-        );
+      const deletionLogChannel = settings?.deletionLog
+        ? yield* fetchChannel(guild, settings.deletionLog).pipe(
+            Effect.catchAll(() => Effect.succeed(null)),
+          )
+        : null;
 
-        results.push({
-          name: "Deletion Log Channel",
-          ok: !!ch,
-          detail: ch
-            ? `<#${ch.id}>`
-            : `Channel \`${settings.deletionLog}\` not found`,
-        });
-      } else {
-        results.push({
-          name: "Deletion Log Channel",
-          ok: false,
-          detail: "Not configured (optional but recommended)",
-        });
-      }
+      results.push(
+        deletionLogChannel
+          ? {
+              name: "Deletion Log Channel",
+              ok: true,
+              detail: `<#${deletionLogChannel.id}>`,
+            }
+          : {
+              name: "Deletion Log Channel",
+              ok: false,
+              detail: "Not configured (optional but recommended)",
+            },
+      );
 
       // --- Restricted role (optional) ---
       if (settings?.restricted) {
@@ -179,8 +171,6 @@ export const Command = {
           if (ch) {
             validCount++;
             details.push(`<#${ch.id}>`);
-          } else {
-            details.push(`\`${row.channel_id}\` (missing)`);
           }
         }
         results.push({
