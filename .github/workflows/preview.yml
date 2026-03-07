@@ -8,9 +8,34 @@ env:
   HUSKY: 0
 
 jobs:
-  cleanup:
-    uses: Euno-HQ/hosting/.github/workflows/preview-cleanup.yml@main
-    with:
-      app_name: mod-bot
-    secrets:
-      DIGITAL_OCEAN_K8S: ${{ secrets.DIGITAL_OCEAN_K8S }}
+  dispatch:
+    if: |
+      github.event.action == 'closed' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'no-preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: Euno-HQ
+
+      - name: Dispatch preview cleanup to hosting
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'Euno-HQ',
+              repo: 'hosting',
+              event_type: 'preview-cleanup',
+              client_payload: {
+                app_name: 'mod-bot',
+                source_repo: '${{ github.repository }}',
+                pr_number: String(context.payload.pull_request.number),
+                pr_action: '${{ github.event.action }}'
+              }
+            });
+            console.log('Dispatched preview-cleanup event to Euno-HQ/hosting');
