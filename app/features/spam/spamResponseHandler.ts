@@ -14,11 +14,26 @@ import { featureStats } from "#~/helpers/metrics.ts";
 import { applyRestriction, timeout } from "#~/models/discord.server.ts";
 import {
   getSpamReportCount,
+  getSpamReportGuildCount,
   markMessageAsDeleted,
   ReportReasons,
 } from "#~/models/reportedMessages.ts";
 
 import { AUTO_KICK_THRESHOLD, type SpamVerdict } from "./spamScorer.ts";
+
+/**
+ * Number of guilds a user must be flagged in before triggering a cross-guild timeout.
+ * This threshold indicates an account is likely compromised and being used to spam
+ * across multiple communities simultaneously.
+ */
+const CROSS_GUILD_SPAM_THRESHOLD = 3;
+
+/**
+ * In-memory set tracking users who have already been sent a cross-guild DM this session.
+ * Prevents repeatedly DMing the same user on every subsequent spam event.
+ * Resets on bot restart, which is acceptable — the DM is informational, not critical.
+ */
+const crossGuildDmSent = new Set<string>();
 
 /** Execute the graduated response for a spam verdict. */
 export const executeResponse = (
@@ -76,7 +91,7 @@ export const executeResponse = (
     }
 
     if (verdict.tier === "high") {
-      // Timeout user
+      // Timeout user in the originating guild
       yield* Effect.tryPromise(() =>
         timeout(member, "Automated spam detection"),
       ).pipe(
@@ -116,6 +131,9 @@ export const executeResponse = (
 
         featureStats.spamKicked(guildId, userId, spamCount);
       }
+
+      // Check cross-guild spam threshold and timeout everywhere if met
+      yield* checkCrossGuildSpam(userId);
     }
 
     featureStats.spamDetected(
@@ -126,6 +144,78 @@ export const executeResponse = (
       verdict.totalScore,
     );
   }).pipe(Effect.withSpan("SpamResponse.executeResponse"));
+
+/**
+ * Check if a user has been flagged for spam across enough guilds to trigger a
+ * cross-guild response. When the threshold is met, times the user out in every
+ * guild the bot is in and sends them a DM warning that their account may be
+ * compromised.
+ */
+const checkCrossGuildSpam = (userId: string) =>
+  Effect.gen(function* () {
+    const guildCount = yield* getSpamReportGuildCount(userId);
+    if (guildCount < CROSS_GUILD_SPAM_THRESHOLD) return;
+
+    yield* logEffect(
+      "warn",
+      "SpamResponse",
+      "Cross-guild spam threshold reached — timing out in all guilds",
+      { userId, guildCount, threshold: CROSS_GUILD_SPAM_THRESHOLD },
+    );
+
+    const OVERNIGHT = 1000 * 60 * 60 * 20;
+    const reason = `Cross-guild spam: flagged in ${guildCount} servers — account likely compromised`;
+
+    // Timeout the user in every guild the bot is in (concurrently, limit 5)
+    const guilds = [...client.guilds.cache.values()];
+    yield* Effect.all(
+      guilds.map((guild) =>
+        Effect.tryPromise(async () => {
+          const targetMember = await guild.members
+            .fetch(userId)
+            .catch(() => null);
+          if (targetMember) {
+            await targetMember.timeout(OVERNIGHT, reason);
+          }
+        }).pipe(
+          Effect.catchAll((error) =>
+            logEffect(
+              "warn",
+              "SpamResponse",
+              "Failed to apply cross-guild timeout",
+              { error: String(error), guildId: guild.id, userId },
+            ),
+          ),
+        ),
+      ),
+      { concurrency: 5 },
+    );
+
+    // DM the user once per bot session to inform them their account may be compromised
+    if (!crossGuildDmSent.has(userId)) {
+      crossGuildDmSent.add(userId);
+      yield* Effect.tryPromise(() =>
+        client.users.send(
+          userId,
+          "⚠️ **Your account has been flagged for spam across multiple servers.**\n\n" +
+            "This usually means your account has been compromised. Please:\n" +
+            "• Change your Discord password immediately\n" +
+            "• Enable two-factor authentication\n" +
+            "• Revoke any suspicious authorized apps\n\n" +
+            "Your account has been temporarily restricted while you secure it.",
+        ),
+      ).pipe(
+        Effect.catchAll((error) =>
+          logEffect(
+            "warn",
+            "SpamResponse",
+            "Failed to send cross-guild DM to user",
+            { error: String(error), userId },
+          ),
+        ),
+      );
+    }
+  }).pipe(Effect.withSpan("SpamResponse.checkCrossGuildSpam"));
 
 /** Log a spam report to the mod thread */
 const logSpamReport = (message: Message, verdict: SpamVerdict) =>
