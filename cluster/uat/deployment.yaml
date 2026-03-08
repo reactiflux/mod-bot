@@ -1,22 +1,20 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mod-bot-pr-${PR_NUMBER}
+  name: mod-bot-uat
   namespace: staging
   labels:
-    app: mod-bot-preview
-    preview: pr-${PR_NUMBER}
+    app: mod-bot-uat
 spec:
-  serviceName: mod-bot-pr-${PR_NUMBER}
+  serviceName: mod-bot-uat
   replicas: 1
   selector:
     matchLabels:
-      preview: pr-${PR_NUMBER}
+      app: mod-bot-uat
   template:
     metadata:
       labels:
-        app: mod-bot-preview
-        preview: pr-${PR_NUMBER}
+        app: mod-bot-uat
     spec:
       containers:
         - name: mod-bot
@@ -58,8 +56,6 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: mod-bot-data
-        labels:
-          preview: pr-${PR_NUMBER}
       spec:
         accessModes:
           - ReadWriteOnce
@@ -71,14 +67,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mod-bot-pr-${PR_NUMBER}
+  name: mod-bot-uat
   namespace: staging
   labels:
-    app: mod-bot-preview
-    preview: pr-${PR_NUMBER}
+    app: mod-bot-uat
 spec:
   selector:
-    preview: pr-${PR_NUMBER}
+    app: mod-bot-uat
   ports:
     - port: 80
       targetPort: 3000
@@ -86,28 +81,27 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mod-bot-pr-${PR_NUMBER}
+  name: mod-bot-uat
   namespace: staging
   labels:
-    app: mod-bot-preview
-    preview: pr-${PR_NUMBER}
+    app: mod-bot-uat
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   rules:
-    - host: ${PR_NUMBER}.euno-staging.reactiflux.com
+    - host: uat.euno-staging.reactiflux.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: mod-bot-pr-${PR_NUMBER}
+                name: mod-bot-uat
                 port:
                   number: 80
   tls:
     - hosts:
-        - ${PR_NUMBER}.euno-staging.reactiflux.com
+        - uat.euno-staging.reactiflux.com
       secretName: wildcard-staging-tls

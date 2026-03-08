@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 branch="$(git rev-parse --abbrev-ref HEAD)"
-if [ "$branch" = "main" ]; then
-  echo "❌ Direct commits to main are not allowed. Please use a feature branch."
+if [ "$branch" = "main" ] || [ "$branch" = "release" ]; then
+  echo "❌ Direct commits to $branch are not allowed. Please use a feature branch."
   exit 1
 fi
 

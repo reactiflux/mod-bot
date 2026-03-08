@@ -39,7 +39,7 @@ jobs:
             type=ref,event=pr
             type=ref,event=branch
             type=sha,format=long
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=main,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v6
@@ -52,6 +52,7 @@ jobs:
 
   dispatch:
     needs: build
+    if: startsWith(github.ref, 'refs/heads/rc/')
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token
@@ -62,29 +63,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: Euno-HQ
 
-      - name: Resolve PR context
-        id: pr-context
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const branch = context.ref.replace('refs/heads/', '');
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              head: `${context.repo.owner}:${branch}`
-            });
-            if (prs.data.length > 0 && !prs.data[0].draft) {
-              const pr = prs.data[0];
-              const hasNoPreview = pr.labels.some(l => l.name === 'no-preview');
-              core.setOutput('pr_number', String(pr.number));
-              core.setOutput('has_no_preview_label', String(hasNoPreview));
-            } else {
-              core.setOutput('pr_number', '');
-              core.setOutput('has_no_preview_label', 'false');
-            }
-
-      - name: Dispatch deploy to hosting
+      - name: Dispatch UAT deploy to hosting
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -92,21 +71,13 @@ jobs:
             await github.rest.repos.createDispatchEvent({
               owner: 'Euno-HQ',
               repo: 'hosting',
-              event_type: 'deploy',
+              event_type: 'uat-deploy',
               client_payload: {
                 app_name: 'mod-bot',
-                statefulset_name: 'mod-bot-set',
-                secret_name: 'modbot-env',
-                staging_secret_name: 'modbot-staging-env',
                 source_repo: '${{ github.repository }}',
                 source_ref: '${{ github.ref }}',
                 source_sha: '${{ github.sha }}',
-                source_default_branch: '${{ github.event.repository.default_branch }}',
-                image_tag: 'sha-${{ github.sha }}',
-                pr_context: JSON.stringify({
-                  number: '${{ steps.pr-context.outputs.pr_number }}',
-                  has_no_preview_label: '${{ steps.pr-context.outputs.has_no_preview_label }}'
-                })
+                image_tag: 'sha-${{ github.sha }}'
               }
             });
-            console.log('Dispatched deploy event to Euno-HQ/hosting');
+            console.log('Dispatched uat-deploy event to Euno-HQ/hosting');

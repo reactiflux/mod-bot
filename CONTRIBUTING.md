@@ -32,19 +32,45 @@
 1. Look for the following message in the logs, and open the URL in a browser where you're logged into Discord.
    - `Bot started. If necessary, add it to your test server:`
 
-## PR Preview Environments
+## UAT Environment
 
-When you open a pull request, a preview environment is automatically deployed at `https://<pr-number>.euno-staging.reactiflux.com`. The bot will comment on your PR with the preview URL.
+A single persistent UAT environment lives at `https://uat.euno-staging.reactiflux.com`.
+It automatically deploys whenever a push is made to an `rc/*` branch, so it always
+reflects the most recent release candidate.
 
-**What happens on each push:**
+- Feature branch pushes build Docker images (for caching) but do **not** deploy
+- The database resets on each deploy (migrations + fixtures run fresh)
+- Use this environment to verify RC changes before promoting to production
 
-1. Docker image is built and pushed
-2. Preview is deployed to the staging namespace
-3. Database is reset (starts fresh each deploy)
-4. E2E tests run against the preview URL
-5. Test results are posted as a PR comment
+## Release Candidate Workflow
 
-**To skip preview deployment:** Add the `no-preview` label to your PR, or mark it as a draft.
+Production releases follow a weekly release candidate (RC) cycle:
+
+1. **Weekly RC cut**: Every Monday, a GitHub Actions cron job checks for new
+   commits on `main` since the last release. If found, it creates an `rc/vYYYY.WW`
+   branch from `main` and opens a PR targeting the `release` branch.
+
+2. **Review and test**: The RC PR includes a changelog and testing checklist.
+   Reviewers should:
+   - Verify the UAT environment at `https://uat.euno-staging.reactiflux.com`
+   - Work through the testing checklist
+   - Push bug fixes directly to the `rc/v*` branch (each push re-deploys UAT)
+
+3. **Promote to production**: When testing is complete:
+   - Merge the RC PR into `release`
+   - A draft GitHub Release is automatically created
+   - Review and publish the GitHub Release to trigger production deployment
+
+4. **Ad-hoc releases**: The RC workflow can be triggered manually via
+   `workflow_dispatch` for urgent releases outside the weekly cycle.
+
+**Important:** The `release` branch is managed by automation. Do not push to it
+directly.
+
+### PR merge strategy
+
+PRs to `main` use **merge commits** (not squash-and-merge). This preserves
+individual commit history on main.
 
 # Implementation notes
 

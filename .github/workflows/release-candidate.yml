@@ -1,0 +1,136 @@
+name: Release Candidate
+
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Every Monday at midnight UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-rc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure release branch exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin release; then
+            git branch release origin/main
+            git push origin release
+          fi
+
+      - name: Get latest release tag
+        id: last-release
+        run: |
+          TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "")
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if [ -z "$TAG" ]; then
+            echo "ref=origin/release" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for new commits
+        id: check-commits
+        env:
+          LAST_REF: ${{ steps.last-release.outputs.ref }}
+        run: |
+          COMMIT_COUNT=$(git rev-list --count "${LAST_REF}..origin/main")
+          echo "count=${COMMIT_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$COMMIT_COUNT" -eq 0 ]; then
+            echo "No new commits since last release, skipping."
+          fi
+
+      - name: Determine version
+        if: steps.check-commits.outputs.count != '0'
+        id: version
+        run: |
+          YEAR=$(date -u +%Y)
+          WEEK=$(date -u +%V)
+          BASE_VERSION="v${YEAR}.${WEEK}"
+
+          VERSION="$BASE_VERSION"
+          SUFFIX=2
+          while git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; do
+            VERSION="${BASE_VERSION}.${SUFFIX}"
+            SUFFIX=$((SUFFIX + 1))
+          done
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Create RC branch
+        if: steps.check-commits.outputs.count != '0'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          BRANCH="rc/${VERSION}"
+          git checkout -b "$BRANCH" origin/main
+          git push origin "$BRANCH"
+
+      - name: Generate PR body
+        if: steps.check-commits.outputs.count != '0'
+        id: pr-body
+        env:
+          LAST_REF: ${{ steps.last-release.outputs.ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+          LAST_TAG: ${{ steps.last-release.outputs.tag }}
+        run: |
+          if [ -z "$LAST_TAG" ]; then
+            COMMIT_LOG=$(git log origin/release..origin/main --oneline --no-decorate)
+            RANGE_LABEL="initial release"
+          else
+            COMMIT_LOG=$(git log "${LAST_TAG}..origin/main" --oneline --no-decorate)
+            RANGE_LABEL="since ${LAST_TAG}"
+          fi
+
+          cat > /tmp/pr-body.md <<INNEREOF
+## Release Candidate ${VERSION}
+
+### Commits ${RANGE_LABEL}
+
+${COMMIT_LOG}
+
+### Testing Checklist
+
+- [ ] Bot starts and connects to Discord
+- [ ] Slash commands respond correctly
+- [ ] DB migrations run cleanly
+- [ ] No regressions in moderation features
+- [ ] Preview environment tested
+
+### Reviewers
+
+Please review the changes above for any issues. If you find bugs or need
+fixes, push them directly to the \`rc/${VERSION}\` branch before merging.
+INNEREOF
+
+      - name: Create or update RC pull request
+        if: steps.check-commits.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Check for existing open RC PR targeting release
+          EXISTING_PR=$(gh pr list \
+            --base release \
+            --state open \
+            --json number,headRefName \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updating existing RC PR #${EXISTING_PR}"
+            gh pr edit "$EXISTING_PR" --body-file /tmp/pr-body.md
+          else
+            echo "Creating new RC PR for ${VERSION}"
+            gh pr create \
+              --base release \
+              --head "rc/${VERSION}" \
+              --title "RC: ${VERSION}" \
+              --body-file /tmp/pr-body.md
+          fi

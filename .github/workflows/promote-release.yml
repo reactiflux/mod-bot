@@ -1,0 +1,105 @@
+name: Promote Release
+
+on:
+  push:
+    branches:
+      - release
+  release:
+    types: [published]
+
+jobs:
+  create-draft-release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from merged PR title
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(gh pr list --state merged --base release --limit 1 --json title --jq '.[0].title' | grep -oE 'v[0-9.]+')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" --target release --generate-notes --draft
+
+  deploy-production:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag Build
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: Euno-HQ
+
+      - name: Dispatch production deploy to hosting
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'Euno-HQ',
+              repo: 'hosting',
+              event_type: 'deploy',
+              client_payload: {
+                app_name: 'mod-bot',
+                statefulset_name: 'mod-bot-set',
+                secret_name: 'modbot-env',
+                source_repo: context.repo.owner + '/' + context.repo.repo,
+                source_ref: 'refs/heads/release',
+                source_sha: context.sha,
+                image_tag: process.env.RELEASE_TAG
+              }
+            });
+            console.log('Dispatched production deploy event to Euno-HQ/hosting');
