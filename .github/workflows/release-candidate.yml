@@ -23,6 +23,7 @@ jobs:
           if ! git ls-remote --exit-code --heads origin release; then
             git branch release origin/main
             git push origin release
+            git fetch origin release
           fi
 
       - name: Get latest release tag
@@ -47,8 +48,29 @@ jobs:
             echo "No new commits since last release, skipping."
           fi
 
-      - name: Determine version
+      - name: Check for existing RC PR
         if: steps.check-commits.outputs.count != '0'
+        id: existing-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXISTING=$(gh pr list \
+            --base release \
+            --state open \
+            --json number,headRefName \
+            --jq 'map(select(.headRefName | startswith("rc/"))) | .[0] // empty')
+
+          if [ -n "$EXISTING" ]; then
+            PR_NUMBER=$(echo "$EXISTING" | jq -r '.number')
+            HEAD_REF=$(echo "$EXISTING" | jq -r '.headRefName')
+            VERSION="${HEAD_REF#rc/}"
+            echo "number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "Found existing RC PR #${PR_NUMBER} on branch ${HEAD_REF}"
+          fi
+
+      - name: Determine version
+        if: steps.check-commits.outputs.count != '0' && !steps.existing-pr.outputs.number
         id: version
         run: |
           YEAR=$(date -u +%Y)
@@ -65,7 +87,7 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Create RC branch
-        if: steps.check-commits.outputs.count != '0'
+        if: steps.check-commits.outputs.count != '0' && !steps.existing-pr.outputs.number
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -85,7 +107,7 @@ jobs:
         id: pr-body
         env:
           LAST_REF: ${{ steps.last-release.outputs.ref }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.existing-pr.outputs.version || steps.version.outputs.version }}
           LAST_TAG: ${{ steps.last-release.outputs.tag }}
         run: |
           if [ -z "$LAST_TAG" ]; then
@@ -117,27 +139,24 @@ Please review the changes above for any issues. If you find bugs or need
 fixes, push them directly to the \`rc/${VERSION}\` branch before merging.
 INNEREOF
 
-      - name: Create or update RC pull request
-        if: steps.check-commits.outputs.count != '0'
+      - name: Update existing RC pull request
+        if: steps.check-commits.outputs.count != '0' && steps.existing-pr.outputs.number
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.existing-pr.outputs.number }}
+        run: |
+          echo "Updating existing RC PR #${PR_NUMBER}"
+          gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.md
+
+      - name: Create new RC pull request
+        if: steps.check-commits.outputs.count != '0' && !steps.existing-pr.outputs.number
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          # Check for existing open RC PR targeting release from an rc/* branch
-          EXISTING_PR=$(gh pr list \
+          echo "Creating new RC PR for ${VERSION}"
+          gh pr create \
             --base release \
-            --state open \
-            --json number,headRefName \
-            --jq 'map(select(.headRefName | startswith("rc/"))) | .[0].number // empty')
-
-          if [ -n "$EXISTING_PR" ]; then
-            echo "Updating existing RC PR #${EXISTING_PR}"
-            gh pr edit "$EXISTING_PR" --body-file /tmp/pr-body.md
-          else
-            echo "Creating new RC PR for ${VERSION}"
-            gh pr create \
-              --base release \
-              --head "rc/${VERSION}" \
-              --title "RC: ${VERSION}" \
-              --body-file /tmp/pr-body.md
-          fi
+            --head "rc/${VERSION}" \
+            --title "RC: ${VERSION}" \
+            --body-file /tmp/pr-body.md
