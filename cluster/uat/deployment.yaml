@@ -28,7 +28,7 @@ spec:
               name: mod-bot-data
           envFrom:
             - secretRef:
-                name: modbot-staging-env
+                name: mod-bot-staging-env
           env:
             - name: ENVIRONMENT
               value: staging
