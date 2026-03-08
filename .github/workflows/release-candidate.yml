@@ -70,8 +70,15 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           BRANCH="rc/${VERSION}"
-          git checkout -b "$BRANCH" origin/main
-          git push origin "$BRANCH"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "RC branch $BRANCH already exists on origin; checking it out."
+            git fetch origin "$BRANCH":"$BRANCH"
+            git checkout "$BRANCH"
+          else
+            echo "Creating new RC branch $BRANCH from origin/main."
+            git checkout -b "$BRANCH" origin/main
+            git push origin "$BRANCH"
+          fi
 
       - name: Generate PR body
         if: steps.check-commits.outputs.count != '0'
@@ -102,7 +109,7 @@ ${COMMIT_LOG}
 - [ ] Slash commands respond correctly
 - [ ] DB migrations run cleanly
 - [ ] No regressions in moderation features
-- [ ] Preview environment tested
+- [ ] UAT environment tested (https://uat.euno-staging.reactiflux.com)
 
 ### Reviewers
 
@@ -116,12 +123,12 @@ INNEREOF
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          # Check for existing open RC PR targeting release
+          # Check for existing open RC PR targeting release from an rc/* branch
           EXISTING_PR=$(gh pr list \
             --base release \
             --state open \
             --json number,headRefName \
-            --jq '.[0].number // empty')
+            --jq 'map(select(.headRefName | startswith("rc/"))) | .[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
             echo "Updating existing RC PR #${EXISTING_PR}"

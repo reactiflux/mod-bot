@@ -39,7 +39,7 @@ It automatically deploys whenever a push is made to an `rc/*` branch, so it alwa
 reflects the most recent release candidate.
 
 - Feature branch pushes build Docker images (for caching) but do **not** deploy
-- The database resets on each deploy (migrations + fixtures run fresh)
+- On each deploy, database migrations and fixture seeding run; existing data generally persists between deploys
 - Use this environment to verify RC changes before promoting to production
 
 ## Release Candidate Workflow

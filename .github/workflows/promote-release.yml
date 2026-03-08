@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,7 +25,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(gh pr list --state merged --base release --limit 1 --json title --jq '.[0].title' | grep -oE 'v[0-9.]+')
+          VERSION=$(gh pr list --state merged --base release --limit 1 --json title --jq '.[0].title' | grep -oE 'v[0-9.]+' || true)
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not extract version from most recent merged PR title. Expected PR title to contain a version like 'v2026.10'."
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create draft GitHub Release
