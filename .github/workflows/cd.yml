@@ -3,17 +3,19 @@ concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  HUSKY: 0
-
-on: push
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     environment: CI
     outputs:
-      image_sha: sha-${{ github.sha }}
+      image_tag: sha-${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +35,6 @@ jobs:
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}
-          # Only tag with latest if we're on main
           tags: |
             type=ref,event=pr
             type=ref,event=branch
@@ -49,19 +50,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deployment:
+  dispatch:
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'Main branch' || 'CI' }}
-    outputs:
-      pr_number: ${{ steps.get-pr.outputs.result }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: Euno-HQ
 
-      - name: Get PR number
-        id: get-pr
+      - name: Resolve PR context
+        id: pr-context
         uses: actions/github-script@v7
         with:
           script: |
@@ -75,199 +77,36 @@ jobs:
             if (prs.data.length > 0 && !prs.data[0].draft) {
               const pr = prs.data[0];
               const hasNoPreview = pr.labels.some(l => l.name === 'no-preview');
-              if (!hasNoPreview) {
-                console.log(`Found PR #${pr.number} for branch ${branch}`);
-                return pr.number;
-              }
+              core.setOutput('pr_number', String(pr.number));
+              core.setOutput('has_no_preview_label', String(hasNoPreview));
+            } else {
+              core.setOutput('pr_number', '');
+              core.setOutput('has_no_preview_label', 'false');
             }
-            console.log(`No eligible PR for branch ${branch}`);
-            return '';
-          result-encoding: string
 
-      - name: Tag Build
-        uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha,format=long
-
-      - name: Create build context for k8s deployment
-        # There should only be 1 tag, so 'join' will just produce a simple string
-        run: |
-          touch k8s-context
-          echo IMAGE=${{ join(steps.meta.outputs.tags, '') }} > k8s-context
-          cat k8s-context
-
-      - name: Set up kubectl
-        uses: matootie/dokube@v1.4.1
-        with:
-          personalAccessToken: ${{ secrets.DIGITAL_OCEAN_K8S }}
-          clusterName: k8s-rf
-
-      # --- Production deployment (main branch only) ---
-      - name: Create production secret manifest
-        if: github.ref == 'refs/heads/main'
-        run: |
-          cat <<EOF > secret-values.yaml
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: modbot-env
-            namespace: default
-          type: Opaque
-          stringData:
-            SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
-            EMERGENCY_WEBHOOK: "${{ secrets.EMERGENCY_WEBHOOK }}"
-            DISCORD_PUBLIC_KEY: "${{ secrets.DISCORD_PUBLIC_KEY }}"
-            DISCORD_APP_ID: "${{ secrets.DISCORD_APP_ID }}"
-            DISCORD_SECRET: "${{ secrets.DISCORD_SECRET }}"
-            DISCORD_HASH: "${{ secrets.DISCORD_HASH }}"
-            DISCORD_TEST_GUILD: "${{ secrets.DISCORD_TEST_GUILD }}"
-            SENTRY_INGEST: "${{ secrets.SENTRY_INGEST }}"
-            SENTRY_RELEASES: "${{ secrets.SENTRY_RELEASES }}"
-            STRIPE_SECRET_KEY: "${{ secrets.STRIPE_SECRET_KEY }}"
-            STRIPE_PUBLISHABLE_KEY: "${{ secrets.STRIPE_PUBLISHABLE_KEY }}"
-            STRIPE_WEBHOOK_SECRET: "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
-            VITE_PUBLIC_POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
-            VITE_PUBLIC_POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
-            POSTHOG_KEY: "${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}"
-            POSTHOG_HOST: "${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}"
-            DATABASE_URL: "${{ secrets.DATABASE_URL }}"
-          EOF
-
-      - name: Deploy to production
-        if: github.ref == 'refs/heads/main'
-        run: |
-          kubectl diff -k . || true
-          kubectl apply -f secret-values.yaml
-          kubectl apply -k .
-          if ! kubectl rollout status statefulset/mod-bot-set --timeout=5m; then
-            echo "Deployment failed, rolling back..."
-            kubectl rollout undo statefulset/mod-bot-set
-            exit 1
-          fi
-
-      - name: Set Sentry release
-        if: github.ref == 'refs/heads/main'
-        run: |
-          curl ${{secrets.SENTRY_RELEASES}} \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            -d '{"version": "${{github.sha}}"}'
-
-      # --- Smoke test (PR branches only) ---
-      - name: Smoke test
-        id: smoke-test
-        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
-        run: |
-          PR_NUMBER=${{ steps.get-pr.outputs.result }}
-          echo "Running smoke test for PR #${PR_NUMBER}"
-
-          kubectl config set-context --current --namespace=staging
-
-          # Ensure staging secret exists
-          kubectl create secret generic modbot-staging-env \
-            --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
-            --from-literal=EMERGENCY_WEBHOOK=${{ secrets.EMERGENCY_WEBHOOK }} \
-            --from-literal=DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }} \
-            --from-literal=DISCORD_APP_ID=${{ secrets.DISCORD_APP_ID }} \
-            --from-literal=DISCORD_SECRET=${{ secrets.DISCORD_SECRET }} \
-            --from-literal=DISCORD_HASH=${{ secrets.DISCORD_HASH }} \
-            --from-literal=DISCORD_TEST_GUILD=${{ secrets.DISCORD_TEST_GUILD }} \
-            --from-literal=SENTRY_INGEST=${{ secrets.SENTRY_INGEST }} \
-            --from-literal=SENTRY_RELEASES=${{ secrets.SENTRY_RELEASES }} \
-            --from-literal=STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
-            --from-literal=STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
-            --from-literal=STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
-            --from-literal=VITE_PUBLIC_POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
-            --from-literal=VITE_PUBLIC_POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
-            --from-literal=POSTHOG_KEY=${{ secrets.VITE_PUBLIC_POSTHOG_KEY }} \
-            --from-literal=POSTHOG_HOST=${{ secrets.VITE_PUBLIC_POSTHOG_HOST }} \
-            --from-literal=DATABASE_URL=/data/mod-bot.sqlite3 \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          # Deploy preview environment
-          export PR_NUMBER
-          export COMMIT_SHA=${{ github.sha }}
-
-          # Delete database to start fresh (ignore errors if pod doesn't exist yet)
-          kubectl exec statefulset/mod-bot-pr-${PR_NUMBER} -- rm -f /data/mod-bot.sqlite3 || true
-
-          envsubst < cluster/preview/deployment.yaml | kubectl apply -f -
-
-          # Measure startup time
-          SECONDS=0
-          kubectl rollout restart statefulset/mod-bot-pr-${PR_NUMBER}
-          kubectl rollout status statefulset/mod-bot-pr-${PR_NUMBER} --timeout=5m
-          STARTUP_TIME=${SECONDS}
-          echo "startup_time=${STARTUP_TIME}s" >> $GITHUB_OUTPUT
-
-          # Get image size from GHCR
-          IMAGE_TAG="sha-${{ github.sha }}"
-          IMAGE_SIZE=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].image}' 2>/dev/null || echo "")
-          # Query GHCR API for the image size
-          IMAGE_SIZE_BYTES=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://ghcr.io/v2/${{ github.repository }}/manifests/${IMAGE_TAG}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            | jq '[.manifests[]?.size // 0] | add // 0' 2>/dev/null || echo "0")
-          if [ "$IMAGE_SIZE_BYTES" -gt 0 ] 2>/dev/null; then
-            IMAGE_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", ${IMAGE_SIZE_BYTES}/1048576}")
-            echo "image_size=${IMAGE_SIZE_MB} MB" >> $GITHUB_OUTPUT
-          else
-            # Fallback: get compressed size from the image manifest config
-            IMAGE_SIZE_MB=$(kubectl get pod -l app=mod-bot-pr-${PR_NUMBER} -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null | head -c 20 || echo "")
-            echo "image_size=unknown" >> $GITHUB_OUTPUT
-          fi
-
-          # Tear down the preview deployment
-          echo "Tearing down smoke test deployment..."
-          envsubst < cluster/preview/deployment.yaml | kubectl delete -f - --ignore-not-found
-          kubectl delete pvc -l preview=pr-${PR_NUMBER} --ignore-not-found
-
-          echo "Smoke test complete"
-
-      - name: Comment smoke test results on PR
-        if: github.ref != 'refs/heads/main' && steps.get-pr.outputs.result != ''
+      - name: Dispatch deploy to hosting
         uses: actions/github-script@v7
         with:
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
-            const prNumber = parseInt('${{ steps.get-pr.outputs.result }}');
-            const commitSha = '${{ github.sha }}';
-            const startupTime = '${{ steps.smoke-test.outputs.startup_time }}';
-            const imageSize = '${{ steps.smoke-test.outputs.image_size }}';
-
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber
+            await github.rest.repos.createDispatchEvent({
+              owner: 'Euno-HQ',
+              repo: 'hosting',
+              event_type: 'deploy',
+              client_payload: {
+                app_name: 'mod-bot',
+                statefulset_name: 'mod-bot-set',
+                secret_name: 'modbot-env',
+                staging_secret_name: 'modbot-staging-env',
+                source_repo: '${{ github.repository }}',
+                source_ref: '${{ github.ref }}',
+                source_sha: '${{ github.sha }}',
+                source_default_branch: '${{ github.event.repository.default_branch }}',
+                image_tag: 'sha-${{ github.sha }}',
+                pr_context: JSON.stringify({
+                  number: '${{ steps.pr-context.outputs.pr_number }}',
+                  has_no_preview_label: '${{ steps.pr-context.outputs.has_no_preview_label }}'
+                })
+              }
             });
-
-            const botComment = comments.data.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Smoke Test Results')
-            );
-
-            const body = `### Smoke Test Results
-
-            | Metric | Value |
-            |--------|-------|
-            | Image Size | ${imageSize} |
-            | Startup Time | ${startupTime} |
-
-            Tested commit: \`${commitSha.substring(0, 7)}\``;
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body
-              });
-            }
+            console.log('Dispatched deploy event to Euno-HQ/hosting');

@@ -21,3 +21,4 @@ vite.config.ts*
 /playwright-report/
 /playwright/.cache/
 /.playwright-mcp/
+.claude/
