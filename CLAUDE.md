@@ -12,3 +12,12 @@
 
 When starting a new project, always read the README.md file in the root
 directory.
+
+## Development workflow
+
+- PRs to main use merge commits (not squash-and-merge).
+- Do not push directly to `main` or `release`.
+- When an RC PR is open (`rc/v*` branch → `release`), bug fixes for the release
+  should target the `rc/v*` branch.
+- Production deploys happen only when a GitHub Release is published, not on every
+  push to main.

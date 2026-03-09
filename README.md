@@ -39,6 +39,19 @@ Just run `npm run dev` and edit any file - the right reload strategy is applied 
 - [Kubernetes](https://kubernetes.io/docs/tasks/run-application/run-single-instance-stateful-application/)
 - DigitalOcean managed Kubernetes
 
+**Release workflow:**
+
+1. **Main branch** is a real-time feed of commits. PRs are merged with merge
+   commits. Pushes to main build Docker images but do not deploy.
+2. **Release candidates** are created weekly (Monday) by a cron job. If new
+   commits exist since the last release, an `rc/vYYYY.WW` branch is cut from
+   main and a PR is opened to the `release` branch.
+3. **Testing**: The RC PR includes a testing checklist. Reviewers verify the
+   changes at `https://uat.euno-staging.reactiflux.com` and push bug fixes
+   directly to the RC branch.
+4. **Promotion**: Merging the RC PR creates a draft GitHub Release. Publishing
+   the release auto-deploys to production.
+
 ## Implementation Details
 
 migrations with `npm run start:migrate`. latest installed version is tracked in 2 tables of the sqlite data. schema changes must be done cautiously, should have a set up/tear down function tested before merging. Start a new migration with `npx kysely migrate:make <name>`
