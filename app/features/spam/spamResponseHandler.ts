@@ -20,6 +20,22 @@ import {
 
 import { AUTO_KICK_THRESHOLD, type SpamVerdict } from "./spamScorer.ts";
 
+/**
+ * In-flight deduplication guard for executeResponse.
+ *
+ * When a member sends a rapid flood of messages, multiple MessageCreate
+ * events fire concurrently — each independently reaching executeResponse
+ * before any action has been taken. Without a guard, all of them can read
+ * spamCount >= AUTO_KICK_THRESHOLD and attempt to kick the member.
+ *
+ * JavaScript is single-threaded, so a synchronous Set.has() + Set.add()
+ * before any yield* is race-free: no two concurrent executions can both
+ * pass the has() guard before either calls add().
+ *
+ * Keys are `${guildId}:${userId}`.
+ */
+const pendingExecutions = new Set<string>();
+
 /** Execute the graduated response for a spam verdict. */
 export const executeResponse = (
   verdict: SpamVerdict,
@@ -32,98 +48,124 @@ export const executeResponse = (
     const guildId = message.guild!.id;
     const userId = message.author.id;
 
-    yield* logEffect("info", "SpamResponse", `Spam verdict: ${verdict.tier}`, {
-      tier: verdict.tier,
-      score: verdict.totalScore,
-      userId,
-      guildId,
-      summary: verdict.summary,
-    });
-
-    // Honeypot: softban (ban + unban to clear 7 days of messages)
-    if (verdict.tier === "honeypot") {
-      yield* executeSoftban(message, member, verdict);
+    // Synchronous check-and-set — must happen before any yield* so no two
+    // concurrent executions can both pass the guard in the same event loop tick.
+    const executionKey = `${guildId}:${userId}`;
+    if (pendingExecutions.has(executionKey)) {
+      yield* logEffect(
+        "debug",
+        "SpamResponse",
+        "Duplicate response suppressed — execution already in-flight",
+        { userId, guildId },
+      );
       return;
     }
+    pendingExecutions.add(executionKey);
 
-    // Low tier: log only, no delete
-    if (verdict.tier === "low") {
-      yield* logSpamReport(message, verdict);
-      featureStats.spamFlaggedForReview(guildId, userId, message.channelId);
-      return;
-    }
+    yield* Effect.gen(function* () {
+      yield* logEffect(
+        "info",
+        "SpamResponse",
+        `Spam verdict: ${verdict.tier}`,
+        {
+          tier: verdict.tier,
+          score: verdict.totalScore,
+          userId,
+          guildId,
+          summary: verdict.summary,
+        },
+      );
 
-    // Medium and high: delete the message first
-    yield* deleteMessage(message).pipe(
-      Effect.tap(() => markMessageAsDeleted(message.id, guildId)),
-      Effect.catchTag("DiscordApiError", (e) =>
-        logEffect("warn", "SpamResponse", "Failed to delete spam message", {
-          error: String(e.cause),
-        }),
-      ),
-    );
+      // Honeypot: softban (ban + unban to clear 7 days of messages)
+      if (verdict.tier === "honeypot") {
+        yield* executeSoftban(message, member, verdict);
+        return;
+      }
 
-    if (verdict.tier === "medium") {
-      // Apply restricted role
-      yield* Effect.tryPromise(() => applyRestriction(member)).pipe(
-        Effect.catchAll((error) =>
-          logEffect("warn", "SpamResponse", "Failed to apply restriction", {
-            error: String(error),
+      // Low tier: log only, no delete
+      if (verdict.tier === "low") {
+        yield* logSpamReport(message, verdict);
+        featureStats.spamFlaggedForReview(guildId, userId, message.channelId);
+        return;
+      }
+
+      // Medium and high: delete the message first
+      yield* deleteMessage(message).pipe(
+        Effect.tap(() => markMessageAsDeleted(message.id, guildId)),
+        Effect.catchTag("DiscordApiError", (e) =>
+          logEffect("warn", "SpamResponse", "Failed to delete spam message", {
+            error: String(e.cause),
           }),
         ),
       );
-      featureStats.spamRestricted(guildId, userId, message.channelId);
-    }
 
-    if (verdict.tier === "high") {
-      // Timeout user
-      yield* Effect.tryPromise(() =>
-        timeout(member, "Automated spam detection"),
-      ).pipe(
-        Effect.catchAll((error) =>
-          logEffect("warn", "SpamResponse", "Failed to timeout user", {
-            error: String(error),
-          }),
-        ),
-      );
-      featureStats.spamTimedOut(guildId, userId, message.channelId);
-    }
-
-    // Log to mod thread for all medium/high tiers
-    const logResult = yield* logSpamReport(message, verdict);
-
-    // Check for auto-kick on high tier (spam reports only)
-    if (verdict.tier === "high" && logResult) {
-      const { message: logMessage } = logResult;
-      const spamCount = yield* getSpamReportCount(userId, guildId);
-      if (spamCount >= AUTO_KICK_THRESHOLD) {
-        yield* Effect.tryPromise(() =>
-          member.kick("Autokicked for repeated spam"),
-        ).pipe(
+      if (verdict.tier === "medium") {
+        // Apply restricted role
+        yield* Effect.tryPromise(() => applyRestriction(member)).pipe(
           Effect.catchAll((error) =>
-            logEffect("warn", "SpamResponse", "Failed to kick spammer", {
+            logEffect("warn", "SpamResponse", "Failed to apply restriction", {
               error: String(error),
             }),
           ),
         );
-
-        yield* Effect.tryPromise(() =>
-          logMessage.reply({
-            content: `Automatically kicked <@${userId}> for spam`,
-            allowedMentions: {},
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-
-        featureStats.spamKicked(guildId, userId, spamCount);
+        featureStats.spamRestricted(guildId, userId, message.channelId);
       }
-    }
 
-    featureStats.spamDetected(
-      guildId,
-      userId,
-      message.channelId,
-      verdict.tier,
-      verdict.totalScore,
+      if (verdict.tier === "high") {
+        // Timeout user
+        yield* Effect.tryPromise(() =>
+          timeout(member, "Automated spam detection"),
+        ).pipe(
+          Effect.catchAll((error) =>
+            logEffect("warn", "SpamResponse", "Failed to timeout user", {
+              error: String(error),
+            }),
+          ),
+        );
+        featureStats.spamTimedOut(guildId, userId, message.channelId);
+      }
+
+      // Log to mod thread for all medium/high tiers
+      const logResult = yield* logSpamReport(message, verdict);
+
+      // Check for auto-kick on high tier (spam reports only)
+      if (verdict.tier === "high" && logResult) {
+        const { message: logMessage } = logResult;
+        const spamCount = yield* getSpamReportCount(userId, guildId);
+        if (spamCount >= AUTO_KICK_THRESHOLD) {
+          yield* Effect.tryPromise(() =>
+            member.kick("Autokicked for repeated spam"),
+          ).pipe(
+            Effect.catchAll((error) =>
+              logEffect("warn", "SpamResponse", "Failed to kick spammer", {
+                error: String(error),
+              }),
+            ),
+          );
+
+          yield* Effect.tryPromise(() =>
+            logMessage.reply({
+              content: `Automatically kicked <@${userId}> for spam`,
+              allowedMentions: {},
+            }),
+          ).pipe(Effect.catchAll(() => Effect.void));
+
+          featureStats.spamKicked(guildId, userId, spamCount);
+        }
+      }
+
+      featureStats.spamDetected(
+        guildId,
+        userId,
+        message.channelId,
+        verdict.tier,
+        verdict.totalScore,
+      );
+    }).pipe(
+      // Always release the execution slot, even on unexpected errors
+      Effect.ensuring(
+        Effect.sync(() => pendingExecutions.delete(executionKey)),
+      ),
     );
   }).pipe(Effect.withSpan("SpamResponse.executeResponse"));
 
