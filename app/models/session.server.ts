@@ -386,7 +386,8 @@ export async function refreshDiscordSession(request: Request) {
   const dbSession = await getDbSession(request.headers.get("Cookie"));
   const token = await retrieveDiscordToken(request);
   const newToken = await token.refresh();
-  dbSession.set(CookieSessionKeys.discordToken, JSON.stringify(newToken));
+  // @ts-expect-error token.toJSON() isn't in the types but it works
+  dbSession.set(CookieSessionKeys.discordToken, newToken.toJSON());
 
   return dbSession;
 }

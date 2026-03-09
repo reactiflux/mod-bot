@@ -1,3 +1,4 @@
+import { GatewayCloseCodes } from "discord-api-types/v10";
 import { Events, InteractionType, type Client } from "discord.js";
 import { Effect } from "effect";
 
@@ -131,8 +132,28 @@ export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
   client.on(Events.Error, errorHandler);
 
   // Add connection monitoring
-  client.on(Events.ShardDisconnect, () => {
+  client.on(Events.ShardDisconnect, (closeEvent, _shardId) => {
+    // Fatal close codes mean the bot cannot reconnect without a restart.
+    // 4004 = AuthenticationFailed (token invalid or revoked).
+    const FATAL_CLOSE_CODES = new Set([
+      GatewayCloseCodes.AuthenticationFailed, // 4004
+      GatewayCloseCodes.InvalidIntents, // 4013
+      GatewayCloseCodes.DisallowedIntents, // 4014
+    ]);
+    if (FATAL_CLOSE_CODES.has(closeEvent.code)) {
+      log("error", "Gateway", "Received fatal gateway close code — exiting", {
+        code: closeEvent.code,
+        reason: closeEvent.reason,
+      });
+      Sentry.captureMessage(
+        `Fatal gateway disconnect: code ${closeEvent.code}`,
+        "fatal",
+      );
+      process.exit(1);
+    }
+
     log("warn", "Gateway", "Client disconnected", {
+      code: closeEvent.code,
       guildCount: client.guilds.cache.size,
       userCount: client.users.cache.size,
     });

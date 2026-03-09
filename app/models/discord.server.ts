@@ -32,6 +32,13 @@ export async function fetchUser(access: AccessToken): Promise<DiscordUserInfo> {
   const res = await fetch("https://discord.com/api/users/@me", {
     headers: { authorization: `${tokenType} ${accessToken}` },
   });
+
+  if (!res.ok) {
+    throw new Error(
+      `Discord API returned ${res.status} ${res.statusText} for /users/@me`,
+    );
+  }
+
   const {
     id,
     username,
