@@ -6,6 +6,7 @@
 import type { GuildMember, Message } from "discord.js";
 import { Context, Effect, Layer } from "effect";
 
+import { getMessageContent } from "#~/commands/report/constructLog.ts";
 import { DatabaseService } from "#~/Database.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.ts";
@@ -164,7 +165,9 @@ export const SpamDetectionServiceLive = Layer.effect(
           }
 
           const userId = message.author.id;
-          const content = message.content;
+          // Use forwarding-aware extractor: cross-server forwards store the
+          // original text in messageSnapshots, not in message.content.
+          const content = getMessageContent(message);
           const hasLink = content.includes("http");
 
           // Record in activity tracker
