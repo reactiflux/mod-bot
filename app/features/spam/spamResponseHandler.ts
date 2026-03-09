@@ -20,6 +20,14 @@ import {
 
 import { AUTO_KICK_THRESHOLD, type SpamVerdict } from "./spamScorer.ts";
 
+/**
+ * Tracks users that have already been auto-kicked this session.
+ * Keyed by `${guildId}:${userId}`. Prevents duplicate kicks when multiple
+ * spam messages are processed concurrently before the first kick completes.
+ * Exported so the event listener can skip further processing for kicked users.
+ */
+export const kickedUsers = new Set<string>();
+
 /** Execute the graduated response for a spam verdict. */
 export const executeResponse = (
   verdict: SpamVerdict,
@@ -94,27 +102,34 @@ export const executeResponse = (
 
     // Check for auto-kick on high tier (spam reports only)
     if (verdict.tier === "high" && logResult) {
-      const { message: logMessage } = logResult;
-      const spamCount = yield* getSpamReportCount(userId, guildId);
-      if (spamCount >= AUTO_KICK_THRESHOLD) {
-        yield* Effect.tryPromise(() =>
-          member.kick("Autokicked for repeated spam"),
-        ).pipe(
-          Effect.catchAll((error) =>
-            logEffect("warn", "SpamResponse", "Failed to kick spammer", {
-              error: String(error),
+      const kickKey = `${guildId}:${userId}`;
+      // Guard against duplicate kicks when concurrent pipelines all reach this
+      // point before any single kick resolves. The Set check-and-set is
+      // synchronous, so it is atomic in Node's single-threaded event loop.
+      if (!kickedUsers.has(kickKey)) {
+        kickedUsers.add(kickKey);
+        const { message: logMessage } = logResult;
+        const spamCount = yield* getSpamReportCount(userId, guildId);
+        if (spamCount >= AUTO_KICK_THRESHOLD) {
+          yield* Effect.tryPromise(() =>
+            member.kick("Autokicked for repeated spam"),
+          ).pipe(
+            Effect.catchAll((error) =>
+              logEffect("warn", "SpamResponse", "Failed to kick spammer", {
+                error: String(error),
+              }),
+            ),
+          );
+
+          yield* Effect.tryPromise(() =>
+            logMessage.reply({
+              content: `Automatically kicked <@${userId}> for spam`,
+              allowedMentions: {},
             }),
-          ),
-        );
+          ).pipe(Effect.catchAll(() => Effect.void));
 
-        yield* Effect.tryPromise(() =>
-          logMessage.reply({
-            content: `Automatically kicked <@${userId}> for spam`,
-            allowedMentions: {},
-          }),
-        ).pipe(Effect.catchAll(() => Effect.void));
-
-        featureStats.spamKicked(guildId, userId, spamCount);
+          featureStats.spamKicked(guildId, userId, spamCount);
+        }
       }
     }
 

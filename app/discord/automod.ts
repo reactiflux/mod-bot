@@ -3,11 +3,15 @@ import { Effect } from "effect";
 
 import { runEffect } from "#~/AppRuntime";
 import { SpamDetectionService } from "#~/features/spam/service.ts";
+import { kickedUsers } from "#~/features/spam/spamResponseHandler.ts";
 import { isStaff } from "#~/helpers/discord";
 
 export default async (bot: Client) => {
   bot.on(Events.MessageCreate, async (msg) => {
     if (msg.author.bot || msg.author.system || !msg.guild) return;
+
+    // Skip further spam processing for users already kicked this session
+    if (kickedUsers.has(`${msg.guild.id}:${msg.author.id}`)) return;
 
     const [member, message] = await Promise.all([
       msg.guild.members.fetch(msg.author.id).catch(() => undefined),
