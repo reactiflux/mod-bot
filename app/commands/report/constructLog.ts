@@ -74,3 +74,19 @@ ${preface}
 export const isForwardedMessage = (message: Message): boolean => {
   return message.reference?.type === MessageReferenceType.Forward;
 };
+
+/**
+ * Returns the effective text content of a message.
+ *
+ * For cross-server forwards, Discord stores the original text in
+ * `messageSnapshots` rather than in `message.content` (which is always "").
+ * Falls back to `message.content` for non-forwarded messages or when the
+ * snapshot is unexpectedly absent.
+ */
+export const getMessageContent = (message: Message): string => {
+  if (isForwardedMessage(message)) {
+    const snapshot = message.messageSnapshots.first();
+    return snapshot?.content ?? message.content;
+  }
+  return message.content;
+};
