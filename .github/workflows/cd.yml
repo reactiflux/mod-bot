@@ -54,6 +54,8 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/heads/rc/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Generate GitHub App token
         id: app-token

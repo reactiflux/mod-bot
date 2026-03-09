@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: mod-bot
-          image: ghcr.io/euno-hq/discord:sha-${COMMIT_SHA}
+          image: ghcr.io/euno-hq/discord:${IMAGE_TAG}
           imagePullPolicy: Always
           command: ["npm", "run", "start:staging"]
           ports:
