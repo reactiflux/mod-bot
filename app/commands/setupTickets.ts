@@ -341,10 +341,9 @@ export const Command = [
         const { user } = interaction.member;
         const interactionUserId = user.id;
 
+        const CLOSE_DELAY_MINUTES = 5;
+
         yield* Effect.all([
-          Effect.tryPromise(() =>
-            rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
-          ),
           Effect.tryPromise(() =>
             rest.post(Routes.channelMessages(modLog), {
               body: {
@@ -354,10 +353,30 @@ export const Command = [
             }),
           ),
           interactionReply(interaction, {
-            content: `The ticket was closed by <@${interactionUserId}>`,
+            content: `The ticket was closed by <@${interactionUserId}>. <@${ticketOpenerUserId}> will be removed from this thread in ${CLOSE_DELAY_MINUTES} minutes.`,
             allowedMentions: {},
           }),
         ]);
+
+        // Remove the opener after a short delay so they have time to read the
+        // closing message before losing access to the thread (#220).
+        yield* Effect.fork(
+          Effect.gen(function* () {
+            yield* Effect.sleep(`${CLOSE_DELAY_MINUTES} minutes`);
+            yield* Effect.tryPromise(() =>
+              rest.delete(Routes.threadMembers(threadId, ticketOpenerUserId)),
+            );
+          }).pipe(
+            Effect.catchAll((error) =>
+              logEffect(
+                "error",
+                "TicketsClose",
+                "Error removing ticket opener after delay",
+                { error, threadId, ticketOpenerUserId },
+              ),
+            ),
+          ),
+        );
 
         featureStats.ticketClosed(
           interaction.guild.id,
