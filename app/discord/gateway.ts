@@ -17,6 +17,14 @@ declare global {
   var __discordGatewayInitialized: boolean | undefined;
 }
 
+// Fatal close codes mean the bot cannot reconnect without a process restart.
+// Defined at module level so the Set is created once, not on every ShardDisconnect event.
+const FATAL_CLOSE_CODES = new Set([
+  GatewayCloseCodes.AuthenticationFailed, // 4004 — token invalid or revoked
+  GatewayCloseCodes.InvalidIntents, // 4013
+  GatewayCloseCodes.DisallowedIntents, // 4014
+]);
+
 export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
   if (globalThis.__discordGatewayInitialized) {
     yield* logEffect(
@@ -132,14 +140,7 @@ export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
   client.on(Events.Error, errorHandler);
 
   // Add connection monitoring
-  client.on(Events.ShardDisconnect, (closeEvent, _shardId) => {
-    // Fatal close codes mean the bot cannot reconnect without a restart.
-    // 4004 = AuthenticationFailed (token invalid or revoked).
-    const FATAL_CLOSE_CODES = new Set([
-      GatewayCloseCodes.AuthenticationFailed, // 4004
-      GatewayCloseCodes.InvalidIntents, // 4013
-      GatewayCloseCodes.DisallowedIntents, // 4014
-    ]);
+  client.on(Events.ShardDisconnect, async (closeEvent, _shardId) => {
     if (FATAL_CLOSE_CODES.has(closeEvent.code)) {
       log("error", "Gateway", "Received fatal gateway close code — exiting", {
         code: closeEvent.code,
@@ -149,6 +150,8 @@ export const initDiscordBot: Effect.Effect<Client> = Effect.gen(function* () {
         `Fatal gateway disconnect: code ${closeEvent.code}`,
         "fatal",
       );
+      // Flush Sentry before exiting so the alert is not lost when the process terminates.
+      await Sentry.flush(2000);
       process.exit(1);
     }
 
