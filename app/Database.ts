@@ -7,8 +7,7 @@ import { SqliteClient } from "@effect/sql-sqlite-node";
 import { ResultLengthMismatch, SqlError } from "@effect/sql/SqlError";
 
 import type { DB } from "./db";
-import { logEffect } from "./effects/observability";
-import { databaseUrl, emergencyWebhook } from "./helpers/env.server";
+import { databaseUrl } from "./helpers/env.server";
 import { log } from "./helpers/observability";
 
 // Re-export SQL errors and DB type for consumers
@@ -49,24 +48,3 @@ export function checkpointWal() {
     yield* sql.unsafe("PRAGMA wal_checkpoint(TRUNCATE)");
   });
 }
-
-const sendWebhookAlert = (message: string) =>
-  Effect.tryPromise({
-    try: () =>
-      fetch(emergencyWebhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: message }),
-      }),
-    catch: (e) => e,
-  }).pipe(
-    Effect.tapError((e) =>
-      Effect.sync(() =>
-        log("error", "IntegrityCheck", "Failed to send webhook alert", {
-          error: String(e),
-        }),
-      ),
-    ),
-    Effect.ignore, // Don't fail the whole check if webhook fails
-  );
-

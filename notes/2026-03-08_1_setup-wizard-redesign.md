@@ -30,7 +30,7 @@
 
 ## custom_id scheme
 - `setup-sel|{guildId}|{field}` — select menus
-- `setup-sel|{guildId}|{field}|enable|disable` — toggle buttons
+- `setup-sel|{guildId}|{field}|enable` or `setup-sel|{guildId}|{field}|disable` — toggle buttons (one or the other as the fourth segment)
 - `setup-next|{guildId}` — advance step
 - `setup-back|{guildId}` — go back
 - `setup-exec|{guildId}` — confirm and execute
