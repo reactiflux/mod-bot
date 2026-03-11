@@ -111,6 +111,15 @@ const fetchModLogChannel = (rule: AutoModerationRule) =>
     const { modLog } = yield* fetchSettingsEffect(rule.guild.id, [
       SETTINGS.modLog,
     ]);
+    if (!modLog) {
+      yield* logEffect(
+        "debug",
+        "AutomodRuleLog",
+        "mod-log channel not configured, skipping automod rule log",
+        { guildId: rule.guild.id },
+      );
+      return yield* Effect.fail(new Error("modLog channel not configured"));
+    }
     return yield* fetchChannelFromClient<GuildTextBasedChannel>(
       rule.guild.client,
       modLog,
