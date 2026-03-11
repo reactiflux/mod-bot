@@ -4,6 +4,7 @@ import {
   ChannelType,
   ContextMenuCommandBuilder,
   InteractionType,
+  Message,
   MessageFlags,
   PermissionFlagsBits,
   StringSelectMenuBuilder,
@@ -222,7 +223,7 @@ export const PurgeMessagesSelectHandler = {
 
               // Filter messages from this user within the time window.
               const toDelete = messages.filter(
-                (m) =>
+                (m: Message) =>
                   m.author.id === targetUserId && m.createdTimestamp >= since,
               );
 
