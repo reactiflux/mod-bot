@@ -6,7 +6,7 @@
 import type { GuildMember, Message } from "discord.js";
 import { Context, Effect, Layer } from "effect";
 
-import { getMessageContent } from "#~/commands/report/constructLog.ts";
+import { getMessageContent } from "#~/helpers/discord.ts";
 import { DatabaseService } from "#~/Database.ts";
 import { logEffect } from "#~/effects/observability.ts";
 import { fetchSettings, SETTINGS } from "#~/models/guilds.server.ts";
