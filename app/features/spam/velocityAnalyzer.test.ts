@@ -108,6 +108,23 @@ test("detects cross-channel duplicate spam", () => {
   expect(signals.find((s) => s.name === "channel_hop_fast")).toBeUndefined();
 });
 
+test("should not flag duplicate messages when empty content but different attachments", () => {
+  const now = Date.now();
+  // Simulate two messages with empty text but different attachments.
+  // In the fixed service.ts, each gets a unique hash like "::attachments:<id>".
+  const hash1 = "::attachments:attachment-id-1";
+  const hash2 = "::attachments:attachment-id-2";
+  const messages: RecentMessage[] = [
+    makeMessage({ contentHash: hash1, timestamp: now - 30000 }),
+    makeMessage({ contentHash: hash2, timestamp: now - 15000 }),
+  ];
+
+  // Current message also has a unique attachment hash
+  const signals = analyzeVelocity(messages, "::attachments:attachment-id-3");
+  expect(signals.find((s) => s.name === "duplicate_messages")).toBeUndefined();
+  expect(signals.find((s) => s.name === "cross_channel_spam")).toBeUndefined();
+});
+
 test("does not flag cross-channel spam if content differs", () => {
   const now = Date.now();
   const messages: RecentMessage[] = [

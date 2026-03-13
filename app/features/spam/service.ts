@@ -165,10 +165,42 @@ export const SpamDetectionServiceLive = Layer.effect(
 
           const userId = message.author.id;
           const content = message.content;
-          const hasLink = content.includes("http");
+
+          // Build a text representation of all embeds for hashing and analysis
+          const embedText = message.embeds
+            .map((e) =>
+              [e.url, e.title, e.description].filter(Boolean).join(" "),
+            )
+            .join(" ")
+            .toLowerCase()
+            .trim();
+
+          const embedBody = message.embeds
+            .map((e) =>
+              [
+                e.url,
+                e.title,
+                e.description,
+                e.footer?.text,
+                ...e.fields.map((f) => `${f.name} ${f.value}`),
+              ]
+                .filter(Boolean)
+                .join(" "),
+            )
+            .join(" ");
+
+          const hasLink =
+            content.includes("http") ||
+            message.embeds.some((e) => e.url != null);
 
           // Record in activity tracker
-          const contentHash = content.toLowerCase().trim();
+          const attachmentIds = Array.from(message.attachments.keys()).sort().join(",");
+          const baseContent = [content.toLowerCase().trim(), embedText]
+            .filter(Boolean)
+            .join(" ");
+          const contentHash = attachmentIds
+            ? `${baseContent}::attachments:${attachmentIds}`
+            : baseContent;
           recordMessage(tracker, guildId, userId, {
             messageId: message.id,
             channelId: message.channelId,
@@ -187,7 +219,10 @@ export const SpamDetectionServiceLive = Layer.effect(
           }
 
           // Run pure analyzers
-          const contentSignals = analyzeContent(content);
+          const combinedContent = embedBody
+            ? `${content} ${embedBody}`
+            : content;
+          const contentSignals = analyzeContent(combinedContent);
           const behaviorSignals = analyzeBehavior(message, member);
 
           const recentMessages = getRecentMessages(tracker, guildId, userId);
